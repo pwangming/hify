@@ -1,0 +1,82 @@
+digraph hify_er {
+    rankdir=LR;
+    splines=spline;
+    nodesep=0.4;
+    ranksep=1.0;
+    fontname="sans-serif";
+    node [shape=box, style="rounded,filled", fillcolor="#f5f8fc", fontname="monospace", fontsize=12, margin="0.2,0.1"];
+    edge [fontname="sans-serif", fontsize=10, color="#555555"];
+
+    // 图例: 实线=模块内FK  虚线=跨模块弱引用(无FK)  标签=基数
+
+    subgraph cluster_identity {
+        label="identity"; style=rounded; color="#9bb7d4";
+        sys_user;
+    }
+
+    subgraph cluster_provider {
+        label="provider"; style=rounded; color="#9bb7d4";
+        model_provider; ai_model;
+    }
+
+    subgraph cluster_app {
+        label="app"; style=rounded; color="#88b04b";
+        app; app_api_key; app_dataset_rel; app_tool_rel;
+    }
+
+    subgraph cluster_conversation {
+        label="conversation"; style=rounded; color="#e0a96d";
+        conversation; message;
+    }
+
+    subgraph cluster_knowledge {
+        label="knowledge"; style=rounded; color="#88b04b";
+        dataset; kb_document; kb_chunk [label="kb_chunk\n(+ embedding vector)"];
+    }
+
+    subgraph cluster_workflow {
+        label="workflow"; style=rounded; color="#d98a8a";
+        workflow_def; workflow_run; workflow_node_run;
+    }
+
+    subgraph cluster_tool {
+        label="tool"; style=rounded; color="#9bb7d4";
+        tool; mcp_server;
+    }
+
+    subgraph cluster_usage {
+        label="usage"; style=rounded; color="#b0a8c9";
+        llm_call_log [label="llm_call_log\n(monthly partition)"];
+        daily_usage;
+    }
+
+    subgraph cluster_system {
+        label="system"; style=rounded; color="#cccccc";
+        system_setting;
+    }
+
+    // ---- 模块内 FK（实线） ----
+    model_provider -> ai_model [label="1:N"];
+    app -> app_api_key [label="1:N"];
+    app -> app_dataset_rel [label="1:N"];
+    app -> app_tool_rel [label="1:N"];
+    dataset -> kb_document [label="1:N"];
+    kb_document -> kb_chunk [label="1:N"];
+    workflow_def -> workflow_run [label="1:N"];
+    workflow_run -> workflow_node_run [label="1:N"];
+    mcp_server -> tool [label="1:N (mcp only)"];
+    conversation -> message [label="1:N"];
+
+    // ---- 跨模块弱引用（虚线，无数据库 FK） ----
+    edge [style=dashed, color="#888888", fontcolor="#888888"];
+    app -> ai_model [label="model_id"];
+    app_dataset_rel -> dataset [label="dataset_id"];
+    app_tool_rel -> tool [label="tool_id"];
+    app -> workflow_def [label="published_def_id"];
+    workflow_def -> app [label="app_id"];
+    conversation -> app [label="app_id"];
+    sys_user -> conversation [label="1:N user_id", dir=back];
+    llm_call_log -> app [label="app_id"];
+    llm_call_log -> ai_model [label="model_id"];
+    llm_call_log -> sys_user [label="user_id"];
+}

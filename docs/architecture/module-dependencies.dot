@@ -1,0 +1,56 @@
+digraph hify_modules {
+    rankdir=TB;
+    splines=spline;
+    nodesep=0.55;
+    ranksep=0.7;
+    fontname="sans-serif";
+    node [shape=box, style="rounded,filled", fontname="sans-serif", fontsize=13, margin="0.25,0.12"];
+    edge [fontname="sans-serif", fontsize=10, color="#555555"];
+
+    // L4
+    workflow     [label="workflow\n画布/节点执行引擎", fillcolor="#fde2e2"];
+    // L3
+    conversation [label="conversation\n会话/记忆/Agent编排", fillcolor="#fdf0d8"];
+    // L2
+    app          [label="app\n应用元数据/API Key", fillcolor="#e8f4d9"];
+    knowledge    [label="knowledge\n知识库/向量化/检索", fillcolor="#e8f4d9"];
+    // L1
+    identity     [label="identity\n用户/角色", fillcolor="#dceefb"];
+    provider     [label="provider\n供应商/ChatClient工厂", fillcolor="#dceefb"];
+    tool         [label="tool\n内置/OpenAPI/MCP工具", fillcolor="#dceefb"];
+    usage        [label="usage\n用量/配额", fillcolor="#dceefb"];
+    // L0
+    base         [label="common + infra\n（被所有模块依赖，连线省略）", fillcolor="#eeeeee", style="rounded,filled,dashed"];
+
+    { rank=same; app; knowledge; }
+    { rank=same; identity; provider; tool; usage; }
+
+    // workflow 依赖
+    workflow -> conversation [label="Agent调用节点"];
+    workflow -> app;
+    workflow -> provider [label="LLM节点"];
+    workflow -> knowledge [label="检索节点"];
+    workflow -> tool [label="HTTP/代码节点"];
+    workflow -> usage [label="配额检查", color="#2b7a2b", fontcolor="#2b7a2b"];
+
+    // conversation 依赖
+    conversation -> app [label="读应用配置"];
+    conversation -> provider [label="调LLM"];
+    conversation -> knowledge [label="RAG检索"];
+    conversation -> tool [label="Function Calling"];
+    conversation -> usage [label="配额检查", color="#2b7a2b", fontcolor="#2b7a2b"];
+
+    // L2 依赖
+    knowledge -> provider [label="embedding"];
+    app -> provider [label="校验模型引用", style=dotted];
+    app -> knowledge [label="校验知识库引用", style=dotted, constraint=false];
+    app -> tool [label="校验工具引用", style=dotted];
+
+    // 事件流（反向虚线，不构成代码依赖）
+    provider -> usage [label="TokenUsedEvent", style=dashed, color="#888888", fontcolor="#888888", arrowhead=open];
+    tool -> usage [label="调用日志事件", style=dashed, color="#888888", fontcolor="#888888", arrowhead=open];
+
+    // 底座占位（不连线，仅示意层级）
+    usage -> base [style=invis];
+    identity -> base [style=invis];
+}
