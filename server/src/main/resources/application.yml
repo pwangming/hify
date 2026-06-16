@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: hify-server
+
+  # 数据库连接。本地默认连 docker-compose 起的 Postgres；生产用环境变量覆盖（密码走 .env）。
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/hify}
+    username: ${SPRING_DATASOURCE_USERNAME:hify}
+    password: ${SPRING_DATASOURCE_PASSWORD:hify}
+
+  # Flyway 管理数据库迁移。当前还没有迁移脚本（db/migration 为空），启动时建好历史表即可。
+  flyway:
+    enabled: true
+
+  # 临时排除「还没用到」的自动装配，让骨架现在就能干净启动：
+  #   - Spring AI（OpenAI/Anthropic/pgvector）：需要模型 API Key 与向量库初始化，等做 provider/RAG 再开；
+  #   - Spring Security：等做 infra 安全/JWT 再开，现在先让接口开放，便于冒烟验证。
+  # 实现到对应模块时，把相关行删掉即可恢复。
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+      - org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration
+      - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+
+# 暴露健康检查端点，便于冒烟验证启动是否成功
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# Hify 自有配置（外化，不硬编码进代码）
+hify:
+  cache:
+    # Caffeine 规格串：最大条目数 + 写入后过期时长。改容量/过期只动这里。
+    spec: maximumSize=10000,expireAfterWrite=30m

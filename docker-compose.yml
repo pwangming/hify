@@ -1,0 +1,32 @@
+# Hify 本地开发依赖。一期目标是 deployment.md 描述的「单机 4 容器」（nginx / hify-server /
+# sandbox / postgres）；当前阶段只需要数据库，先放 postgres 一个服务，后续按 deployment.md 扩展。
+#
+# 用法：
+#   docker compose up -d        # 启动
+#   docker compose ps           # 查看状态（等 STATUS 显示 healthy）
+#   docker compose down         # 停止（保留数据卷）
+#   docker compose down -v      # 停止并清空数据
+#
+# 凭证默认值仅供本地开发；生产改用 .env 注入（CLAUDE.md：密码走 .env，不入库不入镜像）。
+
+services:
+  postgres:
+    # pgvector 官方镜像 = PostgreSQL 16 + 预装 pgvector 扩展（后续 RAG 用得上，先备好）
+    image: pgvector/pgvector:pg16
+    container_name: hify-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hify}
+      POSTGRES_USER: ${POSTGRES_USER:-hify}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hify}
+    ports:
+      - "5432:5432"
+    volumes:
+      - hify-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hify} -d ${POSTGRES_DB:-hify}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  hify-pgdata:

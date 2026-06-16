@@ -177,31 +177,44 @@ class ModularityTests {
 @AnalyzeClasses(packages = "com.hify")
 class LayerRulesTest {
 
+    // 依赖「目标」包一律用 com.hify 前缀限定，避免第三方库里同名段（如 MyBatis 的
+    // org.mybatis.spring.mapper）被宽模式 "..mapper.." 误判为越界。
+
     @ArchTest
     static final ArchRule 协议层不碰数据访问 = noClasses()
         .that().resideInAnyPackage("..controller..", "com.hify.*.dto..")
-        .should().dependOnClassesThat().resideInAnyPackage("..mapper..", "..entity..");
+        .should().dependOnClassesThat().resideInAnyPackage("com.hify..mapper..", "com.hify..entity..");
 
     @ArchTest
     static final ArchRule mapper只被service使用 = noClasses()
         .that().resideOutsideOfPackage("..service..")
-        .should().dependOnClassesThat().resideInAPackage("..mapper..");
+        .should().dependOnClassesThat().resideInAPackage("com.hify..mapper..");
 
     @ArchTest
     static final ArchRule api包不依赖实现 = noClasses()
         .that().resideInAPackage("..api..")
         .should().dependOnClassesThat()
-        .resideInAnyPackage("..service..", "..mapper..", "..entity..",
-                            "..controller..", "com.hify.*.dto..");
+        .resideInAnyPackage("com.hify..service..", "com.hify..mapper..", "com.hify..entity..",
+                            "com.hify..controller..", "com.hify.*.dto..");
         // 注意 "com.hify.*.dto.." 只匹配模块级 dto/（单层通配符），不会误伤 api/dto/
 
+    // @Transactional 只允许在 service 层：ArchUnit 的 fluent API 对「类上注解」与「方法上注解」
+    // 分开表达，故拆成下面两条（noClasses 查类、noMethods 查方法），意图等价于「事务只在 service 层」。
     @ArchTest
-    static final ArchRule 事务只在service层 = noClasses()
+    static final ArchRule 事务注解不在service层之外的类 = noClasses()
         .that().resideOutsideOfPackage("..service..")
-        .should().beAnnotatedWith(Transactional.class)
-        .orShould().haveMembersThat(areAnnotatedWith(Transactional.class));
+        .should().beAnnotatedWith(Transactional.class);
+
+    @ArchTest
+    static final ArchRule 事务注解不在service层之外的方法 = noMethods()
+        .that().areDeclaredInClassesThat().resideOutsideOfPackage("..service..")
+        .should().beAnnotatedWith(Transactional.class);
 }
 ```
+
+> 骨架阶段大多数分层包（controller/service/mapper…）还没有类，ArchUnit 默认「规则目标类集合为空 =
+> 判失败」（用于抓写错的包名）。需在 `src/test/resources/archunit.properties` 设
+> `archRule.failOnEmptyShould=false` 关闭该行为；各层填入代码后规则自动生效。
 
 ## 6. 新增一个模块的步骤
 

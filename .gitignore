@@ -4,6 +4,7 @@
 
 # Java / Maven（server/）
 target/
+build/
 *.class
 *.jar
 !.mvn/wrapper/maven-wrapper.jar

@@ -66,17 +66,17 @@
 ```java
 // common 包，record 不可变
 public record Result<T>(int code, String message, T data, String traceId) {
-    public static <T> Result<T> ok(T data) { return new Result<>(0, "ok", data, MDC.get("traceId")); }
+    public static <T> Result<T> ok(T data) { return new Result<>(0, "success", data, MDC.get("traceId")); }
     public static <T> Result<T> fail(ErrorCode ec, String message) { ... }
 }
 ```
 
 ```json
 // 成功
-{ "code": 0, "message": "ok", "data": { "id": "42", "name": "客服知识库" }, "traceId": "a1b2c3" }
+{ "code": 0, "message": "success", "data": { "id": "42", "name": "客服知识库" }, "traceId": "a1b2c3" }
 
 // 成功但无数据（删除、动作类）
-{ "code": 0, "message": "ok", "data": null, "traceId": "a1b2c3" }
+{ "code": 0, "message": "success", "data": null, "traceId": "a1b2c3" }
 
 // 失败（HTTP 429）
 { "code": 14001, "message": "今日 Token 配额已用尽", "data": null, "traceId": "a1b2c3" }
@@ -94,11 +94,11 @@ public record Result<T>(int code, String message, T data, String traceId) {
 
 ```json
 // 页码分页（管理后台列表）—— data 固定为 PageResult 结构
-{ "code": 0, "message": "ok", "data": {
+{ "code": 0, "message": "success", "data": {
     "list": [ ... ], "total": 134, "page": 1, "size": 20 }, "traceId": "..." }
 
 // 游标分页（消息流、运行日志、对外 API）—— 不返回 total
-{ "code": 0, "message": "ok", "data": {
+{ "code": 0, "message": "success", "data": {
     "list": [ ... ], "nextCursor": "MTcxOC4uLg", "hasMore": true }, "traceId": "..." }
 ```
 
