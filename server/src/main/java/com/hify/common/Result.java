@@ -12,7 +12,7 @@ import org.slf4j.MDC;
  *
  * <p>字段语义：
  * <ul>
- *   <li>{@code code} —— 业务码，0 表示成功，非 0 见 {@link ErrorCode}；注意它<b>不是</b> HTTP 状态码。</li>
+ *   <li>{@code code} —— 业务码，200 表示成功，非 200 见 {@link ErrorCode}；它与 HTTP 状态码取值同源（成功都是 200），但失败时是 5 位业务码（MMXXX），与 HTTP 状态分属两套。</li>
  *   <li>{@code message} —— 面向最终用户的可读提示，不含堆栈/SQL/内部类名。</li>
  *   <li>{@code data} —— 成功时的业务数据；失败时为 null（参数校验失败例外，data 装字段错误数组）。</li>
  *   <li>{@code traceId} —— 取自日志 MDC，同时会写响应头 X-Trace-Id，用户报障时凭它 grep 日志。</li>
@@ -23,9 +23,9 @@ import org.slf4j.MDC;
  */
 public record Result<T>(int code, String message, T data, String traceId) {
 
-    /** 成功响应。code=0，message 固定 "success"，携带业务数据。 */
+    /** 成功响应。code=200，message 固定 "success"，携带业务数据。 */
     public static <T> Result<T> ok(T data) {
-        return new Result<>(0, "success", data, currentTraceId());
+        return new Result<>(200, "success", data, currentTraceId());
     }
 
     /** 失败响应：用错误码的默认提示。 */

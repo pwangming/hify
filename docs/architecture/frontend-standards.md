@@ -113,8 +113,8 @@ web/
 ### 3.1 Result 信封自动解包
 
 `request<T>()` 在响应拦截器里处理 `Result<T>`：
-- 成功（`code === 0`）→ **只把 `data` 返回**给调用方。业务代码 `const list = await getKnowledgeList()` 直接拿数据。
-- 失败（`code !== 0`）→ 抛出类型化的 `ApiError(code, message, traceId, fieldErrors?)`。
+- 成功（`code === 200`）→ **只把 `data` 返回**给调用方。业务代码 `const list = await getKnowledgeList()` 直接拿数据。
+- 失败（`code !== 200`）→ 抛出类型化的 `ApiError(code, message, traceId, fieldErrors?)`。
 
 *为什么*：信封是协议细节，不该污染每个调用点；解包后调用方代码干净，错误走异常通道统一处理。
 

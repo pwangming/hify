@@ -23,10 +23,10 @@ class ResultTest {
     }
 
     @Test
-    void ok_应返回code0与success提示() {
+    void ok_应返回code200与success提示() {
         Result<String> result = Result.ok("hello");
 
-        assertEquals(0, result.code());
+        assertEquals(200, result.code());
         assertEquals("success", result.message());
         assertEquals("hello", result.data());
     }
@@ -36,7 +36,7 @@ class ResultTest {
         // 删除、动作类接口成功但无数据返回
         Result<Void> result = Result.ok(null);
 
-        assertEquals(0, result.code());
+        assertEquals(200, result.code());
         assertNull(result.data());
     }
 

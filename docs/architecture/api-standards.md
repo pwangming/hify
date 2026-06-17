@@ -19,6 +19,10 @@
   仅定位应用；身份由 Header 中的 API Key token 证明，token 必须属于该 app，否则 401。
 - 版本策略：版本号只在路径（`v1`）。**新增字段不算破坏性变更**（客户端必须容忍未知字段）；
   改字段语义、删字段、改错误码含义才升 v2。一期不会有 v2。
+- **唯一的模块无关系统端点**：`GET /api/v1/health`（不带 `<module>` 段），供前端与负载均衡探活，
+  无需认证。它仍返回统一 `Result`（成功码 200、`data` 为纯文本提示如 `Hify is running`，见第 3 节）；
+  路由是三族规则的例外，实现挂在某个模块的 controller 下（当前在 app 模块）。除此之外不再开第二个模块无关端点；容器/运维探活另有
+  Spring Boot Actuator 的 `/actuator/health`（不对外、不套 Result，见 deployment.md）。
 
 ## 2. RESTful 资源设计
 
@@ -66,17 +70,17 @@
 ```java
 // common 包，record 不可变
 public record Result<T>(int code, String message, T data, String traceId) {
-    public static <T> Result<T> ok(T data) { return new Result<>(0, "success", data, MDC.get("traceId")); }
+    public static <T> Result<T> ok(T data) { return new Result<>(200, "success", data, MDC.get("traceId")); }
     public static <T> Result<T> fail(ErrorCode ec, String message) { ... }
 }
 ```
 
 ```json
 // 成功
-{ "code": 0, "message": "success", "data": { "id": "42", "name": "客服知识库" }, "traceId": "a1b2c3" }
+{ "code": 200, "message": "success", "data": { "id": "42", "name": "客服知识库" }, "traceId": "a1b2c3" }
 
 // 成功但无数据（删除、动作类）
-{ "code": 0, "message": "success", "data": null, "traceId": "a1b2c3" }
+{ "code": 200, "message": "success", "data": null, "traceId": "a1b2c3" }
 
 // 失败（HTTP 429）
 { "code": 14001, "message": "今日 Token 配额已用尽", "data": null, "traceId": "a1b2c3" }
@@ -94,11 +98,11 @@ public record Result<T>(int code, String message, T data, String traceId) {
 
 ```json
 // 页码分页（管理后台列表）—— data 固定为 PageResult 结构
-{ "code": 0, "message": "success", "data": {
+{ "code": 200, "message": "success", "data": {
     "list": [ ... ], "total": 134, "page": 1, "size": 20 }, "traceId": "..." }
 
 // 游标分页（消息流、运行日志、对外 API）—— 不返回 total
-{ "code": 0, "message": "success", "data": {
+{ "code": 200, "message": "success", "data": {
     "list": [ ... ], "nextCursor": "MTcxOC4uLg", "hasMore": true }, "traceId": "..." }
 ```
 
@@ -110,7 +114,7 @@ public record Result<T>(int code, String message, T data, String traceId) {
 
 ### 3.2 列表为空
 
-空列表是成功：`code=0`，`list: []`。禁止用 404 或错误码表示"查到 0 条"。
+空列表是成功：`code=200`，`list: []`。禁止用 404 或错误码表示"查到 0 条"。
 
 ### 3.3 SSE 流式响应（对话、工作流运行进度）
 
@@ -157,7 +161,8 @@ data: {"messageId": "98", "usage": {"promptTokens": 320, "completionTokens": 180
 
 ### 5.1 结构
 
-5 位整数 `MMXXX`：前 2 位是模块段，后 3 位模块内自增。`0` 表示成功。
+5 位整数 `MMXXX`：前 2 位是模块段，后 3 位模块内自增。**成功不属于 MMXXX，单独用 `200` 表示**
+（与 HTTP 成功状态同源；失败时 body 业务码仍是 5 位 MMXXX，与 HTTP 状态分属两套）。
 错误码与 HTTP 状态码**在枚举定义处一次绑定**，全局异常处理器据此设置响应状态，业务代码不碰 HTTP 状态。
 
 ```java
