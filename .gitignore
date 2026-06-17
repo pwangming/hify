@@ -23,3 +23,6 @@ dist/
 .DS_Store
 logs/
 *.log
+
+# 本地运行态（start.sh/stop.sh 的 PID 文件与日志）
+.run/
