@@ -29,7 +29,8 @@ spring:
 
   # 临时排除「还没用到」的自动装配，让骨架现在就能干净启动：
   #   - Spring AI（OpenAI/Anthropic/pgvector）：需要模型 API Key 与向量库初始化，等做 provider/RAG 再开；
-  #   - Spring Security：等做 infra 安全/JWT 再开，现在先让接口开放，便于冒烟验证。
+  #   - UserDetailsServiceAutoConfiguration：本项目走 JWT，不用表单/内存用户体系；不排除会生成一个
+  #     带随机密码的默认用户并打印到日志，纯属噪声。Security 本身已启用（见 infra.security.SecurityConfig）。
   # 实现到对应模块时，把相关行删掉即可恢复。
   autoconfigure:
     exclude:
@@ -41,9 +42,7 @@ spring:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
       - org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration
       - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
-      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
-      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
 
 # 暴露健康检查端点，便于冒烟验证启动是否成功
 management:
@@ -57,3 +56,10 @@ hify:
   cache:
     # Caffeine 规格串：最大条目数 + 写入后过期时长。改容量/过期只动这里。
     spec: maximumSize=10000,expireAfterWrite=30m
+  security:
+    jwt:
+      # HMAC-SHA256 签名密钥，至少 32 字节。生产必须用 .env 的 HIFY_JWT_SECRET 覆盖这个开发默认值
+      # （敏感配置走环境变量，不在 application.yml 写真实密钥——CLAUDE.md 安全要点）。
+      secret: ${HIFY_JWT_SECRET:dev-only-hify-jwt-secret-please-override-in-env-0123456789}
+      # 令牌有效期（分钟），默认 1 天。
+      expire-minutes: ${HIFY_JWT_EXPIRE_MINUTES:1440}
