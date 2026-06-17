@@ -2,6 +2,12 @@ spring:
   application:
     name: hify-server
 
+  # Java 21 虚拟线程（llm-resilience.md 第 1 节）：LLM/IO 调用阻塞 10~120s，虚拟线程让"同步阻塞"
+  # 编程模型零成本扩展到数千并发，不上 WebFlux。Tomcat 请求线程与 @Async 任务都跑在虚拟线程上。
+  threads:
+    virtual:
+      enabled: true
+
   # 数据库连接。本地默认连 docker-compose 起的 Postgres；生产用环境变量覆盖（密码走 .env）。
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/hify}
@@ -51,6 +57,13 @@ management:
       exposure:
         include: health,info
 
+# 日志：纯文本 pattern + traceId（deployment.md 拍板）。容器 json-file driver 负责落盘与滚动，
+# server 内只需把 stdout 格式定好；%X{traceId} 取自 TraceIdFilter 写入 MDC 的值，
+# 异步线程里的 traceId 由 AsyncConfig 的 MdcTaskDecorator 传递。无 traceId 的行（如启动期）显示 []。
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{traceId:-}] [%thread] %logger{36} - %msg%n"
+
 # Hify 自有配置（外化，不硬编码进代码）
 hify:
   cache:
@@ -63,3 +76,7 @@ hify:
       secret: ${HIFY_JWT_SECRET:dev-only-hify-jwt-secret-please-override-in-env-0123456789}
       # 令牌有效期（分钟），默认 1 天。
       expire-minutes: ${HIFY_JWT_EXPIRE_MINUTES:1440}
+  async:
+    # @Async 异步任务（事件监听落库等）并发上限。真正的瓶颈是 DB 连接池(20)，这里只是再加一道闸，
+    # 防事件风暴等病态堆积。见 infra.config.AsyncConfig。
+    concurrency-limit: ${HIFY_ASYNC_CONCURRENCY_LIMIT:64}
