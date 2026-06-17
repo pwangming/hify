@@ -8,6 +8,21 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:hify}
     password: ${SPRING_DATASOURCE_PASSWORD:hify}
 
+    # HikariCP 连接池（database-standards.md 第 5 节）。连接是最稀缺资源，必须显式定参，
+    # 不能用框架默认值（默认池大小 10、connection-timeout 30s，都不符合本项目设防策略）。
+    hikari:
+      pool-name: hify-pool
+      # 池小且固定：虚拟线程再多也共享这 20 个连接，靠池内排队，不随并发膨胀。
+      # 20 与 llm-resilience.md、scaling-path 阶段 1 对齐；扩容时按副本数重算。
+      maximum-pool-size: 20
+      minimum-idle: 20            # 与最大值同值 = 不伸缩，避免空闲回收后突发流量重新建连的抖动
+      # 快速失败：3 秒拿不到连接就报错，把"连接被占光"的问题立刻暴露，而不是静默排队拖垮全站。
+      connection-timeout: 3000
+      max-lifetime: 1800000       # 30min：主动回收老连接，避开中间网络设备的空闲断连
+      # 每条物理连接建立时执行一次，给会话设 SQL 语句超时上限：任何 SQL 跑过 30s 直接被 PG 中止，
+      # 防失控查询占住连接。这是 database-standards 第 5.4 节"语句层"超时的落地点。
+      connection-init-sql: "SET statement_timeout TO '30s'"
+
   # Flyway 管理数据库迁移。当前还没有迁移脚本（db/migration 为空），启动时建好历史表即可。
   flyway:
     enabled: true
