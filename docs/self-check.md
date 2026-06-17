@@ -52,3 +52,44 @@ Migration checksum mismatch for migration version 1
 
 这证明"已执行的迁移不可改"是真被强制的（也是 CLAUDE.md "迁移脚本只增不改" 的由来）。
 **验证完把那行删掉**即可恢复（可用 `md5sum` 比对确认还原）。
+
+---
+
+## 地基 2：JWT 认证（infra 安全管道）
+
+对应改动：`server/.../infra/security/`（8 个类）、`application.yml`（解开 Security + 加 `hify.security.jwt`）、
+`deploy/.env.example`（加 `HIFY_JWT_SECRET`）。
+
+### 自动化自检（首选，一条命令全测）
+
+```bash
+mvn -f server/pom.xml test
+```
+- ✅ 应看到 `BUILD SUCCESS`，且 `JwtServiceTest`(4)、`SecurityConfigTest`(6) 全过。
+  这两个测试覆盖：发票/验票往返、过期→10003、篡改/换密钥→10002，以及放行/拦截/角色四类路由规则。
+- ❌ 红灯：`BUILD FAILURE`，或某测试 `Failures > 0`。看 `server/target/surefire-reports/*.txt` 定位。
+
+> `mvn test` 用的是 `@WebMvcTest` 切片，**不连数据库**，所以即使 postgres 没起也能跑。
+
+### 运行时自检（用 curl 眼见为实，无需令牌）
+
+先启动应用 `mvn -f server/pom.xml spring-boot:run`，另开一个终端：
+
+| 检查点 | 命令 | 正确输出 |
+|---|---|---|
+| 放行路由 | `curl -i http://localhost:8080/api/v1/health` | `HTTP 200` + `{"code":200,...}` |
+| 拦截生效 | `curl -i http://localhost:8080/api/v1/anything` | `HTTP 401` + `{"code":10002,...}` |
+| 验票生效 | `curl -i -H "Authorization: Bearer 假票" http://localhost:8080/api/v1/anything` | `HTTP 401` + `{"code":10002,...}` |
+
+注意 401 的响应体里也带 `traceId`——证明被拦截的请求一样能 grep 到日志。
+（需要带真令牌走完整放行流程的 curl，要等 identity 模块的登录接口落地后再演示；
+目前"有效令牌放行"由上面的自动化测试覆盖。）
+
+### 故意搞错（确认安检真在守门）
+
+把 `SecurityConfig` 里这行放行规则注释掉再重测：
+```java
+.requestMatchers("/api/v1/health").permitAll()
+```
+`SecurityConfigTest.健康检查_放行_无需令牌` 应**变红**（健康检查被要求登录、返回 401）。
+这证明放行清单是真生效的，不是摆设。验证完恢复该行。

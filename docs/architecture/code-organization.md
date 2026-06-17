@@ -23,7 +23,8 @@
 硬性规则：
 - 所有模块可依赖 `common`、`infra`；`common` 不依赖任何人，`infra` 只依赖 `common`。
 - 表中未列出的依赖方向一律禁止。需要新依赖时：先改本表 → 改 `package-info.java` 的 `allowedDependencies` → 再写代码。
-- 禁止依赖 `identity`。"当前用户"从 `infra` 的 `SecurityContextHolder`（JWT 解析结果 `CurrentUser`）获取。
+- 禁止依赖 `identity`。"当前用户"从 `infra` 的 `CurrentUserHolder.current()`（JWT 解析结果 `CurrentUser`）获取。
+  （该类内部封装 Spring Security 的 `SecurityContextHolder`，业务代码无需 import 任何 Spring Security 类。）
 - 管理控制台没有独立模块：admin 接口写在各自模块的 `controller/` 下。
 
 ## 2. 模块内部分层
