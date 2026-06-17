@@ -93,3 +93,44 @@ mvn -f server/pom.xml test
 ```
 `SecurityConfigTest.健康检查_放行_无需令牌` 应**变红**（健康检查被要求登录、返回 401）。
 这证明放行清单是真生效的，不是摆设。验证完恢复该行。
+
+---
+
+## 地基 3：异步事件基础设施（虚拟线程 + MDC 传递 + 日志格式）
+
+对应改动：`server/.../infra/config/AsyncConfig.java`、`MdcTaskDecorator.java`、
+`application.yml`（`spring.threads.virtual.enabled`、`logging.pattern.console`、`hify.async.concurrency-limit`）。
+
+### 自动化自检
+
+```bash
+mvn -f server/pom.xml test
+```
+- ✅ `BUILD SUCCESS`，`AsyncConfigTest`(1)、`MdcTaskDecoratorTest`(2) 全过。
+  覆盖：异步任务确实跑在**虚拟线程**上、发起线程的 **traceId 被传到异步线程**、任务结束后 MDC 被清理。
+- ❌ 红灯：上述任一测试 `Failures > 0`。
+
+### 运行时自检（看日志格式）
+
+启动 `mvn -f server/pom.xml spring-boot:run`，观察控制台日志行形如：
+```
+2026-06-17 17:34:47.313 INFO  [] [main] com.zaxxer.hikari.pool.HikariPool - hify-pool - Added connection ...
+```
+- ✅ 每行是 `时间 级别 [traceId] [线程] 类 - 消息`；启动期没有请求，`[]` 为空是正常的。
+- 处理请求时该位置会填入 traceId（与响应头 `X-Trace-Id`、`Result.traceId` 同一个值）。
+- ❌ 红灯：日志还是带 `--- [hify-server]` 的旧默认格式，或没有 `[]` 槽位 → `logging.pattern.console` 没生效。
+
+### 故意搞错（确认 traceId 真的靠装饰器传递）
+
+把 `AsyncConfig.getAsyncExecutor()` 里这行注释掉再重测：
+```java
+executor.setTaskDecorator(new MdcTaskDecorator());
+```
+`AsyncConfigTest.异步任务_跑在虚拟线程且带上traceId` 应**变红**（异步线程里 traceId 变 null）。
+这证明跨线程的 traceId 不是"碰巧有"，而是装饰器搬过去的。验证完恢复该行。
+
+> ⚠️ **这个实验只能用 `mvn test` 验证，不能看 `spring-boot:run` 的日志**：
+> 日志格式由 `logging.pattern.console` 决定，跟装饰器无关，注释掉装饰器日志格式不会变；
+> 装饰器只在"有 @Async 任务真的在跑并打日志"时才起作用，而当前还没有任何 @Async 任务
+> （usage 模块落地后才有），所以运行时日志里看不出差别。这正是"在改动真正生效的那一层验证"
+> （通用原则第 1 条）的又一例。
