@@ -1,0 +1,25 @@
+# 依赖
+node_modules
+
+# 构建产物
+dist
+dist-ssr
+
+# 本地环境覆盖（含个人配置，不入库）
+.env.local
+.env.*.local
+
+# 日志
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 编辑器
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+.DS_Store

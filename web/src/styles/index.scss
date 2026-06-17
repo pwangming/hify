@@ -1,0 +1,13 @@
+// 全局样式入口（在 main.ts 中导入）：reset、Element Plus 主题变量覆盖、通用工具类。
+// 设计变量与 mixin 已由 additionalData 全局注入，此处无需再 @use。
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}

@@ -288,12 +288,12 @@ CLAUDE.md：配置外化、不硬编码，敏感配置走 `.env`。
 
    | 文件 | 用途 | 入库 |
    |---|---|---|
-   | `.env` | 各环境公共默认值 | 是（无密钥） |
-   | `.env.development` | 开发环境 | 是 |
-   | `.env.production` | 生产环境构建 | 是 |
+   | `.env.development` | 开发环境变量（含公共默认值） | 是 |
+   | `.env.production` | 生产环境构建变量（含公共默认值） | 是 |
    | `.env.local` / `.env.*.local` | 个人本地覆盖 | 否（`.gitignore`） |
 
    前端这些都不含密钥，故可入库；真正的密钥只在后端 `deploy/.env`（不入库）。
+   **注意**：仓库根 `.gitignore` 全局忽略 `.env`（保护后端 `deploy/.env` 这类含密钥文件），因此前端**不使用 `web/.env`** 这个文件——公共默认值直接写进 `.env.development` / `.env.production`（这两个文件名不被 `.env` 规则匹配，正常入库）。不为了一个无密钥文件去削弱仓库级的安全兜底。
 3. **base URL 用相对路径 `/api/v1`**：开发靠 Vite proxy 转发到 server，生产靠 nginx 反代，前端代码两端一致、零改动（同源部署，不开 CORS——见 api-standards.md 6）。
 4. **Vite proxy（开发）** 配在 `vite.config.ts`，target（如 `http://localhost:8080`）用**非 `VITE_` 前缀**变量（经 `loadEnv` 读），不泄漏到前端产物：
    ```ts
@@ -317,7 +317,7 @@ CLAUDE.md：配置外化、不硬编码，敏感配置走 `.env`。
 ## 10. 代码质量
 
 - **ESLint 9 flat config**（`eslint.config.js`）+ `eslint-plugin-vue` + `typescript-eslint`，配合 Prettier（`eslint-config-prettier` 关掉与格式冲突的规则）。
-- **类型检查**：`vue-tsc --noEmit`，纳入构建与 CI。
-- **提交前检查**：`simple-git-hooks` + `lint-staged`，只对暂存文件跑 lint + format。
-  *为什么用 simple-git-hooks 而非 husky*：更轻、零运行时依赖，符合一人维护的轻量取向。嫌钩子麻烦也可去掉，改为 `pnpm build` 前手动跑。
+- **类型检查**：`vue-tsc --noEmit`，纳入构建与 CI（已挂在 `pnpm build` 前）。
+- **提交前检查**：`web/` 提供 `lint-staged` 配置（只对暂存文件跑 lint + format），但**不在 `web/` 子包内安装 git 钩子**。
+  *为什么不在 web 内装钩子*：`web/` 是 monorepo 子目录，`.git` 在仓库根（`hify/`）。simple-git-hooks/husky 这类工具应安装在 git 根、统一覆盖 `server/`（Java）与 `web/`（前端）。子包内安装会写错位置或与未来的根级钩子打架。**pre-commit 钩子待仓库根统一规划**（根钩子里 `cd web && pnpm exec lint-staged` 调用本包配置）。在此之前，提交前手动 `pnpm lint && pnpm format`，或依赖 CI 兜底。
 - **格式**：交给 Prettier 统一，不在 ESLint 里重复定义格式规则，避免两套打架。
