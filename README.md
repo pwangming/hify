@@ -90,7 +90,9 @@ hify/
 ├── docker-compose.yml   # 本地依赖（当前：postgres）
 ├── start.sh / stop.sh   # 本地启停脚本
 ├── Makefile             # 统一命令入口
-└── docs/architecture/   # 架构设计文档（写代码前必读）
+├── docs/architecture/   # 架构设计文档（写代码前必读）
+└── docs/self-check.md   # 本地自检手册（每块基础组件怎么验证做对了）
 ```
 
-更多约定见仓库根的 `CLAUDE.md` 与 `docs/architecture/` 下各文档。
+更多约定见仓库根的 `CLAUDE.md` 与 `docs/architecture/` 下各文档；
+改完想自己验证有没有生效，见 [`docs/self-check.md`](docs/self-check.md)。
