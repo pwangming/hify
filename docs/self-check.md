@@ -134,3 +134,73 @@ executor.setTaskDecorator(new MdcTaskDecorator());
 > 装饰器只在"有 @Async 任务真的在跑并打日志"时才起作用，而当前还没有任何 @Async 任务
 > （usage 模块落地后才有），所以运行时日志里看不出差别。这正是"在改动真正生效的那一层验证"
 > （通用原则第 1 条）的又一例。
+
+---
+
+## CRUD 标准流程验证（demo 模块，学习参考·长期保留）
+
+`com.hify.demo`（DemoItem）演示"Controller→Service→Mapper→Entity→DTO"整链路，是**刻意长期保留的学习
+参考模块**（不属于 10 个业务模块、禁止被业务模块依赖，见 code-organization.md 第 1 节）。新人读不懂复杂
+业务模块时以它为对照。验收 curl（注意分页参数是 `size` 不是 `pageSize`，api-standards 第 3.1 节）：
+
+```bash
+# 1) 校验生效：name 为空 → 期望 400 + code 10001 + 字段错误
+curl -i -X POST localhost:8080/api/v1/demo-items -H "Content-Type: application/json" -d '{"name":"","status":1}'
+# 2) 正常创建 → 200，id 为字符串，create_time 自动填充，时间为 ISO-8601
+curl -X POST localhost:8080/api/v1/demo-items -H "Content-Type: application/json" -d '{"name":"测试项","status":1}'
+# 3) 分页列表 → PageResult{list,total,page,size}
+curl "localhost:8080/api/v1/demo-items?page=1&size=10"
+# 4) 逻辑删除 → 200；DB 里 deleted=t；列表不再出现
+curl -X DELETE localhost:8080/api/v1/demo-items/1
+docker exec hify-postgres psql -U hify -d hify -c "select id,deleted from demo_item order by id;"
+```
+
+> 📌 **从干净状态验证**：库里可能已有上次跑测试留下的数据（如 id=1 已软删、id=2 还在），
+> 会影响你对"创建后 id、列表条数"的判断。想从零开始，先清空并重置自增 id：
+> `docker exec hify-postgres psql -U hify -d hify -c "truncate demo_item restart identity;"`
+
+> 🐞 **本次验证揪出的全项目级配置 bug（已修，记此为戒）**：BaseEntity 的 `deleted` 是 boolean 列，
+> 但 MyBatis-Plus 默认逻辑删除值是整数 `1/0`，生成 `WHERE deleted = 0` 会被 PG 拒绝
+> （`operator does not exist: boolean = integer`）。修复 = `application.yml` 配
+> `mybatis-plus.global-config.db-config.logic-delete-value: "true"` / `logic-not-delete-value: "false"`。
+> **这条配置对任何用软删的真实模块都必需**——即使删掉 demo 也要保留。教训：BaseEntity 的软删第一次
+> 被真表真查询触发时才会暴露，所以"用一个最小 CRUD 跑通全链路"值得在写真业务前先做一遍。
+
+> ⚠️ **Flyway 迁移脚本一旦执行过就当它是"只读"的（踩坑实录）**：改了 `V2` 的一句注释后重启，
+> 启动直接挂在 `Migration checksum mismatch for migration version 2`（`Applied to database` 与
+> `Resolved locally` 两个校验和对不上）。原因：Flyway 把每个已执行脚本的 CRC32 记在 `flyway_schema_history`
+> 表里，启动先 validate；**哪怕只改注释、空格、换行，校验和都会变，启动就拒绝**。
+> 正确做法（对齐 CLAUDE.md「数据库变更只通过新增 Flyway 脚本，禁止改已执行的旧脚本」）：
+> **把旧脚本还原成执行时原样，要的变更（连表注释这种）一律新开下一个版本号**——本项目就是把 demo 表注释
+> 的更新放进了 `V3__demo_item_keep_as_reference.sql`。
+> 自检：`docker exec hify-postgres psql -U hify -d hify -c "select version,success,checksum from flyway_schema_history order by installed_rank;"`
+> 看版本是否齐、`success` 是否全 `t`。
+
+## 对外时间格式（全局 Jackson 序列化）
+
+接口里所有 `OffsetDateTime` 字段（`createTime`/`updateTime` 等）统一由 `infra.config.JacksonConfig` 序列化，
+规则两条：**① 固定到秒**（不输出纳秒小数）；**② 统一归一到 `hify.api.time-zone-offset`（默认 `+08:00`）**。
+背景：数据库 `timestamptz` 经 JDBC 读出来是 UTC（`Z`），JVM 现生成的是本地偏移，两者风格不一；归一后对外只有一种风格。
+
+### 自动化自检（首选）
+
+```bash
+cd server && mvn -o test -Dtest=JacksonConfigTest
+# 关注两个用例：
+#   时间固定到秒不输出纳秒  → 245072034ns 被截掉
+#   UTC时间归一到东八区输出  → 06:50:19Z 输出成 14:50:19+08:00（同一时刻换偏移）
+```
+
+### 运行时自检（眼见为实）
+
+```bash
+# 任取一条 demo 数据看时间字段：必须形如 2026-06-18T14:50:19+08:00
+curl "localhost:8080/api/v1/demo-items?page=1&size=10"
+```
+
+判定：`createTime` 满足三点才算对 —— ① 带 `T` 和 `+08:00`（ISO-8601 含偏移）；② 秒后**无小数**；
+③ 不论新建回显还是列表读取，偏移**都是 `+08:00`**（不再出现 `Z` 或纳秒）。
+
+> 💡 **为什么这不是 bug 而是规范**：`+08:00` / `Z` 都是同一绝对时刻，前端 `new Date(...)` 都能正确解析并按
+> 浏览器时区显示。统一成 `+08:00` 纯为**风格一致**（对齐 api-standards 第 4 节示例），便于人读日志/排查。
+> 不同时区部署改 `application.yml` 的 `hify.api.time-zone-offset` 即可，不动代码。

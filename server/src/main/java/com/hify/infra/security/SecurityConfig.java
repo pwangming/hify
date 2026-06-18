@@ -45,6 +45,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/health").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
+                        // 学习参考模块 demo（非业务，见 code-organization.md 第 1 节）：刻意免登录，
+                        // 方便新人直接 curl 跑通标准 CRUD 链路，无需先取 token。
+                        .requestMatchers("/api/v1/demo-items/**").permitAll()
                         // identity 模块落地登录接口后即生效；现在先放行，避免将来改安全配置
                         .requestMatchers("/api/v1/identity/login").permitAll()
                         // 对外 API：身份由 App API Key 证明，后续在该前缀加独立过滤器，这里不套 JWT

@@ -22,6 +22,11 @@ comment on table example is '表用途一句话';
 `IdType.AUTO`、`@TableLogic`（logic-delete-value=true / logic-not-delete-value=false）、
 时间列由 `infra` 的 `MetaObjectHandler` 填充。
 
+> ⚠️ `logic-delete-value=true / logic-not-delete-value=false` 必须配在 `application.yml` 的
+> `mybatis-plus.global-config.db-config` 下。漏配则 MP 用默认整数 `1/0` 生成 `deleted = 0`，
+> 而 `deleted` 是 boolean 列，PostgreSQL 报 `operator does not exist: boolean = integer`，
+> 所有带软删过滤的查询/删除全部 500。
+
 ### 1.2 类型规则（违反即返工）
 
 | 用途 | 用 | 不用 | 原因 |

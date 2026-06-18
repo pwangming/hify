@@ -25,7 +25,7 @@ class JacksonConfigTest {
     @BeforeEach
     void setUp() {
         Jackson2ObjectMapperBuilder builder = new Jackson2ObjectMapperBuilder();
-        new JacksonConfig().hifyJacksonCustomizer().customize(builder);
+        new JacksonConfig("+08:00").hifyJacksonCustomizer().customize(builder);
         this.objectMapper = builder.build();
     }
 
@@ -51,6 +51,30 @@ class JacksonConfigTest {
         String json = objectMapper.writeValueAsString(new WithTime(time));
 
         assertTrue(json.contains("2026-06-12T10:30:00+08:00"), () -> json);
+    }
+
+    @Test
+    void 时间固定到秒不输出纳秒() throws Exception {
+        // 数据库 timestamptz 带亚秒精度，OffsetDateTime 里会有纳秒（245072034ns）；
+        // 序列化必须截到秒，避免输出 .245072034 这种 JS Date 用不到、长度还不统一的小数。
+        OffsetDateTime time = OffsetDateTime.of(2026, 6, 18, 14, 50, 19, 245072034, ZoneOffset.ofHours(8));
+
+        String json = objectMapper.writeValueAsString(new WithTime(time));
+
+        assertTrue(json.contains("\"time\":\"2026-06-18T14:50:19+08:00\""),
+                () -> "应固定到秒、不含小数，实际: " + json);
+    }
+
+    @Test
+    void UTC时间归一到东八区输出() throws Exception {
+        // 数据库 timestamptz 经 JDBC 读出来是 UTC（偏移 Z）。统一归一后对外应显示成 +08:00 的同一风格，
+        // 且是同一时刻：UTC 06:50:19 == 北京 14:50:19。
+        OffsetDateTime utc = OffsetDateTime.of(2026, 6, 18, 6, 50, 19, 0, ZoneOffset.UTC);
+
+        String json = objectMapper.writeValueAsString(new WithTime(utc));
+
+        assertTrue(json.contains("\"time\":\"2026-06-18T14:50:19+08:00\""),
+                () -> "UTC 应归一到 +08:00，实际: " + json);
     }
 
     @Test

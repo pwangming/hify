@@ -27,6 +27,12 @@
   （该类内部封装 Spring Security 的 `SecurityContextHolder`，业务代码无需 import 任何 Spring Security 类。）
 - 管理控制台没有独立模块：admin 接口写在各自模块的 `controller/` 下。
 
+> **学习参考模块 `demo`（不属于业务模块集）**：`com.hify.demo` 是刻意长期保留的最小样板，
+> 完整演示 `controller → service → mapper → entity → dto` 一条链路与各项基建（BaseEntity 自动填充、
+> `@Valid` 校验、`Result`/`PageResult` 信封、逻辑删除）。它**不是**上表 10 个业务模块之一，不承载任何业务能力，
+> 仅依赖 `common`、`infra`。硬性约束：**任何业务模块都禁止依赖 `demo`**（它是叶子，只能被读、不能被用），
+> 由 `ModularityTests` 守护。新人读不懂复杂模块时，以本模块为对照基准。
+
 ## 2. 模块内部分层
 
 每个业务模块的内部结构固定如下（不需要的目录可以不建，但不允许发明新目录名）：
@@ -70,6 +76,8 @@ com.hify.<module>/
 
 **`service/`** —— 业务逻辑唯一所在地。
 - 具体类 + `@Service`，不写 service 接口（`Facade` 是唯一的接口抽象）。
+  - **为什么不拆 `IXxxService` + `XxxServiceImpl`**：拆接口的唯一真实收益是「同一接口多实现可切换」，而业务 service 几乎永远只有单一实现，那个接口就是个空壳，纯增维护成本（两份文件、签名两边同步、IDE 还要绕一跳才到逻辑）。传统拆接口的另外两个理由如今都已失效：Spring AOP（事务/缓存）现在默认走 CGLIB，能直接代理具体类，不再「无接口事务不生效」；Mockito 也早能直接 mock 具体类。遵循 CLAUDE.md「最简单直接、不过度抽象」——真出现第二实现那天，IDE 一键抽接口即可，不亏。
+  - **判断「要不要接口」的真正标准是「对面有没有需要隔离的真实边界」**：模块**内部**调用没有边界 → 用具体类；模块**之间**调用要把「对外契约」和「内部实现」隔开 → 才用接口，那就是 `Facade`/`FacadeImpl`（且受 Modulith 强制校验）。所以「Service 不拆、Facade 拆」不是自相矛盾，而是同一条标准的两面。
 - `@Transactional` 只允许出现在这一层。
 - 注入对象限定为：本模块 mapper、本模块其他 service、其他模块的 Facade、`infra` 提供的技术组件。
 - 不继承 MyBatis-Plus 的 `ServiceImpl`/`IService`；批量操作用 `com.baomidou.mybatisplus.extension.toolkit.Db`。

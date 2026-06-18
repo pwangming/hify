@@ -64,8 +64,22 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{traceId:-}] [%thread] %logger{36} - %msg%n"
 
+# MyBatis-Plus 全局配置
+mybatis-plus:
+  global-config:
+    db-config:
+      # 逻辑删除值：BaseEntity 的 deleted 是 boolean 列（database-standards.md 第 1.1 节），
+      # 必须把删除/未删除值设为 true/false。否则 MP 默认用整数 1/0 生成 SQL（deleted=1 / deleted=0），
+      # PostgreSQL 会报 "operator does not exist: boolean = integer"。
+      logic-delete-value: "true"
+      logic-not-delete-value: "false"
+
 # Hify 自有配置（外化，不硬编码进代码）
 hify:
+  api:
+    # 对外接口的时间统一归一到这个时区偏移再输出（ISO-8601 含偏移，固定到秒）。
+    # 国内单团队部署默认东八区；不同时区部署时改这里，无需动代码。见 infra.config.JacksonConfig。
+    time-zone-offset: ${HIFY_API_TIME_ZONE_OFFSET:+08:00}
   cache:
     # Caffeine 规格串：最大条目数 + 写入后过期时长。改容量/过期只动这里。
     spec: maximumSize=10000,expireAfterWrite=30m
