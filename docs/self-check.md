@@ -403,11 +403,17 @@ mvn -f server/pom.xml test
      -d '{"username":"admin","password":"<上面配的密码>"}'
    ```
    正确输出：`HTTP 200` + `Result.data` 里有 `token` 字段。
-4. 带着这个 token 打任意受保护路径（不再 401，证明令牌能通过 `JwtAuthenticationFilter` 验票）：
+4. 证明令牌能通过 `JwtAuthenticationFilter` 验票。注意**不能**拿 `/api/v1/demo-items`（它在
+   SecurityConfig 里是 `permitAll`，带不带令牌都 200，证明不了任何事），要拿一个**真受保护**的路径
+   ——本轮还没有受保护的业务 GET 接口，所以用一个受保护命名空间下不存在的路径，看「无令牌 vs 有令牌」的对比：
    ```bash
-   curl -i -H "Authorization: Bearer <上一步拿到的token>" localhost:8080/api/v1/demo-items
+   # 无令牌：被安全链拦下 → 401 + 业务码 10002
+   curl -i localhost:8080/api/v1/identity/me
+   # 带令牌：不再是 401（令牌已被接受，因无此接口而落到 404）→ 证明验票通过
+   curl -i -H "Authorization: Bearer <上一步拿到的token>" localhost:8080/api/v1/identity/me
    ```
-   正确输出：`HTTP 200`（而不是地基 2 验证过的"无令牌 → 401/10002"）。
+   正确输出：第一条 `HTTP 401`（`code 10002`），第二条 `HTTP 404`（**关键是不再 401**，说明令牌通过了验票）。
+   > 等后续轮次有了受保护的业务 GET 接口（如 admin 用户列表），可改用它做「带令牌 → 200」的正向验证。
 5. 错误凭据应返回 `HTTP 401` + `code 11001`；用一个被停用的账号登录应返回 `HTTP 403` + `code 11002`
    （本轮无管理接口，停用账号需手动改库验证）：
    ```bash
