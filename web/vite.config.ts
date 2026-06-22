@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -28,6 +29,13 @@ export default defineConfig(({ mode }) => {
         '/api': { target: proxyTarget, changeOrigin: true },
         '/v1': { target: proxyTarget, changeOrigin: true },
       },
+    },
+    // 单元/组件测试（vitest）。复用上面的 alias 与 scss 注入，测试环境与构建一致。
+    test: {
+      // happy-dom 提供 localStorage / DOM，store 与组件测试都需要
+      environment: 'happy-dom',
+      // 测试就近放各目录的 __tests__/ 下（与 tsconfig 的 exclude 对齐）
+      include: ['src/**/__tests__/**/*.{test,spec}.ts'],
     },
   }
 })

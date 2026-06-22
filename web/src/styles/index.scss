@@ -1,5 +1,8 @@
 // 全局样式入口（在 main.ts 中导入）：reset、Element Plus 主题变量覆盖、通用工具类。
 // 设计变量与 mixin 已由 additionalData 全局注入，此处无需再 @use。
+//
+// 设计风格：方案 A「开发者工具风」。色值统一引用 variables.scss 的 $ 变量，
+// 不在此写魔法值；改色板只动 variables.scss 一处。
 
 * {
   box-sizing: border-box;
@@ -10,4 +13,87 @@ body,
 #app {
   height: 100%;
   margin: 0;
+}
+
+body {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+  line-height: $line-height-base;
+  color: $color-text-primary;
+  background-color: $color-bg-page;
+}
+
+// ============================================================
+// Element Plus 主题覆盖
+// 通过覆盖其 CSS 变量统一换肤，不逐组件改样式（见 frontend-standards 8.2）。
+// ============================================================
+:root {
+  // —— 主色及其变体 ——
+  --el-color-primary: #{$color-primary};
+  --el-color-primary-light-3: #{$color-primary-light-3};
+  --el-color-primary-light-5: #{$color-primary-light-5};
+  --el-color-primary-light-7: #{$color-primary-light-7};
+  --el-color-primary-light-8: #{$color-primary-light-8};
+  --el-color-primary-light-9: #{$color-primary-light-9};
+  --el-color-primary-dark-2: #{$color-primary-dark-2};
+
+  // —— 功能色 ——
+  --el-color-success: #{$color-success};
+  --el-color-warning: #{$color-warning};
+  --el-color-danger: #{$color-danger};
+  --el-color-error: #{$color-danger};
+  --el-color-info: #{$color-info};
+
+  // —— 文字层级 ——
+  --el-text-color-primary: #{$color-text-primary};
+  --el-text-color-regular: #{$color-text-regular};
+  --el-text-color-secondary: #{$color-text-secondary};
+  --el-text-color-placeholder: #{$color-text-placeholder};
+
+  // —— 边框与填充 ——
+  --el-border-color: #{$color-border};
+  --el-border-color-light: #{$color-border-light};
+  --el-border-color-lighter: #{$color-border-light};
+  --el-border-color-dark: #{$color-border-strong};
+  --el-fill-color-blank: #{$color-bg-card};
+  --el-fill-color-light: #{$color-bg-hover};
+  --el-fill-color: #{$color-bg-muted};
+
+  // —— 背景 ——
+  --el-bg-color: #{$color-bg-card};
+  --el-bg-color-page: #{$color-bg-page};
+
+  // —— 圆角（整体收小，工具感）——
+  --el-border-radius-base: #{$radius-sm};
+  --el-border-radius-small: #{$radius-sm};
+  --el-border-radius-round: #{$radius-md};
+
+  // —— 阴影（弹窗/下拉等沿用我们的克制阴影）——
+  --el-box-shadow: #{$shadow-md};
+  --el-box-shadow-light: #{$shadow-sm};
+  --el-box-shadow-lighter: #{$shadow-sm};
+  --el-box-shadow-dark: #{$shadow-lg};
+
+  // —— 过渡时长（组件 hover/展开统一节奏）——
+  --el-transition-duration: #{$transition-base};
+  --el-transition-duration-fast: #{$transition-fast};
+
+  // —— 字体 ——
+  --el-font-family: #{$font-family-base};
+  --el-font-size-base: #{$font-size-base};
+}
+
+// ============================================================
+// 通用工具类（少量、按需补充；不替代组件 scoped 样式）
+// ============================================================
+
+// 等宽数字/id：用于表格里的 id、token 用量等，对齐更整齐、更具工具气质
+.mono {
+  font-family: $font-family-mono;
+  font-variant-numeric: tabular-nums;
+}
+
+// 次要说明文字
+.text-muted {
+  color: $color-text-secondary;
 }

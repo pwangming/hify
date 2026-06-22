@@ -1,32 +1,68 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { authGuard } from './guard'
 
 // 集中式路由表：页面与权限 meta 一处可览，便于审查（见 frontend-standards.md 第 7 节）。
-// meta 约定：requiresAuth / roles / title。
+// meta 约定：requiresAuth / roles / title / menu / layout（类型见 types/router.d.ts）。
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/knowledge' },
   {
     path: '/knowledge',
     name: 'KnowledgeList',
     component: () => import('@/views/knowledge/KnowledgeList.vue'),
-    meta: { requiresAuth: true, title: '知识库管理' },
+    meta: { requiresAuth: true, title: '知识库管理', menu: true },
   },
   {
     path: '/app',
     name: 'AppList',
     component: () => import('@/views/app/AppList.vue'),
-    meta: { requiresAuth: true, title: '应用管理' },
+    meta: { requiresAuth: true, title: '应用管理', menu: true },
   },
   {
     path: '/admin/provider',
     name: 'ProviderList',
     component: () => import('@/views/admin/provider/ProviderList.vue'),
-    meta: { requiresAuth: true, roles: ['admin'], title: '模型提供商管理' },
+    meta: { requiresAuth: true, roles: ['admin'], title: '模型提供商管理', menu: true },
+  },
+  // —— 样式预览（开发期视觉验收用，免登录、默认布局、进侧边菜单；定稿后可删）——
+  {
+    path: '/styleguide',
+    name: 'Styleguide',
+    component: () => import('@/views/styleguide/StyleguideView.vue'),
+    meta: { requiresAuth: false, title: '样式预览', menu: true },
+  },
+  // —— 无壳页面（不需登录、用 BlankLayout）——
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/login/LoginView.vue'),
+    meta: { requiresAuth: false, title: '登录', layout: 'blank' },
+  },
+  {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('@/views/error/ForbiddenView.vue'),
+    meta: { requiresAuth: false, title: '无权限', layout: 'blank' },
+  },
+  // 通配兜底必须放最后，捕获所有未匹配路径
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('@/views/error/NotFoundView.vue'),
+    meta: { requiresAuth: false, title: '页面不存在', layout: 'blank' },
   },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+// 全局前置守卫：登录态 / 角色拦截（规范 7.2，逻辑在 guard.ts）
+router.beforeEach(authGuard)
+
+// 导航确认后统一设标题（规范 7.2 第 ⑤ 步，放 afterEach 更贴近“已进入页面”语义）
+router.afterEach((to) => {
+  document.title = to.meta.title ? `${to.meta.title} · Hify` : 'Hify'
 })
 
 export default router

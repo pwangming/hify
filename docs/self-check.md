@@ -204,3 +204,165 @@ curl "localhost:8080/api/v1/demo-items?page=1&size=10"
 > 💡 **为什么这不是 bug 而是规范**：`+08:00` / `Z` 都是同一绝对时刻，前端 `new Date(...)` 都能正确解析并按
 > 浏览器时区显示。统一成 `+08:00` 纯为**风格一致**（对齐 api-standards 第 4 节示例），便于人读日志/排查。
 > 不同时区部署改 `application.yml` 的 `hify.api.time-zone-offset` 即可，不动代码。
+
+---
+
+## 前端地基 1：登录态 store（useUserStore）
+
+对应改动：`web/src/stores/user.ts`（store）、`web/src/api/auth.ts`（`getCurrentUser`）、
+`web/src/types/user.ts`（`UserInfo` 类型）。这是前端第 0 层「应用外壳」的第一块——后续布局顶栏、
+路由守卫都依赖它拿登录态与角色。
+
+**设计要点（为什么这么搭）：**
+- **token 唯一来源**是 `localStorage` 的 `hify_token` 键。store 负责写，`request.ts` 直接读（不 import store），
+  以此打断 `request ←→ store` 循环依赖；两边复用 `request.ts` 导出的 `TOKEN_KEY` 常量，保证读写同一个键。
+- **只持久化 token**；`user` 信息是内存态，刷新后由守卫 `loadCurrentUser()` 重新拉回（对齐 frontend-standards 第 6 节）。
+
+### 自动化自检（首选）
+
+`web/` 暂未引入单测 runner（vitest 属新依赖，未装），当前的自动化关卡是**类型检查 + 构建**：
+
+```bash
+cd web && pnpm build   # = vue-tsc --noEmit（全量类型检查）+ vite build
+```
+
+判定：编出 `dist/` 且无 TS 报错即过。`vue-tsc` 按 tsconfig 检查**所有**文件——哪怕 store 还没被任何页面
+引用，类型错误或循环依赖也会现形。
+
+### 运行时自检（浏览器控制台眼见为实）
+
+store 还没接进页面，但可在浏览器控制台直接验证「读写同一个键」这条命脉：
+
+```js
+localStorage.setItem('hify_token', 'fake.jwt.token') // 模拟 store.setToken
+// 刷新页面 → store 的 token 初值就从这里读回（isLoggedIn 应为 true）
+localStorage.getItem('hify_token')                   // → 'fake.jwt.token'
+localStorage.removeItem('hify_token')                // 模拟 store.logout，键应被清掉
+```
+
+关键确认：`request.ts` 注入 JWT 时读的、store 持久化时写的，是**同一个 `hify_token` 键**（都源自
+`TOKEN_KEY` 常量），不会各存一份对不上。
+
+### 故意搞错（确认关卡真在守门）
+
+把 `types/user.ts` 的 `id: string` 改成 `id: number`，再在任意会把 id 当字符串用的地方（如将来拼进 URL）引用——
+`vue-tsc` 会报类型不符，证明**类型关卡有效**。
+反例提醒：把 `isAdmin` 的 `role === 'admin'` 误写成大写 `'ADMIN'`，build **不会**报错（只是值比较），
+但 `isAdmin` 永远 false——这类"值写错"类型层挡不住，要留到守卫接好后**登录看菜单是否按角色出现**来兜底验证。
+
+---
+
+## 前端地基 2：测试基建（vitest）+ 布局骨架
+
+对应改动：`web/` 引入 vitest（`vitest` / `@vue/test-utils` / `happy-dom`，配在 `vite.config.ts` 的 `test` 段）、
+`web/src/layouts/DefaultLayout.vue` + `BlankLayout.vue` 及其 `__tests__/` 测试。
+约定：**测试就近放各目录 `__tests__/` 下**（`tsconfig` 已 `exclude` 此目录，测试由 vitest 跑、不进 `vue-tsc` 构建）。
+
+**两层布局的分工（为什么两个）：**
+- `DefaultLayout`：后台主框架（侧栏 + 顶栏用户名/退出 + 内容 `<slot/>`）。内容用插槽而非内置 `RouterView`，
+  好让登录页能换 `BlankLayout`——布局由 App.vue 按路由 `meta.layout` 选（在守卫/登录步骤接上）。
+- `BlankLayout`：无壳，仅透传插槽，登录页用。
+
+### 自动化自检（首选）
+
+```bash
+cd web && pnpm test     # vitest run：跑所有 src/**/__tests__/*.spec.ts
+cd web && pnpm build    # vue-tsc 类型检查 + 构建（组件类型不过会红）
+```
+
+判定：`pnpm test` 全绿（当前 9 个：store 6 + 布局 3）；`pnpm build` 编出 `dist/` 无报错。
+`pnpm test:watch` 可在开发时常驻、改文件即重跑。
+
+### 这一步遵循的 TDD 纪律（眼见为实）
+
+布局是全新代码，按红→绿写：**先写 `DefaultLayout.spec.ts` / `BlankLayout.spec.ts`，跑出 RED
+（“找不到 `*.vue` 模块”=功能缺失），再建组件转 GREEN**。两个核心行为被测住：
+顶栏显示当前用户名；点“退出”→ 清 `token`+`localStorage` 且跳 `/login`。
+
+> 💡 store 的 6 个测试是**对既有代码补的刻画测试**（store 上一步已写好），首跑即绿——这是允许的；
+> 真正的红→绿只对新代码（布局）要求。
+
+### 故意搞错（确认测试真在守门）
+
+把 `DefaultLayout.vue` 的 `handleLogout` 里 `userStore.logout()` 注释掉再 `pnpm test`——
+“点击退出清登录态”用例应变红（`store.token` 仍非空）。能变红，才证明这条测试不是摆设；验完记得改回。
+
+---
+
+## 前端地基 3：侧边菜单按路由 + 角色生成，App 按 meta.layout 选布局
+
+对应改动：`web/src/router/menu.ts`（`isRoleAllowed` / `buildMenu` 纯函数）、
+`web/src/types/router.d.ts`（`RouteMeta` 契约：`roles/title/menu/layout`）、
+`DefaultLayout.vue` 菜单改为 `v-for` 动态生成、`App.vue` 按 `meta.layout` 选布局（退役内联临时布局）、
+`router/index.ts` 三条路由补 `meta.menu: true`。
+
+**设计意图（为什么）：**
+- 菜单**从路由表派生**：路由加一条带 `meta.menu` 的记录，菜单自动多一项；`meta.roles` 决定谁可见
+  （Member 看不到 `roles:['admin']` 的项）。规则集中在路由表，一眼可审"哪些页面仅 Admin"。
+- "看得到 = 进得去"：菜单与守卫（第 4 步）共用同一个 `isRoleAllowed`，避免两套判断打架。
+- `App.vue` 用 `<component :is="layout"><RouterView/></component>` 按 `meta.layout` 切布局，
+  登录页将来标 `meta.layout:'blank'` 即走无壳布局。
+
+### 自动化自检（首选）
+
+```bash
+cd web && pnpm test    # 全绿（当前 18：store 6 + 布局 5 + menu 5 + App 2）
+cd web && pnpm build   # 类型检查（含 RouteMeta 增强）+ 构建
+```
+
+### 运行时自检（眼见为实）
+
+`pnpm dev` 起开发服务器，浏览器看左侧菜单：
+
+- 未登录/角色未知时，仅"知识库管理""应用管理"两项（admin 专属的"模型提供商管理"被过滤）。
+- 在控制台手动给 store 设个 admin 用户，菜单应多出"模型提供商管理"：
+  ```js
+  // 开发期临时验证角色过滤（守卫接好后由 /me 自动填充）
+  // 通过 Vue Devtools 把 user store 的 user 设为 { id:'1', username:'a', role:'admin' }
+  ```
+  Member 角色则不应出现该项。
+
+### 故意搞错（确认关卡真在守门）
+
+把 `menu.ts` 的 `isRoleAllowed` 改成永远 `return true`，`pnpm test`——
+"Member 看不到 admin 专属项"用例应变红（Member 也看到了"模型提供商管理"）。能变红即守门有效；验完改回。
+
+---
+
+## 前端地基 4：登录态守卫 + 登录页 + 错误页（主干合龙）
+
+对应改动：`web/src/router/guard.ts`（`authGuard`，规范 7.2 五步）、`router/index.ts`（挂
+`beforeEach(authGuard)` + `afterEach` 设标题，新增 login/403/404 路由）、`views/login/LoginView.vue`、
+`views/error/ForbiddenView.vue` + `NotFoundView.vue`、`api/auth.ts` 增 `login()`、`types/user.ts` 增登录 DTO。
+
+**这一步打通的主干**：未登录访问受保护页 → 跳 `/login?redirect=原目标` → 登录成功写 token、拉 `/me`
+拿角色 → 跳回原目标 → 按角色看菜单 → 退出。守卫与菜单共用 `isRoleAllowed`，"看得到=进得去"。
+
+### 自动化自检（首选）
+
+```bash
+cd web && pnpm test    # 全绿（当前 28：含 guard 6 + login 2 + 错误页 2）
+cd web && pnpm build   # 类型检查 + 构建
+```
+
+守卫六条分支均被测住：①不需登录放行 ②无 token 跳登录带 redirect ③有 token 拉 /me 成功放行
+③b 拉 /me 失败清登录态跳登录 ④角色不符跳 403 ⑤角色放行。
+
+### ⚠️ 依赖后端、暂不能端到端登录
+
+`login()` → `POST /api/v1/identity/login`、`getCurrentUser()` → `GET /api/v1/identity/me`
+**后端尚未实现**（identity 模块还空）。所以现在 `pnpm dev` 打开应用会：跳到登录页 → 输账号密码点登录 →
+请求 404/网络错 → 拦截器弹 toast，进不去。这是**预期的前端先行状态**，等后端落地这两个接口即通。
+前端逻辑本身已被单测覆盖（用 mock 验证成功路径），不依赖后端。
+
+### 运行时自检（无需后端也能看的部分）
+
+`pnpm dev` 后：
+- 直接访问 `/knowledge` → 自动跳 `/login?redirect=/knowledge`（守卫②生效）。
+- 访问不存在的路径如 `/nope` → 显示 404 页（BlankLayout 无壳）。
+- 浏览器标签标题随页面变化（`afterEach` 设的 `xx · Hify`）。
+
+### 故意搞错（确认守卫真在守门）
+
+把 `guard.ts` 第②步"无 token 跳登录"改成直接 `return true`，`pnpm test`——
+"需登录但无 token → 跳登录"用例应变红。能变红即守卫有效；验完改回。
