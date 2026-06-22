@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -61,5 +63,14 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler));
 
         return http.build();
+    }
+
+    /**
+     * 密码哈希器。安全技术组件归 infra（code-organization.md：业务模块只注入 infra 的技术组件）。
+     * identity 的 AuthService / AdminBootstrapRunner 注入它做 BCrypt 加密与校验。
+     */
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }
