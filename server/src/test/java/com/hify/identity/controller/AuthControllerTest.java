@@ -45,6 +45,7 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.token").value("tok-123"))
+                .andExpect(jsonPath("$.data.userId").value(7))
                 .andExpect(jsonPath("$.data.username").value("alice"))
                 .andExpect(jsonPath("$.data.role").value("member"));
     }

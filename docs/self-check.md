@@ -409,7 +409,13 @@ mvn -f server/pom.xml test
    ```
    正确输出：`HTTP 200`（而不是地基 2 验证过的"无令牌 → 401/10002"）。
 5. 错误凭据应返回 `HTTP 401` + `code 11001`；用一个被停用的账号登录应返回 `HTTP 403` + `code 11002`
-   （停用账号目前需手动改库验证，本轮无管理接口）。
+   （本轮无管理接口，停用账号需手动改库验证）：
+   ```bash
+   # 停用 admin（验完记得改回 'enabled'）
+   docker exec hify-postgres psql -U hify -d hify \
+     -c "update sys_user set status='disabled' where username='admin';"
+   ```
+   再用 admin 登录应返回 `HTTP 403` + `code 11002`。
 
 ### 故意搞错（确认登录闭环真在守门）
 
