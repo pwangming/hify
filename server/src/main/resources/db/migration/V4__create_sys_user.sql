@@ -15,4 +15,4 @@ create table sys_user (
 comment on table sys_user is '系统用户（identity 模块）：Admin/Member 用 role 字段区分，不单独建角色表';
 
 -- 未软删用户的 username 唯一（配合 @TableLogic：软删后允许同名重新创建）。
-create unique index uk_sys_user_username on sys_user (username) where deleted = false;
+create unique index sys_user_username_uq on sys_user (username) where deleted = false;
