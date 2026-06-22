@@ -366,3 +366,55 @@ cd web && pnpm build   # 类型检查 + 构建
 
 把 `guard.ts` 第②步"无 token 跳登录"改成直接 `return true`，`pnpm test`——
 "需登录但无 token → 跳登录"用例应变红。能变红即守卫有效；验完改回。
+
+---
+
+## 地基 4：identity 登录闭环（建表迁移 V4 + 登录接口 + 首个 admin 引导）
+
+对应改动：`server/src/main/resources/db/migration/V4__*.sql`（`sys_user` 表）、
+`identity` 模块（`AuthService`、登录 Controller、`identity.service` 的 `AdminBootstrapRunner`）
+（读 `hify.identity.bootstrap-admin.{username,password}`）、`application.yml`（新增该配置块）、
+`deploy/.env.example`（新增 `HIFY_ADMIN_USERNAME`/`HIFY_ADMIN_PASSWORD`）。
+
+### 自动化自检（首选）
+
+```bash
+mvn -f server/pom.xml test
+```
+- ✅ `BUILD SUCCESS`，且本轮新增的 identity 测试全过（含 `AuthServiceTest`、登录 Controller 测试），
+  叠加既有的 `ModularityTests`、`LayerRulesTest` 等模块边界/分层校验同样全绿。
+- ❌ 红灯：`BUILD FAILURE`，或任一测试 `Failures > 0`。看 `server/target/surefire-reports/*.txt` 定位。
+
+### 运行时自检（手动冒烟，眼见为实）
+
+1. 在 `deploy/.env`（从 `.env.example` 复制）里配好：
+   ```
+   HIFY_ADMIN_USERNAME=admin
+   HIFY_ADMIN_PASSWORD=<一个强密码>
+   ```
+2. 启动应用 `mvn -f server/pom.xml spring-boot:run`，确认：
+   - `sys_user` 表自动建好（`docker exec hify-postgres psql -U hify -d hify -c "\d sys_user"`）；
+   - 日志或 DB 能看到首个 admin 账号被创建一次
+     （`docker exec hify-postgres psql -U hify -d hify -c "select username,role from sys_user;"`）。
+3. 拿这个 admin 账号登录拿 token：
+   ```bash
+   curl -i -X POST localhost:8080/api/v1/identity/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin","password":"<上面配的密码>"}'
+   ```
+   正确输出：`HTTP 200` + `Result.data` 里有 `token` 字段。
+4. 带着这个 token 打任意受保护路径（不再 401，证明令牌能通过 `JwtAuthenticationFilter` 验票）：
+   ```bash
+   curl -i -H "Authorization: Bearer <上一步拿到的token>" localhost:8080/api/v1/demo-items
+   ```
+   正确输出：`HTTP 200`（而不是地基 2 验证过的"无令牌 → 401/10002"）。
+5. 错误凭据应返回 `HTTP 401` + `code 11001`；用一个被停用的账号登录应返回 `HTTP 403` + `code 11002`
+   （停用账号目前需手动改库验证，本轮无管理接口）。
+
+### 故意搞错（确认登录闭环真在守门）
+
+把 `AuthService` 里密码校验那行临时改成永远通过，再用错误密码登录——应仍返回 401/11001 的检查会**变红**
+（错误密码反而登录成功）。这证明密码校验不是摆设。验证完恢复该行。
+
+> 📌 本轮**不含**：admin 用户管理接口、自助查询/改密、前端登录页接通、Testcontainers 连库测试——
+> 这些留待后续轮次（前端地基 4 已实现 UI 与守卫，但依赖的两个接口本轮才落地，需重新跑一遍前端运行时自检确认能端到端登录）。

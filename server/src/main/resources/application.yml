@@ -94,3 +94,8 @@ hify:
     # @Async 异步任务（事件监听落库等）并发上限。真正的瓶颈是 DB 连接池(20)，这里只是再加一道闸，
     # 防事件风暴等病态堆积。见 infra.config.AsyncConfig。
     concurrency-limit: ${HIFY_ASYNC_CONCURRENCY_LIMIT:64}
+  identity:
+    bootstrap-admin:
+      # 首个 admin 账号引导：值走 .env，不配则启动时告警跳过（不创建空密码账号）。
+      username: ${HIFY_ADMIN_USERNAME:}
+      password: ${HIFY_ADMIN_PASSWORD:}
