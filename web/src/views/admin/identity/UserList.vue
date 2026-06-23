@@ -18,6 +18,14 @@ const users = ref<AdminUser[]>([])
 const loading = ref(false)
 const userStore = useUserStore()
 
+// 本地搜索：按用户名筛选「显示」的行。注意只影响展示，不改 users（总数与护栏计数仍基于完整列表）。
+const search = ref('')
+const filteredUsers = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return users.value
+  return users.value.filter((u) => u.username.toLowerCase().includes(q))
+})
+
 async function load() {
   loading.value = true
   try {
@@ -136,10 +144,22 @@ async function submitCreate() {
 <template>
   <div class="user-list">
     <div class="user-list__header">
-      <h2>用户管理</h2>
-      <el-button type="primary" data-test="create-open" @click="openCreate">新建用户</el-button>
+      <div class="user-list__title">
+        <h2>用户管理</h2>
+        <span class="user-list__count">共 {{ users.length }} 个用户</span>
+      </div>
+      <div class="user-list__actions">
+        <el-input
+          v-model="search"
+          data-test="search"
+          placeholder="搜索用户名"
+          clearable
+          class="user-list__search"
+        />
+        <el-button type="primary" data-test="create-open" @click="openCreate">新建用户</el-button>
+      </div>
     </div>
-    <el-table v-loading="loading" :data="users" data-test="user-table">
+    <el-table v-loading="loading" :data="filteredUsers" data-test="user-table">
       <el-table-column prop="username" label="用户名" />
       <el-table-column label="角色">
         <template #default="{ row }">
@@ -239,5 +259,26 @@ async function submitCreate() {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.user-list__title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.user-list__count {
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+}
+
+.user-list__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-list__search {
+  width: 220px;
 }
 </style>

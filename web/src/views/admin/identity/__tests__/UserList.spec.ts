@@ -188,4 +188,22 @@ describe('UserList', () => {
     await flushPromises()
     expect(enableUser).toHaveBeenCalledWith('3')
   })
+
+  it('显示用户总数', async () => {
+    const wrapper = mount(UserList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('共 2 个用户')
+  })
+
+  it('本地搜索按用户名筛选（不改总数、不动护栏计数）', async () => {
+    const wrapper = mount(UserList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.get('[data-test="search"]').setValue('alice')
+    await flushPromises()
+    // alice（id 2）保留，admin（id 1）被滤掉
+    expect(wrapper.find('[data-test="disable-2"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="disable-1"]').exists()).toBe(false)
+    // 总数仍显示全部 2 个（搜索只影响显示行，不改总数）
+    expect(wrapper.text()).toContain('共 2 个用户')
+  })
 })
