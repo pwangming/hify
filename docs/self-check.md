@@ -447,8 +447,8 @@ mvn -f server/pom.xml test
 ```bash
 mvn -f server/pom.xml test
 ```
-- ✅ `BUILD SUCCESS`，`Tests run: 94, Failures: 0, Errors: 0`；本轮新增
-  `AdminUserServiceTest`(16)、`AdminUserControllerTest`(10) 全过，叠加既有 `ModularityTests`(1)、
+- ✅ `BUILD SUCCESS`，`Tests run: 95, Failures: 0, Errors: 0`；本轮新增
+  `AdminUserServiceTest`(17)、`AdminUserControllerTest`(10) 全过，叠加既有 `ModularityTests`(1)、
   `LayerRulesTest`(5) 同样全绿（确认新 controller/service/dto 放对层、无跨模块越界）。
 - ❌ 红灯：`BUILD FAILURE`，或任一测试 `Failures > 0`。看 `server/target/surefire-reports/*.txt` 定位。
 
@@ -484,12 +484,14 @@ mvn -f server/pom.xml test
 3. 验权限分层：用 `bob`（member 角色）登录拿 token，再访问任意上述接口——期望 `HTTP 403` + `code 10004`。
    无令牌访问 `GET /api/v1/admin/identity/users`——期望 `HTTP 401` + `code 10002`。
 4. 验校验：创建用户传空用户名/短密码/非法角色——期望 `HTTP 400` + `code 10001`，`data` 是字段错误数组。
-5. 验「保留最后一个启用 admin」护栏（11003）。先确认当前只有一个启用 admin（bootstrap 账号），再试停用它：
+5. 验重名冲突：再创建一个用户名为 `bob` 的账号（步骤 2 已建过）——期望 `HTTP 409` + `code 10006`。
+   （并发同名极端情况由 `create` 兜底捕获 DB 唯一索引冲突 `DuplicateKeyException`，同样转 409/10006。）
+6. 验「保留最后一个启用 admin」护栏（11003）。先确认当前只有一个启用 admin（bootstrap 账号），再试停用它：
    ```bash
    curl -s -X POST localhost:8080/api/v1/admin/identity/users/<admin的ID>/disable -H "Authorization: Bearer $TOKEN"
    ```
-   期望 `HTTP 4xx` + `code 11003`（具体状态码见 `IdentityError` 映射）。同理：把它降级成 member、或删除它，
-   都应分别命中 11003。验证完不需要还原（本来就没改动成功）。
+   期望 `HTTP 409` + `code 11003`（`IdentityError.CANNOT_REMOVE_LAST_ADMIN` 映射 `HttpStatus.CONFLICT`）。
+   同理：把它降级成 member、或删除它，都应分别命中 11003。验证完不需要还原（本来就没改动成功）。
 
 ### 故意搞错（确认护栏真在守门）
 
