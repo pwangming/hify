@@ -106,7 +106,8 @@ class AdminUserControllerTest {
                         .header("Authorization", "Bearer " + adminToken())
                         .contentType("application/json")
                         .content("{\"password\":\"newpw5678\"}"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test
@@ -124,7 +125,8 @@ class AdminUserControllerTest {
     void 删除_admin_200() throws Exception {
         mockMvc.perform(delete("/api/v1/admin/identity/users/7")
                         .header("Authorization", "Bearer " + adminToken()))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test

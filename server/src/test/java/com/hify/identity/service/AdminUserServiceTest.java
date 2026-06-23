@@ -225,4 +225,14 @@ class AdminUserServiceTest {
 
         verify(mapper, org.mockito.Mockito.never()).deleteById(org.mockito.ArgumentMatchers.anyLong());
     }
+
+    @Test
+    void 创建用户_并发命中唯一索引_转CONFLICT() {
+        when(mapper.selectCount(any())).thenReturn(0L); // 预检通过
+        when(mapper.insert(any(SysUser.class))).thenThrow(new org.springframework.dao.DuplicateKeyException("dup"));
+
+        BizException ex = assertThrows(BizException.class,
+                () -> service.create("alice", "rawpw1234", CurrentUser.ROLE_MEMBER));
+        assertEquals(CommonError.CONFLICT, ex.errorCode());
+    }
 }

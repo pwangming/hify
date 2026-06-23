@@ -9,6 +9,7 @@ import com.hify.identity.dto.UserView;
 import com.hify.identity.entity.SysUser;
 import com.hify.identity.mapper.SysUserMapper;
 import com.hify.infra.security.CurrentUser;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +43,11 @@ public class AdminUserService {
         u.setPasswordHash(passwordEncoder.encode(rawPassword));
         u.setRole(role);
         u.setStatus(UserStatus.ENABLED.value());
-        sysUserMapper.insert(u);
+        try {
+            sysUserMapper.insert(u);
+        } catch (DuplicateKeyException e) {
+            throw new BizException(CommonError.CONFLICT, "用户名已存在", e);
+        }
         return toView(u);
     }
 
