@@ -10,6 +10,10 @@ import type { UserRole } from '@/types/user'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
 
+// 密码长度约束，对齐后端 CreateUserRequest @Size(min=8,max=72)（72=BCrypt 字节上限）
+const PASSWORD_MIN = 8
+const PASSWORD_MAX = 72
+
 const users = ref<AdminUser[]>([])
 const loading = ref(false)
 const userStore = useUserStore()
@@ -78,7 +82,7 @@ async function onResetPassword(row: AdminUser) {
   try {
     const { value } = await ElMessageBox.prompt(`为用户「${row.username}」设置新密码`, '重置密码', {
       inputType: 'password',
-      inputPattern: /^.{8,72}$/,
+      inputPattern: new RegExp(`^.{${PASSWORD_MIN},${PASSWORD_MAX}}$`),
       inputErrorMessage: '密码长度需为 8~72 个字符',
     })
     await runAction(() => resetPassword(row.id, value), '密码已重置')
@@ -101,7 +105,7 @@ const rules: FormRules<CreateUserRequest> = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 8, max: 72, message: '密码长度需为 8~72 个字符', trigger: 'blur' },
+    { min: PASSWORD_MIN, max: PASSWORD_MAX, message: '密码长度需为 8~72 个字符', trigger: 'blur' },
   ],
   role: [{ required: true, message: '请选择角色', trigger: 'change' }],
 }
@@ -120,7 +124,7 @@ async function submitCreate() {
   // 见本任务排查报告；真实浏览器无此 bug）。提交前再按后端 CreateUserRequest 约束校验一次，
   // 确保「不合法不提交」既能被测试验证、也是生产代码的可靠护栏。
   if (!form.username || form.username.length > 50) return
-  if (form.password.length < 8 || form.password.length > 72) return
+  if (form.password.length < PASSWORD_MIN || form.password.length > PASSWORD_MAX) return
   if (!form.role) return
   await createUser({ ...form })
   ElMessage.success('用户已创建')
@@ -178,22 +182,30 @@ async function submitCreate() {
             @click="onEnable(row)"
           >启用</el-button>
 
-          <el-button
-            :data-test="`role-${row.id}`"
-            size="small"
-            :disabled="!!dangerDisabledReason(row)"
-            @click="onChangeRole(row)"
-          >{{ row.role === 'admin' ? '降为成员' : '升为管理员' }}</el-button>
+          <el-tooltip :disabled="!dangerDisabledReason(row)" :content="dangerDisabledReason(row) ?? ''">
+            <span>
+              <el-button
+                :data-test="`role-${row.id}`"
+                size="small"
+                :disabled="!!dangerDisabledReason(row)"
+                @click="onChangeRole(row)"
+              >{{ row.role === 'admin' ? '降为成员' : '升为管理员' }}</el-button>
+            </span>
+          </el-tooltip>
 
           <el-button :data-test="`reset-${row.id}`" size="small" @click="onResetPassword(row)">重置密码</el-button>
 
-          <el-button
-            :data-test="`delete-${row.id}`"
-            size="small"
-            type="danger"
-            :disabled="!!dangerDisabledReason(row)"
-            @click="onDelete(row)"
-          >删除</el-button>
+          <el-tooltip :disabled="!dangerDisabledReason(row)" :content="dangerDisabledReason(row) ?? ''">
+            <span>
+              <el-button
+                :data-test="`delete-${row.id}`"
+                size="small"
+                type="danger"
+                :disabled="!!dangerDisabledReason(row)"
+                @click="onDelete(row)"
+              >删除</el-button>
+            </span>
+          </el-tooltip>
         </template>
       </el-table-column>
     </el-table>
