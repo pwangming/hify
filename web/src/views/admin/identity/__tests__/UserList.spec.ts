@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
-import { listUsers } from '@/api/admin/user'
+import { listUsers, createUser } from '@/api/admin/user'
 import type { AdminUser } from '@/types/admin-user'
 import { useUserStore } from '@/stores/user'
 import UserList from '@/views/admin/identity/UserList.vue'
@@ -75,5 +75,35 @@ describe('UserList', () => {
     expect(wrapper.get('[data-test="disable-1"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="delete-1"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="role-1"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('新建表单：用户名为空时拦截，不调 createUser', async () => {
+    const wrapper = mount(UserList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.get('[data-test="create-open"]').trigger('click')
+    await flushPromises()
+    // 不填用户名直接提交
+    await wrapper.get('[data-test="create-submit"]').trigger('click')
+    await flushPromises()
+    expect(createUser).not.toHaveBeenCalled()
+  })
+
+  it('新建成功：调 createUser 后重新拉列表', async () => {
+    vi.mocked(createUser).mockResolvedValue({
+      id: '5', username: 'dave', role: 'member', status: 'enabled', createTime: '2026-06-23T08:00:00+08:00',
+    })
+    const wrapper = mount(UserList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(listUsers).toHaveBeenCalledTimes(1)
+
+    await wrapper.get('[data-test="create-open"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="create-username"]').setValue('dave')
+    await wrapper.get('[data-test="create-password"]').setValue('secret12')
+    await wrapper.get('[data-test="create-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(createUser).toHaveBeenCalledWith({ username: 'dave', password: 'secret12', role: 'member' })
+    expect(listUsers).toHaveBeenCalledTimes(2) // 新建后重拉
   })
 })

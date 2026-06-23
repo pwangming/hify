@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { listUsers } from '@/api/admin/user'
-import type { AdminUser } from '@/types/admin-user'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { listUsers, createUser } from '@/api/admin/user'
+import type { AdminUser, CreateUserRequest } from '@/types/admin-user'
 import { useUserStore } from '@/stores/user'
 
 const users = ref<AdminUser[]>([])
@@ -39,12 +40,50 @@ function onEnable(_row: AdminUser) {}
 function onChangeRole(_row: AdminUser) {}
 function onResetPassword(_row: AdminUser) {}
 function onDelete(_row: AdminUser) {}
+
+const dialogVisible = ref(false)
+const formRef = ref<FormInstance>()
+const form = reactive<CreateUserRequest>({ username: '', password: '', role: 'member' })
+const rules: FormRules<CreateUserRequest> = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { max: 50, message: '用户名不超过 50 个字符', trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 8, max: 72, message: '密码长度需为 8~72 个字符', trigger: 'blur' },
+  ],
+  role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+}
+
+function openCreate() {
+  form.username = ''
+  form.password = ''
+  form.role = 'member'
+  dialogVisible.value = true
+}
+async function submitCreate() {
+  if (!formRef.value) return
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+  // 兜底：当前 vitest + happy-dom 下 el-form.validate() 对空必填字段会误判为通过（工具链兼容问题，
+  // 见本任务排查报告；真实浏览器无此 bug）。提交前再按后端 CreateUserRequest 约束校验一次，
+  // 确保「不合法不提交」既能被测试验证、也是生产代码的可靠护栏。
+  if (!form.username || form.username.length > 50) return
+  if (form.password.length < 8 || form.password.length > 72) return
+  if (!form.role) return
+  await createUser({ ...form })
+  ElMessage.success('用户已创建')
+  dialogVisible.value = false
+  await load()
+}
 </script>
 
 <template>
   <div class="user-list">
     <div class="user-list__header">
       <h2>用户管理</h2>
+      <el-button type="primary" data-test="create-open" @click="openCreate">新建用户</el-button>
     </div>
     <el-table v-loading="loading" :data="users" data-test="user-table">
       <el-table-column prop="username" label="用户名" />
@@ -106,6 +145,27 @@ function onDelete(_row: AdminUser) {}
         </template>
       </el-table-column>
     </el-table>
+
+    <el-dialog v-model="dialogVisible" title="新建用户" width="480">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="form.username" data-test="create-username" maxlength="50" />
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="form.password" type="password" data-test="create-password" />
+        </el-form-item>
+        <el-form-item label="角色" prop="role">
+          <el-select v-model="form.role" data-test="create-role">
+            <el-option label="成员" value="member" />
+            <el-option label="管理员" value="admin" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" data-test="create-submit" @click="submitCreate">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
