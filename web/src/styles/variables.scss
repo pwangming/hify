@@ -105,3 +105,14 @@ $z-dropdown: 1000;
 $z-sticky:   1010;
 $z-modal:    2000;
 $z-message:  3000;
+
+// ============================================================
+// 侧边栏深色主题（与浅色内容区形成对比）—— 仅侧栏使用
+// ============================================================
+$color-bg-dark:        #17181d;                   // 侧栏底色：近黑带一丝冷调，非纯黑
+$sidebar-hover-bg:     rgba(255, 255, 255, 0.10); // 菜单 hover 背景
+$sidebar-active-bg:    rgba(94, 106, 210, 0.18);  // 选中背景：主色淡染，与 hover 区分
+$sidebar-active-bar:   $color-primary;            // 选中态左侧 3px 主色竖线
+$sidebar-text:         rgba(255, 255, 255, 0.72); // 菜单默认文字
+$sidebar-text-active:  #ffffff;                   // hover / 选中文字（提亮到纯白）
+$sidebar-text-muted:   rgba(255, 255, 255, 0.38); // 副标题、版本号

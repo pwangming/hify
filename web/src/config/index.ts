@@ -3,4 +3,6 @@
 export const config = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
   apiTimeout: Number(import.meta.env.VITE_API_TIMEOUT),
+  // 应用版本号（Vite define 从 package.json 注入，见 vite.config.ts）
+  appVersion: __APP_VERSION__,
 }

@@ -9,3 +9,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Vite define 注入的编译期常量（见 vite.config.ts）。
+declare const __APP_VERSION__: string
