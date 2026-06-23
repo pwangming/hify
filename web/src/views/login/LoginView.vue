@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { login, getCurrentUser } from '@/api/auth'
+import { login } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
 // 登录页：账号密码 → 拿 token → 拉用户 → 跳回 redirect 目标（或首页）。
