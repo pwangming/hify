@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
-import { listUsers, createUser } from '@/api/admin/user'
+import { listUsers, createUser, disableUser, enableUser, deleteUser, changeRole, resetPassword } from '@/api/admin/user'
+import { ElMessageBox } from 'element-plus'
 import type { AdminUser } from '@/types/admin-user'
 import { useUserStore } from '@/stores/user'
 import UserList from '@/views/admin/identity/UserList.vue'
@@ -105,5 +106,86 @@ describe('UserList', () => {
 
     expect(createUser).toHaveBeenCalledWith({ username: 'dave', password: 'secret12', role: 'member' })
     expect(listUsers).toHaveBeenCalledTimes(2) // 新建后重拉
+  })
+
+  it('停用：确认后调 disableUser 并重拉', async () => {
+    const store = useUserStore()
+    store.user = { id: '99', username: 'root', role: 'admin' }
+    vi.mocked(listUsers).mockResolvedValue([
+      { id: '1', username: 'admin', role: 'admin', status: 'enabled', createTime: '2026-06-20T10:00:00+08:00' },
+      { id: '2', username: 'alice', role: 'member', status: 'enabled', createTime: '2026-06-21T09:30:00+08:00' },
+    ])
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
+    vi.mocked(disableUser).mockResolvedValue({
+      id: '2', username: 'alice', role: 'member', status: 'disabled', createTime: '2026-06-21T09:30:00+08:00',
+    })
+    const wrapper = mount(UserList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.get('[data-test="disable-2"]').trigger('click')
+    await flushPromises()
+    expect(disableUser).toHaveBeenCalledWith('2')
+    expect(listUsers).toHaveBeenCalledTimes(2)
+  })
+
+  it('删除：确认框取消则不调 deleteUser', async () => {
+    const store = useUserStore()
+    store.user = { id: '99', username: 'root', role: 'admin' }
+    vi.mocked(listUsers).mockResolvedValue([
+      { id: '2', username: 'alice', role: 'member', status: 'enabled', createTime: '2026-06-21T09:30:00+08:00' },
+    ])
+    vi.spyOn(ElMessageBox, 'confirm').mockRejectedValue('cancel')
+    const wrapper = mount(UserList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.get('[data-test="delete-2"]').trigger('click')
+    await flushPromises()
+    expect(deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('升为管理员：确认后调 changeRole(id, "admin")', async () => {
+    const store = useUserStore()
+    store.user = { id: '99', username: 'root', role: 'admin' }
+    vi.mocked(listUsers).mockResolvedValue([
+      { id: '2', username: 'alice', role: 'member', status: 'enabled', createTime: '2026-06-21T09:30:00+08:00' },
+    ])
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
+    vi.mocked(changeRole).mockResolvedValue({
+      id: '2', username: 'alice', role: 'admin', status: 'enabled', createTime: '2026-06-21T09:30:00+08:00',
+    })
+    const wrapper = mount(UserList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.get('[data-test="role-2"]').trigger('click')
+    await flushPromises()
+    expect(changeRole).toHaveBeenCalledWith('2', 'admin')
+  })
+
+  it('重置密码：输入新密码后调 resetPassword', async () => {
+    const store = useUserStore()
+    store.user = { id: '99', username: 'root', role: 'admin' }
+    vi.mocked(listUsers).mockResolvedValue([
+      { id: '2', username: 'alice', role: 'member', status: 'enabled', createTime: '2026-06-21T09:30:00+08:00' },
+    ])
+    vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: 'newpass12', action: 'confirm' })
+    vi.mocked(resetPassword).mockResolvedValue()
+    const wrapper = mount(UserList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.get('[data-test="reset-2"]').trigger('click')
+    await flushPromises()
+    expect(resetPassword).toHaveBeenCalledWith('2', 'newpass12')
+  })
+
+  it('启用：直接调 enableUser（无需确认）', async () => {
+    const store = useUserStore()
+    store.user = { id: '99', username: 'root', role: 'admin' }
+    vi.mocked(listUsers).mockResolvedValue([
+      { id: '3', username: 'bob', role: 'member', status: 'disabled', createTime: '2026-06-22T14:15:00+08:00' },
+    ])
+    vi.mocked(enableUser).mockResolvedValue({
+      id: '3', username: 'bob', role: 'member', status: 'enabled', createTime: '2026-06-22T14:15:00+08:00',
+    })
+    const wrapper = mount(UserList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.get('[data-test="enable-3"]').trigger('click')
+    await flushPromises()
+    expect(enableUser).toHaveBeenCalledWith('3')
   })
 })

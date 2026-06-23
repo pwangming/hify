@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { listUsers, createUser } from '@/api/admin/user'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import {
+  listUsers, createUser, enableUser, disableUser,
+  resetPassword, changeRole, deleteUser,
+} from '@/api/admin/user'
 import type { AdminUser, CreateUserRequest } from '@/types/admin-user'
+import type { UserRole } from '@/types/user'
 import { useUserStore } from '@/stores/user'
 
 const users = ref<AdminUser[]>([])
@@ -35,11 +39,56 @@ function dangerDisabledReason(row: AdminUser): string | null {
   return null
 }
 
-function onDisable(_row: AdminUser) {}
-function onEnable(_row: AdminUser) {}
-function onChangeRole(_row: AdminUser) {}
-function onResetPassword(_row: AdminUser) {}
-function onDelete(_row: AdminUser) {}
+/** 执行一个动作并在成功后提示 + 重拉。业务/网络错误已由 request 拦截器弹 toast，这里吞掉避免未处理拒绝。 */
+async function runAction(action: () => Promise<unknown>, successMsg: string) {
+  try {
+    await action()
+    ElMessage.success(successMsg)
+    await load()
+  } catch {
+    /* 已由 request 拦截器统一处理 */
+  }
+}
+
+/** 危险操作二次确认；用户取消返回 false。 */
+async function confirmDanger(message: string, title: string): Promise<boolean> {
+  try {
+    await ElMessageBox.confirm(message, title, { type: 'warning' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function onDisable(row: AdminUser) {
+  if (!(await confirmDanger(`确定停用用户「${row.username}」？`, '停用确认'))) return
+  await runAction(() => disableUser(row.id), '已停用')
+}
+async function onEnable(row: AdminUser) {
+  await runAction(() => enableUser(row.id), '已启用')
+}
+async function onChangeRole(row: AdminUser) {
+  const target: UserRole = row.role === 'admin' ? 'member' : 'admin'
+  const label = target === 'admin' ? '管理员' : '成员'
+  if (!(await confirmDanger(`确定将「${row.username}」改为${label}？`, '改角色确认'))) return
+  await runAction(() => changeRole(row.id, target), '角色已修改')
+}
+async function onResetPassword(row: AdminUser) {
+  try {
+    const { value } = await ElMessageBox.prompt(`为用户「${row.username}」设置新密码`, '重置密码', {
+      inputType: 'password',
+      inputPattern: /^.{8,72}$/,
+      inputErrorMessage: '密码长度需为 8~72 个字符',
+    })
+    await runAction(() => resetPassword(row.id, value), '密码已重置')
+  } catch {
+    /* 取消 */
+  }
+}
+async function onDelete(row: AdminUser) {
+  if (!(await confirmDanger(`确定删除用户「${row.username}」？此操作不可恢复。`, '删除确认'))) return
+  await runAction(() => deleteUser(row.id), '已删除')
+}
 
 const dialogVisible = ref(false)
 const formRef = ref<FormInstance>()
