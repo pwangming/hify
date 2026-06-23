@@ -14,7 +14,9 @@ public enum IdentityError implements ErrorCode {
     /** 用户名或密码错误。刻意不区分"用户不存在"与"密码错"，不泄露账号是否存在。 */
     BAD_CREDENTIALS(11001, HttpStatus.UNAUTHORIZED, "用户名或密码错误"),
     /** 账号已停用：用户存在且密码可能正确，但被管理员停用，禁止登录。 */
-    ACCOUNT_DISABLED(11002, HttpStatus.FORBIDDEN, "账号已停用");
+    ACCOUNT_DISABLED(11002, HttpStatus.FORBIDDEN, "账号已停用"),
+    /** 不能移除最后一个启用的管理员（停用/降级/删除三处共用）：系统须至少保留一个可用 admin。 */
+    CANNOT_REMOVE_LAST_ADMIN(11003, HttpStatus.CONFLICT, "系统至少保留一个启用的管理员");
 
     private final int code;
     private final HttpStatus status;

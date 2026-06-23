@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
@@ -56,6 +57,19 @@ public class GlobalExceptionHandler {
                 fieldErrors,
                 currentTraceId());
         return ResponseEntity.status(CommonError.PARAM_INVALID.status()).body(body);
+    }
+
+    /**
+     * 路径参数/查询参数类型转换失败（如把非数字传给 {@code Long id}），Spring 抛
+     * {@link MethodArgumentTypeMismatchException}。这属于「请求格式错」，归 10001/400，
+     * 否则会被下面的 {@code Exception} 兜底误判为 500。message 只点出参数名（用户可读），
+     * 不带类型/类名等内部细节。
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Result<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity
+                .status(CommonError.PARAM_INVALID.status())
+                .body(Result.fail(CommonError.PARAM_INVALID, "参数 '" + ex.getName() + "' 格式错误"));
     }
 
     /**
