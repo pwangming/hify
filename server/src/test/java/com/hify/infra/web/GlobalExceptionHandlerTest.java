@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -74,6 +75,17 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void 路径参数类型不匹配_转400_10001而非兜底500() throws Exception {
+        // 给 Long 路径参数传非数字，Spring 抛 MethodArgumentTypeMismatchException，
+        // 必须单独接住转 400/10001，否则被 Exception 兜底误判为 500/10000。
+        mockMvc.perform(get("/test/typed/abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(10001))
+                // 原始异常细节（类型名等）绝不出现在响应里
+                .andExpect(content().string(not(containsString("Long"))));
+    }
+
+    @Test
     void 未知路径_转404而非被兜底吞成500() {
         // NoResourceFoundException 由 DispatcherServlet 在「无匹配处理器」时抛出，
         // 用 standaloneSetup 不易真实触发，这里直接调用处理方法验证映射逻辑。
@@ -102,6 +114,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/boom")
         public void boom() {
             throw new RuntimeException("secret detail");
+        }
+
+        @GetMapping("/test/typed/{id}")
+        public void typed(@PathVariable Long id) {
+            // 仅用于触发路径参数类型转换失败；传非数字 id 即抛 MethodArgumentTypeMismatchException
         }
     }
 
