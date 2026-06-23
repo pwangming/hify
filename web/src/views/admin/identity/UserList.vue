@@ -8,6 +8,7 @@ import {
 import type { AdminUser, CreateUserRequest } from '@/types/admin-user'
 import type { UserRole } from '@/types/user'
 import { useUserStore } from '@/stores/user'
+import { formatDateTime } from '@/utils/datetime'
 
 const users = ref<AdminUser[]>([])
 const loading = ref(false)
@@ -150,7 +151,9 @@ async function submitCreate() {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" />
+      <el-table-column label="创建时间">
+        <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+      </el-table-column>
       <el-table-column label="操作" width="320">
         <template #default="{ row }">
           <el-tooltip
