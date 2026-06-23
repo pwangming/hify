@@ -152,4 +152,77 @@ class AdminUserServiceTest {
         BizException ex = assertThrows(BizException.class, () -> service.disable(99L));
         assertEquals(CommonError.NOT_FOUND, ex.errorCode());
     }
+
+    @Test
+    void 重置密码_写入哈希值() {
+        SysUser member = user(2L, "bob", CurrentUser.ROLE_MEMBER, UserStatus.ENABLED);
+        when(mapper.selectById(2L)).thenReturn(member);
+        ArgumentCaptor<SysUser> captor = ArgumentCaptor.forClass(SysUser.class);
+
+        service.resetPassword(2L, "newpw5678");
+
+        verify(mapper).updateById(captor.capture());
+        assertTrue(encoder.matches("newpw5678", captor.getValue().getPasswordHash()));
+    }
+
+    @Test
+    void 改角色_升级member为admin_无护栏成功() {
+        SysUser member = user(2L, "bob", CurrentUser.ROLE_MEMBER, UserStatus.ENABLED);
+        when(mapper.selectById(2L)).thenReturn(member);
+
+        UserView view = service.changeRole(2L, CurrentUser.ROLE_ADMIN);
+
+        assertEquals(CurrentUser.ROLE_ADMIN, view.role());
+    }
+
+    @Test
+    void 改角色_降级最后一个启用admin_抛11003() {
+        SysUser admin = user(1L, "alice", CurrentUser.ROLE_ADMIN, UserStatus.ENABLED);
+        when(mapper.selectById(1L)).thenReturn(admin);
+        when(mapper.selectCount(any())).thenReturn(1L);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> service.changeRole(1L, CurrentUser.ROLE_MEMBER));
+        assertEquals(com.hify.identity.constant.IdentityError.CANNOT_REMOVE_LAST_ADMIN, ex.errorCode());
+    }
+
+    @Test
+    void 改角色_同角色_幂等不写库() {
+        SysUser member = user(2L, "bob", CurrentUser.ROLE_MEMBER, UserStatus.ENABLED);
+        when(mapper.selectById(2L)).thenReturn(member);
+
+        UserView view = service.changeRole(2L, CurrentUser.ROLE_MEMBER);
+
+        assertEquals(CurrentUser.ROLE_MEMBER, view.role());
+        verify(mapper, org.mockito.Mockito.never()).updateById(any(SysUser.class));
+    }
+
+    @Test
+    void 删除_最后一个启用admin_抛11003() {
+        SysUser admin = user(1L, "alice", CurrentUser.ROLE_ADMIN, UserStatus.ENABLED);
+        when(mapper.selectById(1L)).thenReturn(admin);
+        when(mapper.selectCount(any())).thenReturn(1L);
+
+        BizException ex = assertThrows(BizException.class, () -> service.delete(1L));
+        assertEquals(com.hify.identity.constant.IdentityError.CANNOT_REMOVE_LAST_ADMIN, ex.errorCode());
+    }
+
+    @Test
+    void 删除_普通用户_走软删() {
+        SysUser member = user(2L, "bob", CurrentUser.ROLE_MEMBER, UserStatus.ENABLED);
+        when(mapper.selectById(2L)).thenReturn(member);
+
+        service.delete(2L);
+
+        verify(mapper).deleteById(2L);
+    }
+
+    @Test
+    void 删除_用户不存在_幂等成功不抛() {
+        when(mapper.selectById(99L)).thenReturn(null);
+
+        service.delete(99L); // 不抛异常即通过
+
+        verify(mapper, org.mockito.Mockito.never()).deleteById(org.mockito.ArgumentMatchers.anyLong());
+    }
 }

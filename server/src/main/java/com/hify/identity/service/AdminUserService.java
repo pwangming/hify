@@ -72,6 +72,35 @@ public class AdminUserService {
         return toView(user);
     }
 
+    @Transactional
+    public void resetPassword(Long id, String rawPassword) {
+        SysUser user = require(id);
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        sysUserMapper.updateById(user);
+    }
+
+    @Transactional
+    public UserView changeRole(Long id, String role) {
+        SysUser user = require(id);
+        if (role.equals(user.getRole())) {
+            return toView(user); // 同角色幂等，不写库
+        }
+        assertNotLastEnabledAdmin(user); // 仅 admin→member 降级会命中护栏内部条件；member→admin 为 no-op
+        user.setRole(role);
+        sysUserMapper.updateById(user);
+        return toView(user);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        SysUser user = sysUserMapper.selectById(id);
+        if (user == null) {
+            return; // 幂等：删不存在/已软删的也算成功（api-standards 第 2.2 节）
+        }
+        assertNotLastEnabledAdmin(user);
+        sysUserMapper.deleteById(id); // @TableLogic → update set deleted=true
+    }
+
     /** 按 id 取用户，不存在则 404。@TableLogic 保证 selectById 只命中未软删的记录。 */
     private SysUser require(Long id) {
         SysUser user = sysUserMapper.selectById(id);
