@@ -1,0 +1,425 @@
+{
+  "info": {
+    "name": "Hify · admin 用户管理（地基5）",
+    "_postman_id": "a1b2c3d4-0001-4a00-9000-hifyadminusers",
+    "description": "验证 /api/v1/admin/identity/users 的 7 个接口 + 负向用例（403/401/400/409/11003）。\n\n用法：\n1) 导入本文件。\n2) 在 Collection 变量里把 adminPassword 改成你 deploy/.env 里的 HIFY_ADMIN_PASSWORD（baseUrl 默认 http://localhost:8080）。\n3) 起后端：mvn -f server/pom.xml spring-boot:run。\n4) 点 Collection 右上「Run」按顺序跑全部，或单条点 Send。\n\n说明：登录会自动把 token、adminId 写进 Collection 变量；「创建用户 bob」会把返回 id 写进 userId，后续停用/启用/改密/改角色/删除都用它。负向用例会临时建一个 member 账号 mallory 来验权限分层。请按从上到下的顺序运行（请求间有状态依赖）。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminUsername", "value": "admin" },
+    { "key": "adminPassword", "value": "改成你的_HIFY_ADMIN_PASSWORD" },
+    { "key": "token", "value": "" },
+    { "key": "adminId", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "memberToken", "value": "" },
+    { "key": "malloryId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. admin 登录（存 token + adminId）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 且有 token', function () {",
+              "  pm.response.to.have.status(200);",
+              "  var b = pm.response.json();",
+              "  pm.expect(b.code).to.eql(200);",
+              "  pm.expect(b.data.token).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('token', b.data.token);",
+              "  pm.collectionVariables.set('adminId', String(b.data.userId));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/identity/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "identity", "login"] }
+      }
+    },
+    {
+      "name": "2. 创建用户 bob（存 userId）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 + 无 passwordHash + id 是字符串', function () {",
+              "  pm.response.to.have.status(200);",
+              "  var b = pm.response.json();",
+              "  pm.expect(b.code).to.eql(200);",
+              "  pm.expect(b.data).to.not.have.property('passwordHash');",
+              "  pm.expect(b.data.id).to.be.a('string');",
+              "  pm.expect(b.data.status).to.eql('enabled');",
+              "  pm.collectionVariables.set('userId', b.data.id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"bob\",\n  \"password\": \"rawpw1234\",\n  \"role\": \"member\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users"] }
+      }
+    },
+    {
+      "name": "3. 用户列表",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 + data 是数组 + 含 bob 且无 passwordHash', function () {",
+              "  pm.response.to.have.status(200);",
+              "  var b = pm.response.json();",
+              "  pm.expect(b.code).to.eql(200);",
+              "  pm.expect(b.data).to.be.an('array');",
+              "  if (b.data.length) pm.expect(b.data[0]).to.not.have.property('passwordHash');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users"] }
+      }
+    },
+    {
+      "name": "4. 停用 bob",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 + status=disabled', function () {",
+              "  pm.response.to.have.status(200);",
+              "  var b = pm.response.json();",
+              "  pm.expect(b.data.status).to.eql('disabled');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users/{{userId}}/disable", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users", "{{userId}}", "disable"] }
+      }
+    },
+    {
+      "name": "5. 启用 bob",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 + status=enabled', function () {",
+              "  pm.response.to.have.status(200);",
+              "  var b = pm.response.json();",
+              "  pm.expect(b.data.status).to.eql('enabled');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users/{{userId}}/enable", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users", "{{userId}}", "enable"] }
+      }
+    },
+    {
+      "name": "6. 重置 bob 密码（void 端点）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 + data 为 null', function () {",
+              "  pm.response.to.have.status(200);",
+              "  var b = pm.response.json();",
+              "  pm.expect(b.code).to.eql(200);",
+              "  pm.expect(b.data).to.be.null;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"password\": \"newpw5678\"\n}" },
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users/{{userId}}/password", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users", "{{userId}}", "password"] }
+      }
+    },
+    {
+      "name": "7. 改 bob 角色为 admin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 + role=admin', function () {",
+              "  pm.response.to.have.status(200);",
+              "  var b = pm.response.json();",
+              "  pm.expect(b.data.role).to.eql('admin');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"role\": \"admin\"\n}" },
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users/{{userId}}/role", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users", "{{userId}}", "role"] }
+      }
+    },
+    {
+      "name": "8. 删除 bob（软删，void 端点）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 + data 为 null', function () {",
+              "  pm.response.to.have.status(200);",
+              "  var b = pm.response.json();",
+              "  pm.expect(b.code).to.eql(200);",
+              "  pm.expect(b.data).to.be.null;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users", "{{userId}}"] }
+      }
+    },
+    {
+      "name": "负向用例",
+      "item": [
+        {
+          "name": "9. 建 member mallory（负向用例准备）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 创建成功（存 malloryId）', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  var b = pm.response.json();",
+                  "  pm.expect(b.data.role).to.eql('member');",
+                  "  pm.collectionVariables.set('malloryId', b.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"mallory\",\n  \"password\": \"rawpw1234\",\n  \"role\": \"member\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users"] }
+          }
+        },
+        {
+          "name": "10. mallory 登录（存 memberToken）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 且存 memberToken', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.collectionVariables.set('memberToken', pm.response.json().data.token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"mallory\",\n  \"password\": \"rawpw1234\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/identity/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "identity", "login"] }
+          }
+        },
+        {
+          "name": "11. member 调 admin 接口 → 403/10004",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 + code 10004', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().code).to.eql(10004);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{memberToken}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users"] }
+          }
+        },
+        {
+          "name": "12. 无令牌访问 → 401/10002",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 + code 10002', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().code).to.eql(10002);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users"] }
+          }
+        },
+        {
+          "name": "13. 创建校验失败 → 400/10001 + 字段数组",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 + code 10001 + data 是数组', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  var b = pm.response.json();",
+                  "  pm.expect(b.code).to.eql(10001);",
+                  "  pm.expect(b.data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"\",\n  \"password\": \"short\",\n  \"role\": \"boss\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users"] }
+          }
+        },
+        {
+          "name": "14. 重名冲突（再建 mallory）→ 409/10006",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 + code 10006', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "  pm.expect(pm.response.json().code).to.eql(10006);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"mallory\",\n  \"password\": \"rawpw1234\",\n  \"role\": \"member\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users"] }
+          }
+        },
+        {
+          "name": "15. 停用最后一个启用 admin → 409/11003",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 前置：此时系统里启用的 admin 只剩 bootstrap 账号（bob 已删、mallory 是 member）。",
+                  "pm.test('409 + code 11003', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "  pm.expect(pm.response.json().code).to.eql(11003);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/identity/users/{{adminId}}/disable", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "identity", "users", "{{adminId}}", "disable"] }
+          }
+        },
+        {
+          "name": "16. 清理：删除 mallory",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200（清理）', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/identity/users/{{malloryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "identity", "users", "{{malloryId}}"]
+            },
+            "description": "清理：删除负向用例建的 mallory。malloryId 已在「9. 建 member mallory」自动存好，直接 Send 即可。"
+          }
+        }
+      ]
+    }
+  ]
+}
