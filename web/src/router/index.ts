@@ -23,6 +23,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/admin/provider/ProviderList.vue'),
     meta: { requiresAuth: true, roles: ['admin'], title: '模型提供商管理', menu: true },
   },
+  {
+    path: '/admin/identity',
+    name: 'UserList',
+    component: () => import('@/views/admin/identity/UserList.vue'),
+    meta: { requiresAuth: true, roles: ['admin'], title: '用户管理', menu: true },
+  },
   // —— 样式预览（开发期视觉验收用，免登录、默认布局、进侧边菜单；定稿后可删）——
   {
     path: '/styleguide',
