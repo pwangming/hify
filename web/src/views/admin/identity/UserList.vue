@@ -184,64 +184,66 @@ async function submitCreate() {
         </el-table-column>
         <el-table-column label="操作" width="320">
           <template #default="{ row }">
-            <el-tooltip
-              v-if="dangerDisabledReason(row) && row.status === 'enabled'"
-              :content="dangerDisabledReason(row)!"
-            >
-              <span>
-                <el-button :data-test="`disable-${row.id}`" size="small" disabled>停用</el-button>
-              </span>
-            </el-tooltip>
-            <el-button
-              v-else-if="row.status === 'enabled'"
-              :data-test="`disable-${row.id}`"
-              size="small"
-              @click="onDisable(row)"
-              >停用</el-button
-            >
-            <el-button
-              v-else
-              :data-test="`enable-${row.id}`"
-              size="small"
-              type="success"
-              @click="onEnable(row)"
-              >启用</el-button
-            >
+            <div class="user-list__ops">
+              <el-tooltip
+                v-if="dangerDisabledReason(row) && row.status === 'enabled'"
+                :content="dangerDisabledReason(row)!"
+              >
+                <span>
+                  <el-button :data-test="`disable-${row.id}`" size="small" disabled>停用</el-button>
+                </span>
+              </el-tooltip>
+              <el-button
+                v-else-if="row.status === 'enabled'"
+                :data-test="`disable-${row.id}`"
+                size="small"
+                @click="onDisable(row)"
+                >停用</el-button
+              >
+              <el-button
+                v-else
+                :data-test="`enable-${row.id}`"
+                size="small"
+                type="success"
+                @click="onEnable(row)"
+                >启用</el-button
+              >
 
-            <el-tooltip
-              :disabled="!dangerDisabledReason(row)"
-              :content="dangerDisabledReason(row) ?? ''"
-            >
-              <span>
-                <el-button
-                  :data-test="`role-${row.id}`"
-                  size="small"
-                  :disabled="!!dangerDisabledReason(row)"
-                  @click="onChangeRole(row)"
-                  >{{ row.role === 'admin' ? '降为成员' : '升为管理员' }}</el-button
-                >
-              </span>
-            </el-tooltip>
+              <el-tooltip
+                :disabled="!dangerDisabledReason(row)"
+                :content="dangerDisabledReason(row) ?? ''"
+              >
+                <span>
+                  <el-button
+                    :data-test="`role-${row.id}`"
+                    size="small"
+                    :disabled="!!dangerDisabledReason(row)"
+                    @click="onChangeRole(row)"
+                    >{{ row.role === 'admin' ? '降为成员' : '升为管理员' }}</el-button
+                  >
+                </span>
+              </el-tooltip>
 
-            <el-button :data-test="`reset-${row.id}`" size="small" @click="onResetPassword(row)"
-              >重置密码</el-button
-            >
+              <el-button :data-test="`reset-${row.id}`" size="small" @click="onResetPassword(row)"
+                >重置密码</el-button
+              >
 
-            <el-tooltip
-              :disabled="!dangerDisabledReason(row)"
-              :content="dangerDisabledReason(row) ?? ''"
-            >
-              <span>
-                <el-button
-                  :data-test="`delete-${row.id}`"
-                  size="small"
-                  type="danger"
-                  :disabled="!!dangerDisabledReason(row)"
-                  @click="onDelete(row)"
-                  >删除</el-button
-                >
-              </span>
-            </el-tooltip>
+              <el-tooltip
+                :disabled="!dangerDisabledReason(row)"
+                :content="dangerDisabledReason(row) ?? ''"
+              >
+                <span>
+                  <el-button
+                    :data-test="`delete-${row.id}`"
+                    size="small"
+                    type="danger"
+                    :disabled="!!dangerDisabledReason(row)"
+                    @click="onDelete(row)"
+                    >删除</el-button
+                  >
+                </span>
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -273,5 +275,12 @@ async function submitCreate() {
 <style scoped lang="scss">
 .user-list__search {
   width: 220px;
+}
+
+// 操作列：按钮被 tooltip 包裹，EP 相邻按钮留白失效，改用 flex gap 统一间隔
+.user-list__ops {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
 }
 </style>
