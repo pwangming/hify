@@ -51,6 +51,8 @@ describe('DefaultLayout', () => {
       global: { plugins: [router, ElementPlus] },
     })
 
+    await wrapper.get('[data-test="user-menu"]').trigger('click')
+    await flushPromises()
     await wrapper.get('[data-test="logout"]').trigger('click')
     await flushPromises()
 
