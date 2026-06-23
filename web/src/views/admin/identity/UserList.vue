@@ -2,13 +2,20 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
-  listUsers, createUser, enableUser, disableUser,
-  resetPassword, changeRole, deleteUser,
+  listUsers,
+  createUser,
+  enableUser,
+  disableUser,
+  resetPassword,
+  changeRole,
+  deleteUser,
 } from '@/api/admin/user'
 import type { AdminUser, CreateUserRequest } from '@/types/admin-user'
 import type { UserRole } from '@/types/user'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
+import PageHeader from '@/components/PageHeader.vue'
+import ContentCard from '@/components/ContentCard.vue'
 
 // 密码长度约束，对齐后端 CreateUserRequest @Size(min=8,max=72)（72=BCrypt 字节上限）
 const PASSWORD_MIN = 8
@@ -99,7 +106,8 @@ async function onResetPassword(row: AdminUser) {
   }
 }
 async function onDelete(row: AdminUser) {
-  if (!(await confirmDanger(`确定删除用户「${row.username}」？此操作不可恢复。`, '删除确认'))) return
+  if (!(await confirmDanger(`确定删除用户「${row.username}」？此操作不可恢复。`, '删除确认')))
+    return
   await runAction(() => deleteUser(row.id), '已删除')
 }
 
@@ -143,92 +151,101 @@ async function submitCreate() {
 
 <template>
   <div class="user-list">
-    <div class="user-list__header">
-      <div class="user-list__title">
-        <h2>用户管理</h2>
-        <span class="user-list__count">共 {{ users.length }} 个用户</span>
-      </div>
-      <div class="user-list__actions">
-        <el-input
-          v-model="search"
-          data-test="search"
-          placeholder="搜索用户名"
-          clearable
-          class="user-list__search"
-        />
-        <el-button type="primary" data-test="create-open" @click="openCreate">新建用户</el-button>
-      </div>
-    </div>
-    <el-table v-loading="loading" :data="filteredUsers" data-test="user-table">
-      <el-table-column prop="username" label="用户名" />
-      <el-table-column label="角色">
-        <template #default="{ row }">
-          <el-tag :type="row.role === 'admin' ? 'danger' : 'info'">
-            {{ row.role === 'admin' ? '管理员' : '成员' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态">
-        <template #default="{ row }">
-          <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">
-            {{ row.status === 'enabled' ? '启用' : '停用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间">
-        <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="320">
-        <template #default="{ row }">
-          <el-tooltip
-            v-if="dangerDisabledReason(row) && row.status === 'enabled'"
-            :content="dangerDisabledReason(row)!"
-          >
-            <span>
-              <el-button :data-test="`disable-${row.id}`" size="small" disabled>停用</el-button>
-            </span>
-          </el-tooltip>
-          <el-button
-            v-else-if="row.status === 'enabled'"
-            :data-test="`disable-${row.id}`"
-            size="small"
-            @click="onDisable(row)"
-          >停用</el-button>
-          <el-button
-            v-else
-            :data-test="`enable-${row.id}`"
-            size="small"
-            type="success"
-            @click="onEnable(row)"
-          >启用</el-button>
+    <PageHeader title="用户管理" :description="`共 ${users.length} 个用户`">
+      <el-input
+        v-model="search"
+        data-test="search"
+        placeholder="搜索用户名"
+        clearable
+        class="user-list__search"
+      />
+      <el-button type="primary" data-test="create-open" @click="openCreate">新建用户</el-button>
+    </PageHeader>
 
-          <el-tooltip :disabled="!dangerDisabledReason(row)" :content="dangerDisabledReason(row) ?? ''">
-            <span>
-              <el-button
-                :data-test="`role-${row.id}`"
-                size="small"
-                :disabled="!!dangerDisabledReason(row)"
-                @click="onChangeRole(row)"
-              >{{ row.role === 'admin' ? '降为成员' : '升为管理员' }}</el-button>
-            </span>
-          </el-tooltip>
+    <ContentCard>
+      <el-table v-loading="loading" :data="filteredUsers" data-test="user-table">
+        <el-table-column prop="username" label="用户名" />
+        <el-table-column label="角色">
+          <template #default="{ row }">
+            <el-tag :type="row.role === 'admin' ? 'danger' : 'info'">
+              {{ row.role === 'admin' ? '管理员' : '成员' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">
+              {{ row.status === 'enabled' ? '启用' : '停用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间">
+          <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="320">
+          <template #default="{ row }">
+            <el-tooltip
+              v-if="dangerDisabledReason(row) && row.status === 'enabled'"
+              :content="dangerDisabledReason(row)!"
+            >
+              <span>
+                <el-button :data-test="`disable-${row.id}`" size="small" disabled>停用</el-button>
+              </span>
+            </el-tooltip>
+            <el-button
+              v-else-if="row.status === 'enabled'"
+              :data-test="`disable-${row.id}`"
+              size="small"
+              @click="onDisable(row)"
+              >停用</el-button
+            >
+            <el-button
+              v-else
+              :data-test="`enable-${row.id}`"
+              size="small"
+              type="success"
+              @click="onEnable(row)"
+              >启用</el-button
+            >
 
-          <el-button :data-test="`reset-${row.id}`" size="small" @click="onResetPassword(row)">重置密码</el-button>
+            <el-tooltip
+              :disabled="!dangerDisabledReason(row)"
+              :content="dangerDisabledReason(row) ?? ''"
+            >
+              <span>
+                <el-button
+                  :data-test="`role-${row.id}`"
+                  size="small"
+                  :disabled="!!dangerDisabledReason(row)"
+                  @click="onChangeRole(row)"
+                  >{{ row.role === 'admin' ? '降为成员' : '升为管理员' }}</el-button
+                >
+              </span>
+            </el-tooltip>
 
-          <el-tooltip :disabled="!dangerDisabledReason(row)" :content="dangerDisabledReason(row) ?? ''">
-            <span>
-              <el-button
-                :data-test="`delete-${row.id}`"
-                size="small"
-                type="danger"
-                :disabled="!!dangerDisabledReason(row)"
-                @click="onDelete(row)"
-              >删除</el-button>
-            </span>
-          </el-tooltip>
-        </template>
-      </el-table-column>
-    </el-table>
+            <el-button :data-test="`reset-${row.id}`" size="small" @click="onResetPassword(row)"
+              >重置密码</el-button
+            >
+
+            <el-tooltip
+              :disabled="!dangerDisabledReason(row)"
+              :content="dangerDisabledReason(row) ?? ''"
+            >
+              <span>
+                <el-button
+                  :data-test="`delete-${row.id}`"
+                  size="small"
+                  type="danger"
+                  :disabled="!!dangerDisabledReason(row)"
+                  @click="onDelete(row)"
+                  >删除</el-button
+                >
+              </span>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+      </el-table>
+    </ContentCard>
 
     <el-dialog v-model="dialogVisible" title="新建用户" width="480">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
@@ -254,30 +271,6 @@ async function submitCreate() {
 </template>
 
 <style scoped lang="scss">
-.user-list__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.user-list__title {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.user-list__count {
-  color: var(--el-text-color-secondary);
-  font-size: 14px;
-}
-
-.user-list__actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .user-list__search {
   width: 220px;
 }
