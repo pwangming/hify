@@ -92,4 +92,64 @@ class AdminUserServiceTest {
         assertEquals(CurrentUser.ROLE_ADMIN, list.get(0).role());
         assertEquals(UserStatus.DISABLED.value(), list.get(1).status());
     }
+
+    @Test
+    void 停用_尚有其他启用admin_成功() {
+        SysUser admin = user(1L, "alice", CurrentUser.ROLE_ADMIN, UserStatus.ENABLED);
+        when(mapper.selectById(1L)).thenReturn(admin);
+        when(mapper.selectCount(any())).thenReturn(2L); // 启用 admin 共 2 个
+
+        UserView view = service.disable(1L);
+
+        assertEquals(UserStatus.DISABLED.value(), view.status());
+        verify(mapper).updateById(any(SysUser.class));
+    }
+
+    @Test
+    void 停用_最后一个启用admin_抛11003() {
+        SysUser admin = user(1L, "alice", CurrentUser.ROLE_ADMIN, UserStatus.ENABLED);
+        when(mapper.selectById(1L)).thenReturn(admin);
+        when(mapper.selectCount(any())).thenReturn(1L); // 它是最后一个启用 admin
+
+        BizException ex = assertThrows(BizException.class, () -> service.disable(1L));
+        assertEquals(com.hify.identity.constant.IdentityError.CANNOT_REMOVE_LAST_ADMIN, ex.errorCode());
+    }
+
+    @Test
+    void 停用_member不触发护栏_成功() {
+        SysUser member = user(2L, "bob", CurrentUser.ROLE_MEMBER, UserStatus.ENABLED);
+        when(mapper.selectById(2L)).thenReturn(member);
+
+        UserView view = service.disable(2L);
+
+        assertEquals(UserStatus.DISABLED.value(), view.status());
+    }
+
+    @Test
+    void 停用_已停用_幂等不报错() {
+        SysUser member = user(2L, "bob", CurrentUser.ROLE_MEMBER, UserStatus.DISABLED);
+        when(mapper.selectById(2L)).thenReturn(member);
+
+        UserView view = service.disable(2L);
+
+        assertEquals(UserStatus.DISABLED.value(), view.status());
+    }
+
+    @Test
+    void 启用_成功() {
+        SysUser member = user(2L, "bob", CurrentUser.ROLE_MEMBER, UserStatus.DISABLED);
+        when(mapper.selectById(2L)).thenReturn(member);
+
+        UserView view = service.enable(2L);
+
+        assertEquals(UserStatus.ENABLED.value(), view.status());
+    }
+
+    @Test
+    void 停用_用户不存在_抛NOT_FOUND() {
+        when(mapper.selectById(99L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class, () -> service.disable(99L));
+        assertEquals(CommonError.NOT_FOUND, ex.errorCode());
+    }
 }

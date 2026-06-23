@@ -3,6 +3,7 @@ package com.hify.identity.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
+import com.hify.identity.constant.IdentityError;
 import com.hify.identity.constant.UserStatus;
 import com.hify.identity.dto.UserView;
 import com.hify.identity.entity.SysUser;
@@ -49,6 +50,53 @@ public class AdminUserService {
         List<SysUser> users = sysUserMapper.selectList(
                 new LambdaQueryWrapper<SysUser>().orderByDesc(SysUser::getCreateTime));
         return users.stream().map(this::toView).toList();
+    }
+
+    @Transactional
+    public UserView disable(Long id) {
+        SysUser user = require(id);
+        if (UserStatus.DISABLED.value().equals(user.getStatus())) {
+            return toView(user); // 幂等：已停用直接返回，不触发护栏
+        }
+        assertNotLastEnabledAdmin(user);
+        user.setStatus(UserStatus.DISABLED.value());
+        sysUserMapper.updateById(user);
+        return toView(user);
+    }
+
+    @Transactional
+    public UserView enable(Long id) {
+        SysUser user = require(id);
+        user.setStatus(UserStatus.ENABLED.value()); // 启用不破坏不变量，无护栏；已启用再设也幂等
+        sysUserMapper.updateById(user);
+        return toView(user);
+    }
+
+    /** 按 id 取用户，不存在则 404。@TableLogic 保证 selectById 只命中未软删的记录。 */
+    private SysUser require(Long id) {
+        SysUser user = sysUserMapper.selectById(id);
+        if (user == null) {
+            throw new BizException(CommonError.NOT_FOUND, "用户不存在");
+        }
+        return user;
+    }
+
+    /**
+     * 统一护栏：若 target 当前是「启用的 admin」且系统里启用 admin 仅剩它一个，拒绝（11003）。
+     * 停用 / 降级（admin→member）/ 删除三处在执行前都先调它，保证至少保留一个可用 admin。
+     */
+    private void assertNotLastEnabledAdmin(SysUser target) {
+        boolean isEnabledAdmin = CurrentUser.ROLE_ADMIN.equals(target.getRole())
+                && UserStatus.ENABLED.value().equals(target.getStatus());
+        if (!isEnabledAdmin) {
+            return;
+        }
+        long enabledAdmins = sysUserMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getRole, CurrentUser.ROLE_ADMIN)
+                .eq(SysUser::getStatus, UserStatus.ENABLED.value()));
+        if (enabledAdmins <= 1) {
+            throw new BizException(IdentityError.CANNOT_REMOVE_LAST_ADMIN);
+        }
     }
 
     /** 实体→视图投影，集中"挑哪些字段对外"的决定（passwordHash 不在内）。放在 service 层是因为
