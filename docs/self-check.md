@@ -430,3 +430,72 @@ mvn -f server/pom.xml test
 
 > 📌 本轮**不含**：admin 用户管理接口、自助查询/改密、前端登录页接通、Testcontainers 连库测试——
 > 这些留待后续轮次（前端地基 4 已实现 UI 与守卫，但依赖的两个接口本轮才落地，需重新跑一遍前端运行时自检确认能端到端登录）。
+
+---
+
+## 地基 5：admin 用户管理（`AdminUserService` 7 方法 + `AdminUserController` 7 接口）
+
+对应改动：`identity` 模块新增 `AdminUserService`（create/list/enable/disable/resetPassword/changeRole/delete）、
+`UserView` 响应投影、`IdentityError.CANNOT_REMOVE_LAST_ADMIN`(11003)、三个请求 DTO
+（`CreateUserRequest`/`ResetPasswordRequest`/`ChangeRoleRequest`）、`AdminUserController`
+（路由 `/api/v1/admin/identity/users`，由 `SecurityConfig` 既有的 `/api/v1/admin/**` → `hasRole("ADMIN")` 统一拦截）。
+核心不变量：**统一护栏 `assertNotLastEnabledAdmin`**——停用 / 降级(admin→member) / 删除三处共用，保证系统里
+至少保留一个启用的 admin 账号，命中即抛 11003。
+
+### 自动化自检（首选）
+
+```bash
+mvn -f server/pom.xml test
+```
+- ✅ `BUILD SUCCESS`，`Tests run: 94, Failures: 0, Errors: 0`；本轮新增
+  `AdminUserServiceTest`(16)、`AdminUserControllerTest`(10) 全过，叠加既有 `ModularityTests`(1)、
+  `LayerRulesTest`(5) 同样全绿（确认新 controller/service/dto 放对层、无跨模块越界）。
+- ❌ 红灯：`BUILD FAILURE`，或任一测试 `Failures > 0`。看 `server/target/surefire-reports/*.txt` 定位。
+
+### 运行时自检（手动冒烟，眼见为实）
+
+1. 启动应用 `mvn -f server/pom.xml spring-boot:run`，用 bootstrap admin 账号登录拿 token：
+   ```bash
+   curl -s -X POST localhost:8080/api/v1/identity/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin","password":"<.env 配的密码>"}' | tee /tmp/login.json
+   TOKEN=$(jq -r .data.token /tmp/login.json)
+   ```
+2. 用 admin token 走通 7 接口（注意 id 在响应里是字符串）：
+   ```bash
+   # 创建
+   curl -s -X POST localhost:8080/api/v1/admin/identity/users -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" -d '{"username":"bob","password":"rawpw1234","role":"member"}'
+   # 列表
+   curl -s localhost:8080/api/v1/admin/identity/users -H "Authorization: Bearer $TOKEN"
+   # 停用/启用（把上一步返回的 id 代入 <ID>）
+   curl -s -X POST localhost:8080/api/v1/admin/identity/users/<ID>/disable -H "Authorization: Bearer $TOKEN"
+   curl -s -X POST localhost:8080/api/v1/admin/identity/users/<ID>/enable  -H "Authorization: Bearer $TOKEN"
+   # 重置密码
+   curl -s -X PUT localhost:8080/api/v1/admin/identity/users/<ID>/password -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" -d '{"password":"newpw5678"}'
+   # 改角色
+   curl -s -X PUT localhost:8080/api/v1/admin/identity/users/<ID>/role -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" -d '{"role":"admin"}'
+   # 删除
+   curl -s -X DELETE localhost:8080/api/v1/admin/identity/users/<ID> -H "Authorization: Bearer $TOKEN"
+   ```
+   正确输出：均 `HTTP 200`，且响应体里**不出现** `passwordHash` 字段。
+3. 验权限分层：用 `bob`（member 角色）登录拿 token，再访问任意上述接口——期望 `HTTP 403` + `code 10004`。
+   无令牌访问 `GET /api/v1/admin/identity/users`——期望 `HTTP 401` + `code 10002`。
+4. 验校验：创建用户传空用户名/短密码/非法角色——期望 `HTTP 400` + `code 10001`，`data` 是字段错误数组。
+5. 验「保留最后一个启用 admin」护栏（11003）。先确认当前只有一个启用 admin（bootstrap 账号），再试停用它：
+   ```bash
+   curl -s -X POST localhost:8080/api/v1/admin/identity/users/<admin的ID>/disable -H "Authorization: Bearer $TOKEN"
+   ```
+   期望 `HTTP 4xx` + `code 11003`（具体状态码见 `IdentityError` 映射）。同理：把它降级成 member、或删除它，
+   都应分别命中 11003。验证完不需要还原（本来就没改动成功）。
+
+### 故意搞错（确认护栏真在守门）
+
+把 `AdminUserService.assertNotLastEnabledAdmin` 方法体临时改成直接 `return;`（空实现），重跑
+`mvn -f server/pom.xml -Dtest=AdminUserServiceTest test`——覆盖「停用/降级/删除最后一个启用 admin 应抛 11003」
+的用例应**变红**（操作"成功"了，没有抛异常）。这证明三处共用的护栏不是摆设。验证完恢复该方法体。
+
+> 📌 本轮**不含**：前端 admin 用户管理页面、Testcontainers 连库测试——
+> 本轮服务层测试用 mock `SysUserMapper`（沿用既有惯例，连库测试统一推迟到 knowledge 模块手写 SQL 那轮）。
