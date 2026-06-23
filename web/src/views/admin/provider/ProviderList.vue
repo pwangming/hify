@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { listProviders, createProvider, updateProvider, deleteProvider } from '@/api/admin/provider'
+import {
+  listProviders,
+  createProvider,
+  updateProvider,
+  enableProvider,
+  disableProvider,
+  deleteProvider,
+} from '@/api/admin/provider'
 import type { Provider, ProviderForm, ProviderType } from '@/types/provider'
 import { formatDateTime } from '@/utils/datetime'
 import PageHeader from '@/components/PageHeader.vue'
@@ -43,6 +50,27 @@ async function confirmDanger(message: string, title: string): Promise<boolean> {
     return true
   } catch {
     return false
+  }
+}
+
+async function onEnable(row: Provider) {
+  try {
+    await enableProvider(row.id)
+    ElMessage.success('已启用')
+    await load()
+  } catch {
+    /* 已由 request 拦截器统一处理（mock 期无网络错误） */
+  }
+}
+
+async function onDisable(row: Provider) {
+  if (!(await confirmDanger(`确定禁用提供商「${row.name}」？`, '禁用确认'))) return
+  try {
+    await disableProvider(row.id)
+    ElMessage.success('已禁用')
+    await load()
+  } catch {
+    /* 已由 request 拦截器统一处理（mock 期无网络错误） */
   }
 }
 
@@ -143,9 +171,24 @@ async function submitForm() {
         <el-table-column label="创建时间">
           <template #default="{ row }">{{ formatDateTime((row as Provider).createTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="160">
+        <el-table-column label="操作" width="240">
           <template #default="{ row }">
             <div class="provider-list__ops">
+              <el-button
+                v-if="(row as Provider).status === 'enabled'"
+                :data-test="`disable-${(row as Provider).id}`"
+                size="small"
+                @click="onDisable(row as Provider)"
+                >禁用</el-button
+              >
+              <el-button
+                v-else
+                :data-test="`enable-${(row as Provider).id}`"
+                size="small"
+                type="success"
+                @click="onEnable(row as Provider)"
+                >启用</el-button
+              >
               <el-button
                 :data-test="`edit-${(row as Provider).id}`"
                 size="small"

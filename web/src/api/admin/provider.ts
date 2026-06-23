@@ -79,6 +79,24 @@ export function updateProvider(id: string, body: ProviderForm): Promise<Provider
   return Promise.resolve({ ...updated })
 }
 
+/** 启用提供商。后端对应：POST .../{id}/enable */
+export function enableProvider(id: string): Promise<Provider> {
+  return setStatus(id, 'enabled')
+}
+
+/** 禁用提供商。后端对应：POST .../{id}/disable */
+export function disableProvider(id: string): Promise<Provider> {
+  return setStatus(id, 'disabled')
+}
+
+function setStatus(id: string, status: Provider['status']): Promise<Provider> {
+  const idx = providers.findIndex((p) => p.id === id)
+  if (idx === -1) return Promise.reject(new Error('not found'))
+  const updated: Provider = { ...providers[idx], status }
+  providers = providers.map((p) => (p.id === id ? updated : p))
+  return Promise.resolve({ ...updated })
+}
+
 /** 删除提供商。 */
 export function deleteProvider(id: string): Promise<void> {
   providers = providers.filter((p) => p.id !== id)
