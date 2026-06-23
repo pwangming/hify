@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { RouteRecordRaw } from 'vue-router'
-import { buildMenu, isRoleAllowed } from '@/router/menu'
+import { buildMenu, isRoleAllowed, buildBreadcrumb } from '@/router/menu'
 
 describe('isRoleAllowed', () => {
   it('未限定角色（undefined / 空）→ 任何登录用户放行', () => {
@@ -22,7 +22,7 @@ describe('buildMenu', () => {
   // 仅读 path 与 meta，用最小路由记录即可（cast 规避 component/redirect 必填）
   const routes = [
     { path: '/', redirect: '/knowledge' }, // 无 meta.menu → 不进菜单
-    { path: '/knowledge', meta: { menu: true, title: '知识库管理' } },
+    { path: '/knowledge', meta: { menu: true, title: '知识库管理', icon: 'Collection' } },
     { path: '/app', meta: { menu: true, title: '应用管理' } },
     { path: '/admin/provider', meta: { menu: true, title: '模型提供商管理', roles: ['admin'] } },
     { path: '/profile', meta: { title: '个人设置', requiresAuth: true } }, // 有 title 无 menu → 不进菜单
@@ -31,9 +31,9 @@ describe('buildMenu', () => {
   it('只收 meta.menu 为 true 的路由，映射成 {path,title}', () => {
     const items = buildMenu(routes, 'admin')
     expect(items).toEqual([
-      { path: '/knowledge', title: '知识库管理' },
-      { path: '/app', title: '应用管理' },
-      { path: '/admin/provider', title: '模型提供商管理' },
+      { path: '/knowledge', title: '知识库管理', icon: 'Collection' },
+      { path: '/app', title: '应用管理', icon: undefined },
+      { path: '/admin/provider', title: '模型提供商管理', icon: undefined },
     ])
   })
 
@@ -44,6 +44,25 @@ describe('buildMenu', () => {
 
   it('菜单项缺 title 时 title 退回 path', () => {
     const noTitle = [{ path: '/dangling', meta: { menu: true } }] as unknown as RouteRecordRaw[]
-    expect(buildMenu(noTitle, 'admin')).toEqual([{ path: '/dangling', title: '/dangling' }])
+    expect(buildMenu(noTitle, 'admin')).toEqual([
+      { path: '/dangling', title: '/dangling', icon: undefined },
+    ])
+  })
+})
+
+describe('buildBreadcrumb', () => {
+  it('有 group + title → 两级面包屑', () => {
+    expect(buildBreadcrumb({ meta: { group: '管理控制台', title: '用户管理' } })).toEqual([
+      '管理控制台',
+      '用户管理',
+    ])
+  })
+
+  it('仅 title → 单级', () => {
+    expect(buildBreadcrumb({ meta: { title: '知识库管理' } })).toEqual(['知识库管理'])
+  })
+
+  it('meta 为空 → 空数组', () => {
+    expect(buildBreadcrumb({ meta: {} })).toEqual([])
   })
 })

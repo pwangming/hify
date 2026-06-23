@@ -9,32 +9,46 @@ const routes: RouteRecordRaw[] = [
     path: '/knowledge',
     name: 'KnowledgeList',
     component: () => import('@/views/knowledge/KnowledgeList.vue'),
-    meta: { requiresAuth: true, title: '知识库管理', menu: true },
+    meta: { requiresAuth: true, title: '知识库管理', menu: true, icon: 'Collection' },
   },
   {
     path: '/app',
     name: 'AppList',
     component: () => import('@/views/app/AppList.vue'),
-    meta: { requiresAuth: true, title: '应用管理', menu: true },
+    meta: { requiresAuth: true, title: '应用管理', menu: true, icon: 'Grid' },
   },
   {
     path: '/admin/provider',
     name: 'ProviderList',
     component: () => import('@/views/admin/provider/ProviderList.vue'),
-    meta: { requiresAuth: true, roles: ['admin'], title: '模型提供商管理', menu: true },
+    meta: {
+      requiresAuth: true,
+      roles: ['admin'],
+      title: '模型提供商管理',
+      menu: true,
+      icon: 'Setting',
+      group: '管理控制台',
+    },
   },
   {
     path: '/admin/identity',
     name: 'UserList',
     component: () => import('@/views/admin/identity/UserList.vue'),
-    meta: { requiresAuth: true, roles: ['admin'], title: '用户管理', menu: true },
+    meta: {
+      requiresAuth: true,
+      roles: ['admin'],
+      title: '用户管理',
+      menu: true,
+      icon: 'User',
+      group: '管理控制台',
+    },
   },
   // —— 样式预览（开发期视觉验收用，免登录、默认布局、进侧边菜单；定稿后可删）——
   {
     path: '/styleguide',
     name: 'Styleguide',
     component: () => import('@/views/styleguide/StyleguideView.vue'),
-    meta: { requiresAuth: false, title: '样式预览', menu: true },
+    meta: { requiresAuth: false, title: '样式预览', menu: true, icon: 'Brush' },
   },
   // —— 无壳页面（不需登录、用 BlankLayout）——
   {
