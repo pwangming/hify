@@ -617,3 +617,9 @@ mvn -f server/pom.xml test
 - TDD：`web/src/api/__tests__/app.spec.ts` 6 例（mock `@/api/request`，断言 url/params/body）先红（`@/api/app` 解析失败）→ 写 types+api 后绿。
 - `pnpm vitest run src/api/__tests__/app.spec.ts`：6/6 通过；`pnpm test` 全量 17 文件/96 测全绿；`pnpm typecheck`、`pnpm lint` 均无错误。
 - 前端 app 模块类型与 API 层完成，为后续页面（列表/表单组件）任务铺路。
+
+## app 模块 Task8 前端应用列表页 AppList.vue（本轮最后一个任务，2026-06-24）
+- 替换占位 `web/src/views/app/AppList.vue`：服务端分页（`listApps({keyword,page,size})`，`total` 用 `Number()` 转后端 string 给 el-pagination；翻页/搜索重拉，搜索回第 1 页）+ `canModify(app)=userStore.isAdmin || app.ownerId===userStore.user?.id` 门控操作列（他人应用显示 `—`，无按钮）+ 创建/编辑共用弹窗（名称必填≤50/描述≤200/系统提示词 textarea 可选；类型固定「对话应用」标签展示，编辑不可改）。范式照 `ProviderList.vue`/`UserList.vue`：PageHeader+ContentCard+el-table+el-dialog、data-test 锚点、confirmDanger 二次确认、happy-dom 下 el-form 空必填误判兜底（手动再判一遍 name 非空与长度）。
+- TDD：`web/src/views/app/__tests__/AppList.spec.ts` 4 例（挂载渲染、canModify 门控、删除调用、空名不提交）先红（占位组件无表格/按钮/data-test，4 测全 FAIL）→ 写实现后绿。
+- `pnpm vitest run src/views/app/__tests__/AppList.spec.ts`：4/4 通过；`pnpm test` 全量 18 文件/100 测全绿（含原 17/96 + 新增 1 文件/4 测）；`pnpm build`（含 `vue-tsc --noEmit` 类型检查 + vite build）无错误；`pnpm lint` 无问题。
+- app 模块第一轮前端（Task7-8）全部完成：类型与 API 层 → 应用列表页（分页+权限门控+创建编辑弹窗）。后续轮次（模型选择器、应用详情/对话页等）留待评估。
