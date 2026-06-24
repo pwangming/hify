@@ -415,7 +415,7 @@ class AiModelServiceTest {
         BizException ex = assertThrows(BizException.class,
                 () -> service.create(2L, new CreateModelRequest("embedding", "向量", "x")));
         assertEquals(ProviderError.EMBEDDING_NOT_SUPPORTED, ex.errorCode());
-        verify(modelMapper, never()).insert(any());
+        verify(modelMapper, never()).insert(any(AiModel.class));
     }
 
     @Test
@@ -487,7 +487,7 @@ class AiModelServiceTest {
 
         service.enable(5L);
 
-        verify(modelMapper, never()).updateById(any());
+        verify(modelMapper, never()).updateById(any(AiModel.class));
     }
 
     @Test

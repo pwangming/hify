@@ -6,23 +6,70 @@
   },
   "auth": {
     "type": "bearer",
-    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:8080" },
-    { "key": "adminUsername", "value": "admin" },
-    { "key": "adminPassword", "value": "change-me-on-first-deploy" },
-    { "key": "token", "value": "" },
-    { "key": "providerId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "adminUsername",
+      "value": "admin"
+    },
+    {
+      "key": "adminPassword",
+      "value": "change-me-on-first-deploy"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "providerId",
+      "value": ""
+    },
+    {
+      "key": "anthropicProviderId",
+      "value": ""
+    },
+    {
+      "key": "modelId",
+      "value": ""
+    }
   ],
   "item": [
     {
       "name": "0. 登录(admin) → 存 token",
       "request": {
-        "auth": { "type": "noauth" },
+        "auth": {
+          "type": "noauth"
+        },
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/api/v1/identity/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "identity", "login"] },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/identity/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "identity",
+            "login"
+          ]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
@@ -48,7 +95,19 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] }
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/provider/providers",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "provider",
+            "providers"
+          ]
+        }
       },
       "event": [
         {
@@ -72,8 +131,25 @@
       "name": "2. 创建-OpenAI兼容 → 存 providerId",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/provider/providers",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "provider",
+            "providers"
+          ]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"通义千问-生产\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"https://dashscope.aliyuncs.com/compatible-mode/v1\",\n  \"apiKey\": \"sk-test-openai-1234abcd\"\n}"
@@ -100,8 +176,25 @@
       "name": "3. 创建-Anthropic",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/provider/providers",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "provider",
+            "providers"
+          ]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"Claude-海外\",\n  \"protocol\": \"anthropic\",\n  \"baseUrl\": \"https://api.anthropic.com\",\n  \"apiKey\": \"sk-ant-test-9999wxyz\"\n}"
@@ -115,7 +208,8 @@
             "exec": [
               "const json = pm.response.json();",
               "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
-              "pm.test('protocol=anthropic', () => pm.expect(json.data.protocol).to.eql('anthropic'));"
+              "pm.test('protocol=anthropic', () => pm.expect(json.data.protocol).to.eql('anthropic'));",
+              "pm.collectionVariables.set('anthropicProviderId', json.data.id);"
             ]
           }
         }
@@ -125,8 +219,26 @@
       "name": "4. 更新(apiKey 留空=不改密钥)",
       "request": {
         "method": "PUT",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers", "{{providerId}}"] },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "provider",
+            "providers",
+            "{{providerId}}"
+          ]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"通义千问-生产(改名)\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"https://dashscope.aliyuncs.com/compatible-mode/v1\",\n  \"apiKey\": \"\"\n}"
@@ -152,7 +264,21 @@
       "request": {
         "method": "POST",
         "header": [],
-        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/disable", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers", "{{providerId}}", "disable"] }
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/disable",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "provider",
+            "providers",
+            "{{providerId}}",
+            "disable"
+          ]
+        }
       },
       "event": [
         {
@@ -171,7 +297,21 @@
       "request": {
         "method": "POST",
         "header": [],
-        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/enable", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers", "{{providerId}}", "enable"] }
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/enable",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "provider",
+            "providers",
+            "{{providerId}}",
+            "enable"
+          ]
+        }
       },
       "event": [
         {
@@ -190,7 +330,20 @@
       "request": {
         "method": "DELETE",
         "header": [],
-        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers", "{{providerId}}"] }
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "provider",
+            "providers",
+            "{{providerId}}"
+          ]
+        }
       },
       "event": [
         {
@@ -208,8 +361,25 @@
       "name": "反例 · 创建-protocol非法(期望 400/10001)",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/provider/providers",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "provider",
+            "providers"
+          ]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"非法协议\",\n  \"protocol\": \"gemini\",\n  \"baseUrl\": \"https://x.com\",\n  \"apiKey\": \"sk-x\"\n}"
@@ -234,8 +404,25 @@
       "name": "反例 · 重名创建(期望 409/10006)",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/provider/providers",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "provider",
+            "providers"
+          ]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"Claude-海外\",\n  \"protocol\": \"anthropic\",\n  \"baseUrl\": \"https://api.anthropic.com\",\n  \"apiKey\": \"sk-ant-dup\"\n}"
@@ -251,6 +438,351 @@
               "pm.test('业务码 10006', () => pm.expect(pm.response.json().code).to.eql(10006));"
             ]
           }
+        }
+      ]
+    },
+    {
+      "name": "模型管理（先跑 0.登录、2.创建OpenAI、3.创建Anthropic）",
+      "item": [
+        {
+          "name": "M1. 列某供应商模型",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/models",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "provider",
+                "providers",
+                "{{providerId}}",
+                "models"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j=pm.response.json();",
+                  "pm.test('code=200',()=>pm.expect(j.code).to.eql(200));",
+                  "pm.test('data 数组',()=>pm.expect(j.data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M2. 建 chat 模型 → 存 modelId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/models",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "provider",
+                "providers",
+                "{{providerId}}",
+                "models"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"chat\",\n  \"name\": \"GPT-4o 高质量\",\n  \"modelKey\": \"gpt-4o\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j=pm.response.json();",
+                  "pm.test('code=200',()=>pm.expect(j.code).to.eql(200));",
+                  "pm.test('type=chat',()=>pm.expect(j.data.type).to.eql('chat'));",
+                  "pm.test('modelKey 完整返回',()=>pm.expect(j.data.modelKey).to.eql('gpt-4o'));",
+                  "pm.collectionVariables.set('modelId', j.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M3. 建 embedding 模型（OpenAI 下，成功）",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/models",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "provider",
+                "providers",
+                "{{providerId}}",
+                "models"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"embedding\",\n  \"name\": \"通义向量\",\n  \"modelKey\": \"text-embedding-3-small\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j=pm.response.json();",
+                  "pm.test('code=200',()=>pm.expect(j.code).to.eql(200));",
+                  "pm.test('type=embedding',()=>pm.expect(j.data.type).to.eql('embedding'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M4. 更新模型（改名+标识）",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/provider/models/{{modelId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "provider",
+                "models",
+                "{{modelId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"GPT-4o 主力\",\n  \"modelKey\": \"gpt-4o\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code=200',()=>pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M5. 禁用模型",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/provider/models/{{modelId}}/disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "provider",
+                "models",
+                "{{modelId}}",
+                "disable"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code=200',()=>pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M6. 启用模型",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/provider/models/{{modelId}}/enable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "provider",
+                "models",
+                "{{modelId}}",
+                "enable"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code=200',()=>pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "反例 · Anthropic 下建 embedding（期望 400/12001）",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{anthropicProviderId}}/models",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "provider",
+                "providers",
+                "{{anthropicProviderId}}",
+                "models"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"embedding\",\n  \"name\": \"不该存在\",\n  \"modelKey\": \"x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.response.to.have.status(400));",
+                  "pm.test('业务码 12001',()=>pm.expect(pm.response.json().code).to.eql(12001));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "反例 · 删有模型的供应商（期望 409/10006）",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "provider",
+                "providers",
+                "{{providerId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409',()=>pm.response.to.have.status(409));",
+                  "pm.test('业务码 10006',()=>pm.expect(pm.response.json().code).to.eql(10006));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M7. 删除模型（逻辑删除）",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/provider/models/{{modelId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "provider",
+                "models",
+                "{{modelId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code=200',()=>pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
         }
       ]
     }
