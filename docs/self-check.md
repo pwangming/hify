@@ -533,3 +533,7 @@ mvn -f server/pom.xml test
 ## ai_model 后端 B-Task1 数据层（2026-06-24）
 - V6 建表 ai_model：FK→model_provider(id)、(provider_id,model_key) 部分唯一、text+check 枚举。
 - ModelType / ProviderError(12001 EMBEDDING_NOT_SUPPORTED) / AiModel 实体 / AiModelMapper 就位。
+
+## ai_model 后端 B-Task2 AiModelService（2026-06-24）
+- CRUD + 启停 + embedding 协议守卫(anthropic+embedding→12001) + 重名/不存在/幂等，14 测全绿。
+- 修：BaseMapper insert/updateById 重载致 any() 歧义，verify 改 any(AiModel.class)。
