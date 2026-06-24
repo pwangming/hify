@@ -516,3 +516,7 @@ mvn -f server/pom.xml test
 ## Provider 后端 Task 3：ProviderService（2026-06-24）
 - CRUD + 启停 + 重名预检/并发兜底 + 不存在 NOT_FOUND + 删除/启停幂等 + apiKey 留空保留，12 测全绿。
 - 投影 ProviderResponse 不含密文/明文 key（编译期保证）。
+
+## Provider 后端 Task 4：AdminProviderController（2026-06-24）
+- 6 端点（list/create/update/delete/enable/disable）路由通；id 序列化为字符串、响应无密文。
+- admin 200 / member 403-10004 / 无令牌 401-10002 / protocol 非法 400-10001 带字段数组，9 测全绿。
