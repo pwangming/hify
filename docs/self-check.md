@@ -520,3 +520,7 @@ mvn -f server/pom.xml test
 ## Provider 后端 Task 4：AdminProviderController（2026-06-24）
 - 6 端点（list/create/update/delete/enable/disable）路由通；id 序列化为字符串、响应无密文。
 - admin 200 / member 403-10004 / 无令牌 401-10002 / protocol 非法 400-10001 带字段数组，9 测全绿。
+
+## Provider 后端 Task 5：全量回归（2026-06-24）
+- mvn test 全绿：120 tests / 0 failures / 0 errors（25 类），含 Modulith/ArchUnit 边界校验无违规。
+- Provider 后端第 1 轮（CRUD + Key 加密）完成。
