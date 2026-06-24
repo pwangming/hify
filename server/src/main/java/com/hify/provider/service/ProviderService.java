@@ -7,7 +7,9 @@ import com.hify.provider.constant.ProviderStatus;
 import com.hify.provider.dto.CreateProviderRequest;
 import com.hify.provider.dto.ProviderResponse;
 import com.hify.provider.dto.UpdateProviderRequest;
+import com.hify.provider.entity.AiModel;
 import com.hify.provider.entity.ModelProvider;
+import com.hify.provider.mapper.AiModelMapper;
 import com.hify.provider.mapper.ModelProviderMapper;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -25,10 +27,13 @@ import java.util.List;
 public class ProviderService {
 
     private final ModelProviderMapper providerMapper;
+    private final AiModelMapper aiModelMapper;
     private final ApiKeyCipher apiKeyCipher;
 
-    public ProviderService(ModelProviderMapper providerMapper, ApiKeyCipher apiKeyCipher) {
+    public ProviderService(ModelProviderMapper providerMapper, AiModelMapper aiModelMapper,
+                           ApiKeyCipher apiKeyCipher) {
         this.providerMapper = providerMapper;
+        this.aiModelMapper = aiModelMapper;
         this.apiKeyCipher = apiKeyCipher;
     }
 
@@ -97,9 +102,17 @@ public class ProviderService {
         providerMapper.updateById(entity);
     }
 
-    /** 逻辑删除：@TableLogic 把 delete 变成 update set deleted=true；删不存在的也返回成功（幂等）。 */
+    /**
+     * 逻辑删除供应商。收紧（B 轮）：其下尚有未删模型时拒绝，防悬空引用（CONFLICT）。
+     * 无模型时走 @TableLogic 软删；删不存在的也算成功（幂等）。
+     */
     @Transactional
     public void delete(Long id) {
+        long models = aiModelMapper.selectCount(
+                new LambdaQueryWrapper<AiModel>().eq(AiModel::getProviderId, id));
+        if (models > 0) {
+            throw new BizException(CommonError.CONFLICT, "请先删除该供应商下的模型");
+        }
         providerMapper.deleteById(id);
     }
 

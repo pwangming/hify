@@ -540,3 +540,6 @@ mvn -f server/pom.xml test
 
 ## ai_model 后端 B-Task3 AdminModelController（2026-06-24）
 - 6 端点混合路由（列表/创建挂供应商下、单条走顶级）通；admin/member/@Valid 校验，8 测全绿。
+
+## ai_model 后端 B-Task4 删供应商守卫（2026-06-24）
+- ProviderService 注入 AiModelMapper；delete 收紧为"有未删模型则拒删(10006)"。原 12 + 守卫 1 = 13 测全绿。

@@ -8,6 +8,7 @@ import com.hify.provider.dto.CreateProviderRequest;
 import com.hify.provider.dto.ProviderResponse;
 import com.hify.provider.dto.UpdateProviderRequest;
 import com.hify.provider.entity.ModelProvider;
+import com.hify.provider.mapper.AiModelMapper;
 import com.hify.provider.mapper.ModelProviderMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -33,16 +35,19 @@ import static org.mockito.Mockito.when;
 class ProviderServiceTest {
 
     private ModelProviderMapper mapper;
+    private AiModelMapper aiModelMapper;
     private ApiKeyCipher cipher;
     private ProviderService service;
 
     @BeforeEach
     void setUp() {
         mapper = mock(ModelProviderMapper.class);
+        aiModelMapper = mock(AiModelMapper.class);
+        when(aiModelMapper.selectCount(any())).thenReturn(0L); // 默认无模型，既有删除测试照常通过
         ProviderCryptoProperties props = new ProviderCryptoProperties();
         props.setMasterKey("unit-test-master-key");
         cipher = new ApiKeyCipher(props);
-        service = new ProviderService(mapper, cipher);
+        service = new ProviderService(mapper, aiModelMapper, cipher);
     }
 
     private CreateProviderRequest createReq() {
@@ -192,5 +197,14 @@ class ProviderServiceTest {
     void 删除_不存在_幂等不抛() {
         service.delete(99L); // 不抛即通过（deleteById 对已不存在的也算成功）
         verify(mapper).deleteById(99L);
+    }
+
+    @Test
+    void 删除_供应商下有模型_抛CONFLICT_且不删() {
+        when(aiModelMapper.selectCount(any())).thenReturn(2L);
+
+        BizException ex = assertThrows(BizException.class, () -> service.delete(5L));
+        assertEquals(CommonError.CONFLICT, ex.errorCode());
+        verify(mapper, never()).deleteById(anyLong());
     }
 }
