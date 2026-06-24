@@ -598,3 +598,8 @@ mvn -f server/pom.xml test
 - TDD：AppServiceTest 追加 7 例先红（UpdateAppRequest/update/delete/disable 未定义，编译失败）→ 写实现后绿。
 - 踩坑：brief 测试原文 `verify(mapper, never()).updateById(any())` / `deleteById(any())` 中 bare `any()` 与 BaseMapper 的单体/Collection 重载产生编译期歧义；沿用 Task3 既有约定改成 `any(App.class)` / `any(Long.class)` 消歧。
 - mvn -Dtest=AppServiceTest test：14 测全绿（原 brief 预估"共 15 例"，实际累计 14——本轮净增 7 例，与原有 7 例相加为 14，预估数与实际不一致，已用实测值为准）；mvn test 全量：162 tests/0 failures/0 errors（含原 155 + 新增 7），含 Modulith/ArchUnit 模块边界与分层校验无违规。
+
+## app 模块 Task5 评审补强：enable/disable 测试覆盖缺口（2026-06-24）
+- 评审发现：enable() 此前从未被任何测试调用——若 enable/disable 把 ENABLED/DISABLED 写反，现有测试抓不到；disable() 的「他人非 admin → FORBIDDEN」分支未覆盖。生产代码已正确，仅补测试。
+- AppServiceTest 追加 2 例：`启用_owner放行_写enabled`（ArgumentCaptor 抓 updateById 实体，断言 status="enabled"，专门防 enable/disable typo 写反）、`停用_他人非admin_拒绝FORBIDDEN`（断言 CommonError.FORBIDDEN 且 updateById 未被调用）。
+- mvn -Dtest=AppServiceTest test：16 测全绿（原 14 + 新增 2）；mvn test 全量：164 tests/0 failures/0 errors（含原 162 + 新增 2），含 Modulith/ArchUnit 校验无违规。

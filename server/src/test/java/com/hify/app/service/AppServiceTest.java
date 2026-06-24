@@ -175,4 +175,21 @@ class AppServiceTest {
         verify(mapper).updateById(captor.capture());
         assertEquals("disabled", captor.getValue().getStatus());
     }
+
+    @org.junit.jupiter.api.Test
+    void 启用_owner放行_写enabled() {
+        when(mapper.selectById(10L)).thenReturn(stored(10L, 7L, "disabled"));
+        ArgumentCaptor<App> captor = ArgumentCaptor.forClass(App.class);
+        service.enable(10L, member);
+        verify(mapper).updateById(captor.capture());
+        assertEquals("enabled", captor.getValue().getStatus());
+    }
+
+    @org.junit.jupiter.api.Test
+    void 停用_他人非admin_拒绝FORBIDDEN() {
+        when(mapper.selectById(10L)).thenReturn(stored(10L, 999L, "enabled"));
+        BizException ex = assertThrows(BizException.class, () -> service.disable(10L, member));
+        assertEquals(CommonError.FORBIDDEN, ex.errorCode());
+        verify(mapper, never()).updateById(any(App.class));
+    }
 }
