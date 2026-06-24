@@ -603,3 +603,10 @@ mvn -f server/pom.xml test
 - 评审发现：enable() 此前从未被任何测试调用——若 enable/disable 把 ENABLED/DISABLED 写反，现有测试抓不到；disable() 的「他人非 admin → FORBIDDEN」分支未覆盖。生产代码已正确，仅补测试。
 - AppServiceTest 追加 2 例：`启用_owner放行_写enabled`（ArgumentCaptor 抓 updateById 实体，断言 status="enabled"，专门防 enable/disable typo 写反）、`停用_他人非admin_拒绝FORBIDDEN`（断言 CommonError.FORBIDDEN 且 updateById 未被调用）。
 - mvn -Dtest=AppServiceTest test：16 测全绿（原 14 + 新增 2）；mvn test 全量：164 tests/0 failures/0 errors（含原 162 + 新增 2），含 Modulith/ArchUnit 校验无违规。
+
+## app 模块 Task6 AppController（7 端点，后端最后一个任务，2026-06-24）
+- 新增 AppController（成员路由 `/api/v1/app/apps`）：list/get/create/update/delete/enable/disable，纯协议层——@Valid 校验 → CurrentUserHolder.current() 取当前用户 → 调 AppService → 包 Result；无业务逻辑、无 try-catch、无 @Transactional；list/get 不取当前用户（service 不按 owner 过滤，团队全可见）。
+- 分页参数 `page`/`size` 用 `@RequestParam(defaultValue=...) int`，不加 @Min/@Max/@Validated（避免 ConstraintViolationException 落兜底 10000/500 而非 10001/400）。
+- TDD：AppControllerTest 4 例（@WebMvcTest + 导入 SecurityConfig/JwtService 等 + 成员 JWT）先红（AppController 未定义，编译失败）→ 写实现后绿，覆盖：成员可访问列表（PageResult，Long/long 全局序列化为 string）、未登录 401、创建空名 400/10001、创建成功返回完整资源含 config.systemPrompt。
+- mvn -Dtest=AppControllerTest test：4 测全绿；mvn test 全量：168 tests/0 failures/0 errors（含原 164 + 新增 4），含 Modulith/ArchUnit 模块边界与分层校验无违规。
+- app 模块第一轮后端（Task1-6）全部完成：jsonb 配置载体 → 建表/常量/实体/Mapper → create → get/page → update/delete/enable/disable+团队共享权限 → Controller。
