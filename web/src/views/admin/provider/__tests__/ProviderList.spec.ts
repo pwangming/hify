@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import ElementPlus, { ElMessageBox } from 'element-plus'
 import {
   listProviders,
@@ -204,5 +205,24 @@ describe('ProviderList', () => {
     await flushPromises()
     expect(enableProvider).toHaveBeenCalledWith('4')
     expect(listProviders).toHaveBeenCalledTimes(2)
+  })
+
+  it('点「管理模型」跳转到该供应商详情页', async () => {
+    const Stub = { template: '<div />' }
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/admin/provider', component: Stub },
+        { path: '/admin/provider/:id', component: Stub },
+      ],
+    })
+    await router.push('/admin/provider')
+    await router.isReady()
+
+    const wrapper = mount(ProviderList, { global: { plugins: [router, ElementPlus] } })
+    await flushPromises()
+    await wrapper.get('[data-test="manage-1"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/admin/provider/1')
   })
 })

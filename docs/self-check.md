@@ -548,3 +548,21 @@ mvn -f server/pom.xml test
 - mvn test 全绿：143 tests / 0 failures / 0 errors（27 类），含 Modulith/ArchUnit 无违规。
 - 注：测试 mock 不连库；V6 迁移会在下次启动 server（跑 Postman）时由 Flyway 自动 apply。
 - ai_model 模型管理后端（B 轮）完成。
+
+## 模型管理前端 Task1 类型与 API 层（2026-06-24）
+- types/model.ts（ModelType/AiModel/ModelForm，id/providerId 为 string）+ api/admin/model.ts 封装 6 端点。
+- URL 对齐后端（列表/创建挂 providers/{id}/models、单条走 models/{id}）；TDD 6 测先红后绿。
+
+## 模型管理前端 Task2 路由+入口（2026-06-24）
+- ProviderList 操作列加「管理模型」按钮（router.push /admin/provider/:id），列宽 240→320。
+- 注册 ProviderDetail 路由（roles:['admin']，无 menu 不进侧边栏）；ProviderList 11 测、menu 9 测全绿。
+
+## 模型管理前端 Task3 详情页（2026-06-24）
+- ProviderDetail.vue：listProviders 按 id 找供应商（404 兜底）+ listModels 渲染表；新增/编辑/删除/启停对话框，anthropic 下 embedding 选项禁用，编辑态 type 只读。
+- TDD 13 测先红后绿；全量 16 文件/89 测绿，typecheck + lint 通过。
+- 模型管理前端 UI 完成。
+
+## 模型管理前端 修复：编辑态 type 可改 bug（2026-06-24）
+- 根因：embedding radio 的 :disabled="embeddingDisabled"(openai 下为 false) 覆盖了 radio-group 的 :disabled，编辑态仍可切 chat→embedding；update 只传 name+modelKey 故"提示成功但类型未变"。
+- 修：编辑态不渲染 radio 组，改 el-tag 只读展示；radio（含 embedding 置灰）只在新增态出现。
+- 加回归测试（编辑态无 form-type、显示 form-type-readonly）；全量 16 文件/90 测绿。
