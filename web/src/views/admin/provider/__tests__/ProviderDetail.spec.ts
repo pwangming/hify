@@ -134,6 +134,14 @@ describe('ProviderDetail', () => {
     expect(createModel).not.toHaveBeenCalled()
   })
 
+  it('编辑态：类型为只读展示，不渲染可切换的 radio 组', async () => {
+    const { wrapper } = await mountAt('1')
+    await wrapper.get('[data-test="model-edit-10"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="form-type"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="form-type-readonly"]').text()).toBe('chat')
+  })
+
   it('编辑：预填 name/modelKey，提交只调 updateModel(id, {name,modelKey})', async () => {
     vi.mocked(updateModel).mockResolvedValue({ ...MODELS[0], name: 'GPT-4o 改' })
     const { wrapper } = await mountAt('1')

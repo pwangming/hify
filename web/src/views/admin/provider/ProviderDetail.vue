@@ -236,13 +236,17 @@ async function submitForm() {
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="类型" prop="type">
-          <el-radio-group v-model="form.type" :disabled="editingId !== null" data-test="form-type">
-            <el-radio value="chat">chat</el-radio>
-            <el-radio value="embedding" :disabled="embeddingDisabled">embedding</el-radio>
-          </el-radio-group>
-          <span v-if="embeddingDisabled" class="provider-detail__hint"
-            >该协议不支持 embedding 模型</span
-          >
+          <!-- 新增：可选 radio（anthropic 下 embedding 置灰）。编辑：type 不可改，仅只读展示。 -->
+          <template v-if="editingId === null">
+            <el-radio-group v-model="form.type" data-test="form-type">
+              <el-radio value="chat">chat</el-radio>
+              <el-radio value="embedding" :disabled="embeddingDisabled">embedding</el-radio>
+            </el-radio-group>
+            <span v-if="embeddingDisabled" class="provider-detail__hint"
+              >该协议不支持 embedding 模型</span
+            >
+          </template>
+          <el-tag v-else data-test="form-type-readonly">{{ form.type }}</el-tag>
         </el-form-item>
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" data-test="form-name" maxlength="50" />

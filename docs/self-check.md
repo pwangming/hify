@@ -561,3 +561,8 @@ mvn -f server/pom.xml test
 - ProviderDetail.vue：listProviders 按 id 找供应商（404 兜底）+ listModels 渲染表；新增/编辑/删除/启停对话框，anthropic 下 embedding 选项禁用，编辑态 type 只读。
 - TDD 13 测先红后绿；全量 16 文件/89 测绿，typecheck + lint 通过。
 - 模型管理前端 UI 完成。
+
+## 模型管理前端 修复：编辑态 type 可改 bug（2026-06-24）
+- 根因：embedding radio 的 :disabled="embeddingDisabled"(openai 下为 false) 覆盖了 radio-group 的 :disabled，编辑态仍可切 chat→embedding；update 只传 name+modelKey 故"提示成功但类型未变"。
+- 修：编辑态不渲染 radio 组，改 el-tag 只读展示；radio（含 embedding 置灰）只在新增态出现。
+- 加回归测试（编辑态无 form-type、显示 form-type-readonly）；全量 16 文件/90 测绿。
