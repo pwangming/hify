@@ -556,3 +556,8 @@ mvn -f server/pom.xml test
 ## 模型管理前端 Task2 路由+入口（2026-06-24）
 - ProviderList 操作列加「管理模型」按钮（router.push /admin/provider/:id），列宽 240→320。
 - 注册 ProviderDetail 路由（roles:['admin']，无 menu 不进侧边栏）；ProviderList 11 测、menu 9 测全绿。
+
+## 模型管理前端 Task3 详情页（2026-06-24）
+- ProviderDetail.vue：listProviders 按 id 找供应商（404 兜底）+ listModels 渲染表；新增/编辑/删除/启停对话框，anthropic 下 embedding 选项禁用，编辑态 type 只读。
+- TDD 13 测先红后绿；全量 16 文件/89 测绿，typecheck + lint 通过。
+- 模型管理前端 UI 完成。
