@@ -579,3 +579,10 @@ mvn -f server/pom.xml test
 - TDD：AppEnumTest 先红（AppType/AppStatus/AppError 未定义，编译失败）→ 写实现后绿。
 - mvn -Dtest=AppEnumTest,ModularityTests,LayerRulesTest test：8 测全绿；mvn test 全量：148 tests/0 failures/0 errors（含原 146 + 新增 2），含 Modulith/ArchUnit 模块边界与分层校验无违规。
 - 遗留：建表 SQL 与 App 实体的真实数据库读写（含 jsonb config 端到端）未连库验证，留待后续轮次（Service 层落地或 Testcontainers）一并走查。
+
+## app 模块 Task3 AppService.create + DTO（2026-06-24）
+- CreateAppRequest/AppResponse（record DTO）+ AppService.create（type 非 chat→16001；owner=current.userId()；status 默认 enabled；config 缺省兜底 new AppConfig(null)；插入撞唯一索引 catch DuplicateKeyException→CONFLICT，不先查后插）+ 包级 toResponse 供后续任务复用。
+- service 方法签名收 CurrentUser 参数，不直接读安全上下文，延续 AdminUserService 既有做法，便于单测。
+- TDD：AppServiceTest 4 例先红（dto/AppService 未定义，编译失败）→ 写实现后绿。
+- 踩坑：brief 测试原文 `verify(mapper, never()).insert(any())` 中 bare `any()` 与 BaseMapper 的 `insert(T)`/`insert(Collection<T>)` 两个重载产生编译期歧义（"reference to insert is ambiguous"）；改成 `any(App.class)`（与 AdminBootstrapRunnerTest/AiModelServiceTest 既有写法一致）后消歧。
+- mvn -Dtest=AppServiceTest test：4 测全绿；mvn test 全量：152 tests/0 failures/0 errors（含原 148 + 新增 4），含 Modulith/ArchUnit 校验无违规。
