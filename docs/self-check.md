@@ -529,3 +529,7 @@ mvn -f server/pom.xml test
 - types: type(4值)→protocol(2值)、Provider 加 apiKeyTail；api: mock 换真实 request 6 端点（enable/disable/delete 返 void）。
 - 页面: 协议标签「OpenAI 兼容/Anthropic」、新增 API Key 掩码列(••••尾巴)、submitForm try/catch 失败弹窗不关。
 - TDD: 先改测试到红(3 失败)→实现→10 用例绿。全量 pnpm test 14 文件/69 测试绿，typecheck + lint 通过。
+
+## ai_model 后端 B-Task1 数据层（2026-06-24）
+- V6 建表 ai_model：FK→model_provider(id)、(provider_id,model_key) 部分唯一、text+check 枚举。
+- ModelType / ProviderError(12001 EMBEDDING_NOT_SUPPORTED) / AiModel 实体 / AiModelMapper 就位。
