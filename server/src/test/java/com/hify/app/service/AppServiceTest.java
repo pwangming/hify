@@ -79,4 +79,33 @@ class AppServiceTest {
         BizException ex = assertThrows(BizException.class, () -> service.create(chatReq(), member));
         assertEquals(CommonError.CONFLICT, ex.errorCode());
     }
+
+    @org.junit.jupiter.api.Test
+    void 详情_不存在抛NOT_FOUND() {
+        when(mapper.selectById(99L)).thenReturn(null);
+        BizException ex = assertThrows(BizException.class, () -> service.get(99L));
+        assertEquals(CommonError.NOT_FOUND, ex.errorCode());
+    }
+
+    @org.junit.jupiter.api.Test
+    void 分页_映射total与列表_不按owner过滤() {
+        App a = new App();
+        a.setId(1L); a.setName("x"); a.setType("chat"); a.setOwnerId(999L);
+        a.setStatus("enabled"); a.setConfig(new com.hify.app.api.dto.AppConfig(null));
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<App> pg =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
+        pg.setRecords(java.util.List.of(a));
+        pg.setTotal(1);
+        when(mapper.selectPage(any(), any())).thenReturn(pg);
+
+        com.hify.common.page.PageResult<AppResponse> result = service.page(null, null, 1, 20);
+        assertEquals(1, result.total());
+        assertEquals("x", result.list().get(0).name());
+    }
+
+    @org.junit.jupiter.api.Test
+    void 分页_页深超限抛PARAM_INVALID() {
+        BizException ex = assertThrows(BizException.class, () -> service.page(null, null, 1000, 20));
+        assertEquals(CommonError.PARAM_INVALID, ex.errorCode());
+    }
 }

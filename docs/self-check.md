@@ -586,3 +586,8 @@ mvn -f server/pom.xml test
 - TDD：AppServiceTest 4 例先红（dto/AppService 未定义，编译失败）→ 写实现后绿。
 - 踩坑：brief 测试原文 `verify(mapper, never()).insert(any())` 中 bare `any()` 与 BaseMapper 的 `insert(T)`/`insert(Collection<T>)` 两个重载产生编译期歧义（"reference to insert is ambiguous"）；改成 `any(App.class)`（与 AdminBootstrapRunnerTest/AiModelServiceTest 既有写法一致）后消歧。
 - mvn -Dtest=AppServiceTest test：4 测全绿；mvn test 全量：152 tests/0 failures/0 errors（含原 148 + 新增 4），含 Modulith/ArchUnit 校验无违规。
+
+## app 模块 Task4 AppService 读取（get + page）（2026-06-24）
+- AppService 追加 get(id)（不存在→NOT_FOUND）、page(keyword, type, page, size)（page*size>10000→PARAM_INVALID；LambdaQueryWrapper：keyword→name like，type→等值，orderByDesc(id)；@TableLogic 自动加 deleted=false；不按 owner 过滤，团队全可见）→ 映射成 PageResult<AppResponse>。两个方法均只读，不加 @Transactional。
+- TDD：AppServiceTest 追加 3 例先红（get/page 未定义，编译失败，Tests run: 7/Errors: 7）→ 写实现后绿。
+- mvn -Dtest=AppServiceTest test：7 测全绿；mvn test 全量：155 tests/0 failures/0 errors（含原 152 + 新增 3），含 Modulith/ArchUnit 校验无违规。
