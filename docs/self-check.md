@@ -543,3 +543,8 @@ mvn -f server/pom.xml test
 
 ## ai_model 后端 B-Task4 删供应商守卫（2026-06-24）
 - ProviderService 注入 AiModelMapper；delete 收紧为"有未删模型则拒删(10006)"。原 12 + 守卫 1 = 13 测全绿。
+
+## ai_model 后端 B-Task5 全量回归（2026-06-24）
+- mvn test 全绿：143 tests / 0 failures / 0 errors（27 类），含 Modulith/ArchUnit 无违规。
+- 注：测试 mock 不连库；V6 迁移会在下次启动 server（跑 Postman）时由 Flyway 自动 apply。
+- ai_model 模型管理后端（B 轮）完成。
