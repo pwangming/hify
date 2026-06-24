@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -71,7 +72,7 @@ class AppServiceTest {
         ArgumentCaptor<App> captor = ArgumentCaptor.forClass(App.class);
         service.create(noCfg, member);
         verify(mapper).insert(captor.capture());
-        assertEquals(null, captor.getValue().getConfig().systemPrompt());
+        assertNull(captor.getValue().getConfig().systemPrompt());
     }
 
     @Test
@@ -107,6 +108,12 @@ class AppServiceTest {
     @org.junit.jupiter.api.Test
     void 分页_页深超限抛PARAM_INVALID() {
         BizException ex = assertThrows(BizException.class, () -> service.page(null, null, 1000, 20));
+        assertEquals(CommonError.PARAM_INVALID, ex.errorCode());
+    }
+
+    @org.junit.jupiter.api.Test
+    void 分页_负数页_抛PARAM_INVALID() {
+        BizException ex = assertThrows(BizException.class, () -> service.page(null, null, -1, 20));
         assertEquals(CommonError.PARAM_INVALID, ex.errorCode());
     }
 

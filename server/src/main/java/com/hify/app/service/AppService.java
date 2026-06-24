@@ -65,8 +65,8 @@ public class AppService {
     }
 
     public PageResult<AppResponse> page(String keyword, String type, int page, int size) {
-        if ((long) page * size > 10_000) {
-            throw new BizException(CommonError.PARAM_INVALID, "分页过深，请用筛选条件缩小范围");
+        if (page < 1 || size < 1 || (long) page * size > 10_000) {
+            throw new BizException(CommonError.PARAM_INVALID, "分页参数非法或过深，请用筛选条件缩小范围");
         }
         Page<App> result = appMapper.selectPage(
                 Page.of(page, size),

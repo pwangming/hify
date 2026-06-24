@@ -623,3 +623,9 @@ mvn -f server/pom.xml test
 - TDD：`web/src/views/app/__tests__/AppList.spec.ts` 4 例（挂载渲染、canModify 门控、删除调用、空名不提交）先红（占位组件无表格/按钮/data-test，4 测全 FAIL）→ 写实现后绿。
 - `pnpm vitest run src/views/app/__tests__/AppList.spec.ts`：4/4 通过；`pnpm test` 全量 18 文件/100 测全绿（含原 17/96 + 新增 1 文件/4 测）；`pnpm build`（含 `vue-tsc --noEmit` 类型检查 + vite build）无错误；`pnpm lint` 无问题。
 - app 模块第一轮前端（Task7-8）全部完成：类型与 API 层 → 应用列表页（分页+权限门控+创建编辑弹窗）。后续轮次（模型选择器、应用详情/对话页等）留待评估。
+
+## app 模块第一轮全分支终审修复 #1-3（2026-06-24）
+- #1（行为加固）：`AppService.page()` 页深护栏 `(long) page * size > 10_000` 在 page/size 为负数时乘积变负，绕过护栏；扩下界为 `page < 1 || size < 1 || (long) page * size > 10_000`。未改用 `@Min/@Max/@Validated`——全局异常处理器无 `ConstraintViolationException` 处理，会落兜底 10000/500 把 400 变 500，故仍在 service 层判断。`AppServiceTest` 追加 `分页_负数页_抛PARAM_INVALID`（`service.page(null,null,-1,20)` → `CommonError.PARAM_INVALID`）。
+- #2（卫生）：`AppConfigTypeHandlerTest` 删除未使用的 `import static org.mockito.ArgumentMatchers.anyInt;`（文件内确认无 `anyInt(` 调用）。
+- #3（卫生）：`AppServiceTest` 的 `创建_config缺省兜底为空配置` 用例 `assertEquals(null, ...)` 改 `assertNull(...)`，补 `import static org.junit.jupiter.api.Assertions.assertNull;`。
+- `mvn -Dtest=AppServiceTest,AppConfigTypeHandlerTest test`：AppServiceTest 17 例全绿（16+1）、AppConfigTypeHandlerTest 3 例全绿；`mvn test` 全量：169 tests/0 failures/0 errors（原 168 + 新增 1），含 Modulith/ArchUnit 模块边界校验无违规。
