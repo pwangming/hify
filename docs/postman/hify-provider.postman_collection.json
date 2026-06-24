@@ -1,0 +1,258 @@
+{
+  "info": {
+    "name": "Hify · Provider 模型供应商管理（第1轮）",
+    "description": "Admin 模型供应商 CRUD + 启用/禁用 的接口测试集。\n\n用法：\n1. 先跑「0. 登录(admin)」拿 token（自动存入集合变量 token，后续请求自动带 Bearer）。\n2. 跑「2. 创建-OpenAI兼容」会把返回 id 存入 providerId，供更新/启停/删除复用。\n3. 集合变量里改 baseUrl / adminUsername / adminPassword 适配你的环境。\n\n约定：所有响应是 Result 信封 {code,message,data,traceId}；成功 code=200；id 为字符串；apiKey 明文/密文绝不出响应（只回 apiKeyTail 后4位）。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminUsername", "value": "admin" },
+    { "key": "adminPassword", "value": "change-me-on-first-deploy" },
+    { "key": "token", "value": "" },
+    { "key": "providerId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. 登录(admin) → 存 token",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/v1/identity/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "identity", "login"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('登录成功 code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('返回 token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+              "pm.collectionVariables.set('token', json.data.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. 列表",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('data 是数组', () => pm.expect(json.data).to.be.an('array'));",
+              "if (json.data.length) {",
+              "  pm.test('id 为字符串', () => pm.expect(json.data[0].id).to.be.a('string'));",
+              "  pm.test('不泄露密文/明文 key', () => { pm.expect(json.data[0]).to.not.have.property('apiKeyCipher'); pm.expect(json.data[0]).to.not.have.property('apiKey'); });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. 创建-OpenAI兼容 → 存 providerId",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"通义千问-生产\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"https://dashscope.aliyuncs.com/compatible-mode/v1\",\n  \"apiKey\": \"sk-test-openai-1234abcd\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('protocol=openai', () => pm.expect(json.data.protocol).to.eql('openai'));",
+              "pm.test('掩码尾巴=abcd', () => pm.expect(json.data.apiKeyTail).to.eql('abcd'));",
+              "pm.test('状态默认 enabled', () => pm.expect(json.data.status).to.eql('enabled'));",
+              "pm.collectionVariables.set('providerId', json.data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. 创建-Anthropic",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Claude-海外\",\n  \"protocol\": \"anthropic\",\n  \"baseUrl\": \"https://api.anthropic.com\",\n  \"apiKey\": \"sk-ant-test-9999wxyz\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('protocol=anthropic', () => pm.expect(json.data.protocol).to.eql('anthropic'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. 更新(apiKey 留空=不改密钥)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers", "{{providerId}}"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"通义千问-生产(改名)\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"https://dashscope.aliyuncs.com/compatible-mode/v1\",\n  \"apiKey\": \"\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('名称已更新', () => pm.expect(json.data.name).to.eql('通义千问-生产(改名)'));",
+              "pm.test('apiKey 留空 → tail 不变(abcd)', () => pm.expect(json.data.apiKeyTail).to.eql('abcd'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. 禁用",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/disable", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers", "{{providerId}}", "disable"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. 启用",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/enable", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers", "{{providerId}}", "enable"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. 删除(逻辑删除)",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers", "{{providerId}}"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "反例 · 创建-protocol非法(期望 400/10001)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"非法协议\",\n  \"protocol\": \"gemini\",\n  \"baseUrl\": \"https://x.com\",\n  \"apiKey\": \"sk-x\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const json = pm.response.json();",
+              "pm.test('业务码 10001', () => pm.expect(json.code).to.eql(10001));",
+              "pm.test('data 是字段错误数组', () => pm.expect(json.data).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "反例 · 重名创建(期望 409/10006)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "provider", "providers"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Claude-海外\",\n  \"protocol\": \"anthropic\",\n  \"baseUrl\": \"https://api.anthropic.com\",\n  \"apiKey\": \"sk-ant-dup\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('业务码 10006', () => pm.expect(pm.response.json().code).to.eql(10006));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
