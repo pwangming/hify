@@ -548,3 +548,7 @@ mvn -f server/pom.xml test
 - mvn test 全绿：143 tests / 0 failures / 0 errors（27 类），含 Modulith/ArchUnit 无违规。
 - 注：测试 mock 不连库；V6 迁移会在下次启动 server（跑 Postman）时由 Flyway 自动 apply。
 - ai_model 模型管理后端（B 轮）完成。
+
+## 模型管理前端 Task1 类型与 API 层（2026-06-24）
+- types/model.ts（ModelType/AiModel/ModelForm，id/providerId 为 string）+ api/admin/model.ts 封装 6 端点。
+- URL 对齐后端（列表/创建挂 providers/{id}/models、单条走 models/{id}）；TDD 6 测先红后绿。
