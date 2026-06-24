@@ -566,3 +566,9 @@ mvn -f server/pom.xml test
 - 根因：embedding radio 的 :disabled="embeddingDisabled"(openai 下为 false) 覆盖了 radio-group 的 :disabled，编辑态仍可切 chat→embedding；update 只传 name+modelKey 故"提示成功但类型未变"。
 - 修：编辑态不渲染 radio 组，改 el-tag 只读展示；radio（含 embedding 置灰）只在新增态出现。
 - 加回归测试（编辑态无 form-type、显示 form-type-readonly）；全量 16 文件/90 测绿。
+
+## app 模块 Task1 jsonb 配置载体（2026-06-24）
+- AppConfig（record，systemPrompt）+ AppConfigTypeHandler（写出 PGobject(jsonb)、读入反序列化，null/空白兜底 new AppConfig(null)）。
+- 顺带修：pom.xml 里 postgresql 驱动从 `<scope>runtime</scope>` 改为编译期可见——TypeHandler 在 main 代码里直接 import PGobject，runtime scope 编译不过。
+- 自证：handler 单测 3 绿（写出序列化、读入反序列化、读入空值兜底）；mvn test 全量 146 测/0 失败/0 错误（含原 143 + 新增 3）。
+- 遗留：jsonb 落库正确性待 Task 9（建 app 实体/表）端到端走查，本任务仅验证 TypeHandler 单元行为，未连库。
