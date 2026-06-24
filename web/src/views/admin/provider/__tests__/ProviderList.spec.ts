@@ -32,17 +32,19 @@ const SAMPLE: Provider[] = [
   {
     id: '1',
     name: 'OpenAI 官方',
-    type: 'openai',
+    protocol: 'openai',
     baseUrl: 'https://api.openai.com/v1',
     status: 'enabled',
+    apiKeyTail: '7890',
     createTime: '2026-06-20T10:00:00+08:00',
   },
   {
     id: '3',
     name: 'Anthropic Claude',
-    type: 'claude',
+    protocol: 'anthropic',
     baseUrl: 'https://api.anthropic.com',
     status: 'enabled',
+    apiKeyTail: 'wxyz',
     createTime: '2026-06-22T09:05:00+08:00',
   },
 ]
@@ -53,14 +55,15 @@ describe('ProviderList', () => {
     vi.mocked(listProviders).mockResolvedValue(SAMPLE)
   })
 
-  it('挂载时拉取提供商并渲染各行与类型标签', async () => {
+  it('挂载时拉取提供商并渲染协议标签与 API Key 掩码', async () => {
     const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
     await flushPromises()
     expect(listProviders).toHaveBeenCalledOnce()
     expect(wrapper.text()).toContain('OpenAI 官方')
     expect(wrapper.text()).toContain('Anthropic Claude')
-    expect(wrapper.text()).toContain('OpenAI')
-    expect(wrapper.text()).toContain('Claude')
+    expect(wrapper.text()).toContain('OpenAI 兼容') // 协议标签
+    expect(wrapper.text()).toContain('Anthropic')
+    expect(wrapper.text()).toContain('••••7890') // API Key 掩码列
   })
 
   it('点新增弹出对话框', async () => {
@@ -81,13 +84,14 @@ describe('ProviderList', () => {
     expect(createProvider).not.toHaveBeenCalled()
   })
 
-  it('新建成功：调 createProvider 后重拉列表', async () => {
+  it('新建成功：调 createProvider(body 带 protocol) 后重拉列表', async () => {
     vi.mocked(createProvider).mockResolvedValue({
       id: '9',
       name: 'New',
-      type: 'openai',
+      protocol: 'openai',
       baseUrl: 'https://x.com/v1',
       status: 'enabled',
+      apiKeyTail: 'xxx0',
       createTime: '2026-06-24T08:00:00+08:00',
     })
     const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
@@ -104,7 +108,7 @@ describe('ProviderList', () => {
 
     expect(createProvider).toHaveBeenCalledWith({
       name: 'New',
-      type: 'openai',
+      protocol: 'openai',
       apiKey: 'sk-xxx',
       baseUrl: 'https://x.com/v1',
     })
@@ -122,13 +126,14 @@ describe('ProviderList', () => {
     expect((wrapper.get('[data-test="form-apikey"]').element as HTMLInputElement).value).toBe('')
   })
 
-  it('编辑成功：调 updateProvider(id, body) 后重拉', async () => {
+  it('编辑成功：调 updateProvider(id, body 带 protocol) 后重拉', async () => {
     vi.mocked(updateProvider).mockResolvedValue({
       id: '1',
       name: 'OpenAI 改名',
-      type: 'openai',
+      protocol: 'openai',
       baseUrl: 'https://api.openai.com/v1',
       status: 'enabled',
+      apiKeyTail: '7890',
       createTime: '2026-06-20T10:00:00+08:00',
     })
     const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
@@ -140,7 +145,7 @@ describe('ProviderList', () => {
     await flushPromises()
     expect(updateProvider).toHaveBeenCalledWith('1', {
       name: 'OpenAI 改名',
-      type: 'openai',
+      protocol: 'openai',
       apiKey: '',
       baseUrl: 'https://api.openai.com/v1',
     })
@@ -149,7 +154,7 @@ describe('ProviderList', () => {
 
   it('删除：确认后调 deleteProvider 并重拉', async () => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
-    vi.mocked(deleteProvider).mockResolvedValue()
+    vi.mocked(deleteProvider).mockResolvedValue(undefined)
     const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
     await flushPromises()
     await wrapper.get('[data-test="delete-1"]').trigger('click')
@@ -169,17 +174,9 @@ describe('ProviderList', () => {
 
   it('启用行显示「禁用」按钮：确认后调 disableProvider 并重拉', async () => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
-    vi.mocked(disableProvider).mockResolvedValue({
-      id: '1',
-      name: 'OpenAI 官方',
-      type: 'openai',
-      baseUrl: 'https://api.openai.com/v1',
-      status: 'disabled',
-      createTime: '2026-06-20T10:00:00+08:00',
-    })
+    vi.mocked(disableProvider).mockResolvedValue(undefined)
     const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
     await flushPromises()
-    // id 1 是 enabled，应显示 disable 按钮而非 enable
     expect(wrapper.find('[data-test="enable-1"]').exists()).toBe(false)
     await wrapper.get('[data-test="disable-1"]').trigger('click')
     await flushPromises()
@@ -191,21 +188,15 @@ describe('ProviderList', () => {
     vi.mocked(listProviders).mockResolvedValue([
       {
         id: '4',
-        name: 'Google Gemini',
-        type: 'gemini',
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        name: '通义千问',
+        protocol: 'openai',
+        baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
         status: 'disabled',
+        apiKeyTail: '4321',
         createTime: '2026-06-22T15:40:00+08:00',
       },
     ])
-    vi.mocked(enableProvider).mockResolvedValue({
-      id: '4',
-      name: 'Google Gemini',
-      type: 'gemini',
-      baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-      status: 'enabled',
-      createTime: '2026-06-22T15:40:00+08:00',
-    })
+    vi.mocked(enableProvider).mockResolvedValue(undefined)
     const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
     await flushPromises()
     expect(wrapper.find('[data-test="disable-4"]').exists()).toBe(false)

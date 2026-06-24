@@ -524,3 +524,8 @@ mvn -f server/pom.xml test
 ## Provider 后端 Task 5：全量回归（2026-06-24）
 - mvn test 全绿：120 tests / 0 failures / 0 errors（25 类），含 Modulith/ArchUnit 边界校验无违规。
 - Provider 后端第 1 轮（CRUD + Key 加密）完成。
+
+## 前端 ProviderList 切真后端（2026-06-24）
+- types: type(4值)→protocol(2值)、Provider 加 apiKeyTail；api: mock 换真实 request 6 端点（enable/disable/delete 返 void）。
+- 页面: 协议标签「OpenAI 兼容/Anthropic」、新增 API Key 掩码列(••••尾巴)、submitForm try/catch 失败弹窗不关。
+- TDD: 先改测试到红(3 失败)→实现→10 用例绿。全量 pnpm test 14 文件/69 测试绿，typecheck + lint 通过。

@@ -9,25 +9,21 @@ import {
   disableProvider,
   deleteProvider,
 } from '@/api/admin/provider'
-import type { Provider, ProviderForm, ProviderType } from '@/types/provider'
+import type { Provider, ProviderForm, ProviderProtocol } from '@/types/provider'
 import { formatDateTime } from '@/utils/datetime'
 import PageHeader from '@/components/PageHeader.vue'
 import ContentCard from '@/components/ContentCard.vue'
 
 const NAME_MAX = 50
 
-// 类型 → 展示标签 / el-tag 颜色
-const TYPE_LABEL: Record<ProviderType, string> = {
-  openai: 'OpenAI',
-  claude: 'Claude',
-  gemini: 'Gemini',
-  ollama: 'Ollama',
+// 协议 → 展示标签 / el-tag 颜色。openai 覆盖 OpenAI/通义/Gemini 等兼容端点，故标「OpenAI 兼容」。
+const PROTOCOL_LABEL: Record<ProviderProtocol, string> = {
+  openai: 'OpenAI 兼容',
+  anthropic: 'Anthropic',
 }
-const TYPE_TAG: Record<ProviderType, '' | 'success' | 'warning' | 'info'> = {
+const PROTOCOL_TAG: Record<ProviderProtocol, '' | 'success'> = {
   openai: '',
-  claude: 'success',
-  gemini: 'warning',
-  ollama: 'info',
+  anthropic: 'success',
 }
 
 const providers = ref<Provider[]>([])
@@ -59,7 +55,7 @@ async function onEnable(row: Provider) {
     ElMessage.success('已启用')
     await load()
   } catch {
-    /* 已由 request 拦截器统一处理（mock 期无网络错误） */
+    /* 已由 request 拦截器统一 toast */
   }
 }
 
@@ -70,7 +66,7 @@ async function onDisable(row: Provider) {
     ElMessage.success('已禁用')
     await load()
   } catch {
-    /* 已由 request 拦截器统一处理（mock 期无网络错误） */
+    /* 已由 request 拦截器统一 toast */
   }
 }
 
@@ -81,7 +77,7 @@ async function onDelete(row: Provider) {
     ElMessage.success('已删除')
     await load()
   } catch {
-    /* 已由 request 拦截器统一处理（mock 期无网络错误） */
+    /* 已由 request 拦截器统一 toast */
   }
 }
 
@@ -89,14 +85,14 @@ async function onDelete(row: Provider) {
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null) // null=新增，否则=编辑该 id
 const formRef = ref<FormInstance>()
-const form = reactive<ProviderForm>({ name: '', type: 'openai', apiKey: '', baseUrl: '' })
+const form = reactive<ProviderForm>({ name: '', protocol: 'openai', apiKey: '', baseUrl: '' })
 
 const rules: FormRules<ProviderForm> = {
   name: [
     { required: true, message: '请输入名称', trigger: 'blur' },
     { max: NAME_MAX, message: `名称不超过 ${NAME_MAX} 个字符`, trigger: 'blur' },
   ],
-  type: [{ required: true, message: '请选择类型', trigger: 'change' }],
+  protocol: [{ required: true, message: '请选择协议', trigger: 'change' }],
   baseUrl: [
     { required: true, message: '请输入 Base URL', trigger: 'blur' },
     { pattern: /^https?:\/\//, message: 'Base URL 需以 http:// 或 https:// 开头', trigger: 'blur' },
@@ -106,7 +102,7 @@ const rules: FormRules<ProviderForm> = {
 function openCreate() {
   editingId.value = null
   form.name = ''
-  form.type = 'openai'
+  form.protocol = 'openai'
   form.apiKey = ''
   form.baseUrl = ''
   dialogVisible.value = true
@@ -115,7 +111,7 @@ function openCreate() {
 function openEdit(row: Provider) {
   editingId.value = row.id
   form.name = row.name
-  form.type = row.type
+  form.protocol = row.protocol
   form.apiKey = '' // 不回显密钥；留空表示不修改
   form.baseUrl = row.baseUrl
   dialogVisible.value = true
@@ -127,20 +123,24 @@ async function submitForm() {
   if (!valid) return
   // 兜底：happy-dom 下 el-form.validate 对空必填会误判通过（见 UserList 同样处理）。
   if (!form.name || form.name.length > NAME_MAX) return
-  if (!form.type) return
+  if (!form.protocol) return
   if (!/^https?:\/\//.test(form.baseUrl)) return
   // 新增时 apiKey 必填；编辑可空（表示不修改）
   if (editingId.value === null && !form.apiKey) return
 
-  if (editingId.value === null) {
-    await createProvider({ ...form })
-    ElMessage.success('提供商已创建')
-  } else {
-    await updateProvider(editingId.value, { ...form })
-    ElMessage.success('提供商已更新')
+  try {
+    if (editingId.value === null) {
+      await createProvider({ ...form })
+      ElMessage.success('提供商已创建')
+    } else {
+      await updateProvider(editingId.value, { ...form })
+      ElMessage.success('提供商已更新')
+    }
+    dialogVisible.value = false
+    await load()
+  } catch {
+    /* 失败（如重名）由 request 拦截器统一 toast；弹窗保持打开让用户改 */
   }
-  dialogVisible.value = false
-  await load()
 }
 </script>
 
@@ -153,14 +153,17 @@ async function submitForm() {
     <ContentCard>
       <el-table v-loading="loading" :data="providers" data-test="provider-table">
         <el-table-column prop="name" label="名称" />
-        <el-table-column label="类型">
+        <el-table-column label="协议">
           <template #default="{ row }">
-            <el-tag :type="TYPE_TAG[(row as Provider).type]">{{
-              TYPE_LABEL[(row as Provider).type]
+            <el-tag :type="PROTOCOL_TAG[(row as Provider).protocol]">{{
+              PROTOCOL_LABEL[(row as Provider).protocol]
             }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="baseUrl" label="Base URL" />
+        <el-table-column label="API Key">
+          <template #default="{ row }">••••{{ (row as Provider).apiKeyTail }}</template>
+        </el-table-column>
         <el-table-column label="状态">
           <template #default="{ row }">
             <el-tag :type="(row as Provider).status === 'enabled' ? 'success' : 'info'">
@@ -217,12 +220,10 @@ async function submitForm() {
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" data-test="form-name" maxlength="50" />
         </el-form-item>
-        <el-form-item label="类型" prop="type">
-          <el-select v-model="form.type" data-test="form-type">
-            <el-option label="OpenAI" value="openai" />
-            <el-option label="Claude" value="claude" />
-            <el-option label="Gemini" value="gemini" />
-            <el-option label="Ollama" value="ollama" />
+        <el-form-item label="协议" prop="protocol">
+          <el-select v-model="form.protocol" data-test="form-protocol">
+            <el-option label="OpenAI 兼容" value="openai" />
+            <el-option label="Anthropic" value="anthropic" />
           </el-select>
         </el-form-item>
         <el-form-item label="API Key" prop="apiKey">
