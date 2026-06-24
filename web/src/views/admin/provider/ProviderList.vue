@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
   listProviders,
@@ -25,6 +26,8 @@ const PROTOCOL_TAG: Record<ProviderProtocol, '' | 'success'> = {
   openai: '',
   anthropic: 'success',
 }
+
+const router = useRouter()
 
 const providers = ref<Provider[]>([])
 const loading = ref(false)
@@ -174,9 +177,16 @@ async function submitForm() {
         <el-table-column label="创建时间">
           <template #default="{ row }">{{ formatDateTime((row as Provider).createTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="240">
+        <el-table-column label="操作" width="320">
           <template #default="{ row }">
             <div class="provider-list__ops">
+              <el-button
+                :data-test="`manage-${(row as Provider).id}`"
+                size="small"
+                type="primary"
+                @click="router.push('/admin/provider/' + (row as Provider).id)"
+                >管理模型</el-button
+              >
               <el-button
                 v-if="(row as Provider).status === 'enabled'"
                 :data-test="`disable-${(row as Provider).id}`"

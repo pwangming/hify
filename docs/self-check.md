@@ -552,3 +552,7 @@ mvn -f server/pom.xml test
 ## 模型管理前端 Task1 类型与 API 层（2026-06-24）
 - types/model.ts（ModelType/AiModel/ModelForm，id/providerId 为 string）+ api/admin/model.ts 封装 6 端点。
 - URL 对齐后端（列表/创建挂 providers/{id}/models、单条走 models/{id}）；TDD 6 测先红后绿。
+
+## 模型管理前端 Task2 路由+入口（2026-06-24）
+- ProviderList 操作列加「管理模型」按钮（router.push /admin/provider/:id），列宽 240→320。
+- 注册 ProviderDetail 路由（roles:['admin']，无 menu 不进侧边栏）；ProviderList 11 测、menu 9 测全绿。
