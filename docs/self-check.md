@@ -512,3 +512,7 @@ mvn -f server/pom.xml test
 - V5 建表 model_provider：text+check 枚举、boolean deleted、部分唯一索引 (name) where deleted=false。
 - ProviderStatus 枚举、ModelProvider 实体（继承 BaseEntity）、ModelProviderMapper 就位。
 - 经 ProviderServiceTest 编译+运行间接验证（实体/Mapper 可用）。
+
+## Provider 后端 Task 3：ProviderService（2026-06-24）
+- CRUD + 启停 + 重名预检/并发兜底 + 不存在 NOT_FOUND + 删除/启停幂等 + apiKey 留空保留，12 测全绿。
+- 投影 ProviderResponse 不含密文/明文 key（编译期保证）。
