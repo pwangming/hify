@@ -572,3 +572,10 @@ mvn -f server/pom.xml test
 - 顺带修：pom.xml 里 postgresql 驱动从 `<scope>runtime</scope>` 改为编译期可见——TypeHandler 在 main 代码里直接 import PGobject，runtime scope 编译不过。
 - 自证：handler 单测 3 绿（写出序列化、读入反序列化、读入空值兜底）；mvn test 全量 146 测/0 失败/0 错误（含原 143 + 新增 3）。
 - 遗留：jsonb 落库正确性待 Task 9（建 app 实体/表）端到端走查，本任务仅验证 TypeHandler 单元行为，未连库。
+
+## app 模块 Task2 建表迁移+常量+实体+Mapper（2026-06-24）
+- V7 建表 app：text+check 枚举(type/status)、jsonb config、跨模块 model_id/owner_id 只存 id 不建外键、部分唯一索引 (name) where deleted=false。
+- AppType(chat/workflow) / AppStatus(enabled/disabled) / AppError(16001 APP_TYPE_NOT_SUPPORTED, 400) / App 实体（继承 BaseEntity，config 用 @TableField(typeHandler=AppConfigTypeHandler.class) + 类上 @TableName(autoResultMap=true)）/ AppMapper 就位。
+- TDD：AppEnumTest 先红（AppType/AppStatus/AppError 未定义，编译失败）→ 写实现后绿。
+- mvn -Dtest=AppEnumTest,ModularityTests,LayerRulesTest test：8 测全绿；mvn test 全量：148 tests/0 failures/0 errors（含原 146 + 新增 2），含 Modulith/ArchUnit 模块边界与分层校验无违规。
+- 遗留：建表 SQL 与 App 实体的真实数据库读写（含 jsonb config 端到端）未连库验证，留待后续轮次（Service 层落地或 Testcontainers）一并走查。
