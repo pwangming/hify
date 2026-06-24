@@ -501,3 +501,9 @@ mvn -f server/pom.xml test
 
 > 📌 本轮**不含**：前端 admin 用户管理页面、Testcontainers 连库测试——
 > 本轮服务层测试用 mock `SysUserMapper`（沿用既有惯例，连库测试统一推迟到 knowledge 模块手写 SQL 那轮）。
+
+## Provider 后端 Task 1：ApiKeyCipher（2026-06-24）
+- AES-256-GCM 加解密器就位，主密钥经 SHA-256 派生、随机 12B IV、128b tag。
+- 测试：往返一致 / 同明文两次密文不同（随机IV）/ 换密钥解密失败，3 测全绿。
+- 配置外化：application.yml `hify.provider.crypto.master-key` 引用 `${HIFY_PROVIDER_MASTER_KEY}`（dev 默认值）。
+- ⚠️ deploy/.env.example 因目录写保护未能自动追加 HIFY_PROVIDER_MASTER_KEY，需手动补。
