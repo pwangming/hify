@@ -591,3 +591,10 @@ mvn -f server/pom.xml test
 - AppService 追加 get(id)（不存在→NOT_FOUND）、page(keyword, type, page, size)（page*size>10000→PARAM_INVALID；LambdaQueryWrapper：keyword→name like，type→等值，orderByDesc(id)；@TableLogic 自动加 deleted=false；不按 owner 过滤，团队全可见）→ 映射成 PageResult<AppResponse>。两个方法均只读，不加 @Transactional。
 - TDD：AppServiceTest 追加 3 例先红（get/page 未定义，编译失败，Tests run: 7/Errors: 7）→ 写实现后绿。
 - mvn -Dtest=AppServiceTest test：7 测全绿；mvn test 全量：155 tests/0 failures/0 errors（含原 152 + 新增 3），含 Modulith/ArchUnit 校验无违规。
+
+## app 模块 Task5 AppService 改/删/启停 + 团队共享权限判定（2026-06-24）
+- 新增 UpdateAppRequest（record，无 type，type 不可改）；AppService 追加 update/delete/enable/disable + 私有 assertCanModify(App, CurrentUser)（非 owner 且非 admin→FORBIDDEN）/ loadOrThrow(Long)（不存在→NOT_FOUND）。
+- 团队共享制落地：改/删/启停统一先 loadOrThrow 再 assertCanModify；delete 幂等——selectById 为 null 直接 return（不报错不查权限，因无对象可判）；update 改名撞唯一索引 catch DuplicateKeyException→CONFLICT。
+- TDD：AppServiceTest 追加 7 例先红（UpdateAppRequest/update/delete/disable 未定义，编译失败）→ 写实现后绿。
+- 踩坑：brief 测试原文 `verify(mapper, never()).updateById(any())` / `deleteById(any())` 中 bare `any()` 与 BaseMapper 的单体/Collection 重载产生编译期歧义；沿用 Task3 既有约定改成 `any(App.class)` / `any(Long.class)` 消歧。
+- mvn -Dtest=AppServiceTest test：14 测全绿（原 brief 预估"共 15 例"，实际累计 14——本轮净增 7 例，与原有 7 例相加为 14，预估数与实际不一致，已用实测值为准）；mvn test 全量：162 tests/0 failures/0 errors（含原 155 + 新增 7），含 Modulith/ArchUnit 模块边界与分层校验无违规。

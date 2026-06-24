@@ -5,6 +5,7 @@ import com.hify.app.constant.AppError;
 import com.hify.app.constant.AppStatus;
 import com.hify.app.dto.AppResponse;
 import com.hify.app.dto.CreateAppRequest;
+import com.hify.app.dto.UpdateAppRequest;
 import com.hify.app.entity.App;
 import com.hify.app.mapper.AppMapper;
 import com.hify.common.exception.BizException;
@@ -107,5 +108,71 @@ class AppServiceTest {
     void 分页_页深超限抛PARAM_INVALID() {
         BizException ex = assertThrows(BizException.class, () -> service.page(null, null, 1000, 20));
         assertEquals(CommonError.PARAM_INVALID, ex.errorCode());
+    }
+
+    private App stored(long id, long ownerId, String status) {
+        App a = new App();
+        a.setId(id); a.setName("app" + id); a.setType("chat"); a.setOwnerId(ownerId);
+        a.setStatus(status); a.setConfig(new com.hify.app.api.dto.AppConfig(null));
+        return a;
+    }
+
+    private final CurrentUser admin = new CurrentUser(1L, "root", CurrentUser.ROLE_ADMIN);
+    private UpdateAppRequest upd() {
+        return new UpdateAppRequest("新名", "新描述", 9L, new com.hify.app.api.dto.AppConfig("改了"));
+    }
+
+    @org.junit.jupiter.api.Test
+    void 更新_owner放行() {
+        when(mapper.selectById(10L)).thenReturn(stored(10L, 7L, "enabled")); // owner=bob(7)
+        AppResponse r = service.update(10L, upd(), member);
+        assertEquals("新名", r.name());
+        verify(mapper).updateById(any(App.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void 更新_admin放行他人应用() {
+        when(mapper.selectById(10L)).thenReturn(stored(10L, 999L, "enabled"));
+        service.update(10L, upd(), admin);
+        verify(mapper).updateById(any(App.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void 更新_他人非admin_拒绝FORBIDDEN() {
+        when(mapper.selectById(10L)).thenReturn(stored(10L, 999L, "enabled"));
+        BizException ex = assertThrows(BizException.class, () -> service.update(10L, upd(), member));
+        assertEquals(CommonError.FORBIDDEN, ex.errorCode());
+        verify(mapper, never()).updateById(any(App.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void 更新_不存在_NOT_FOUND() {
+        when(mapper.selectById(10L)).thenReturn(null);
+        BizException ex = assertThrows(BizException.class, () -> service.update(10L, upd(), member));
+        assertEquals(CommonError.NOT_FOUND, ex.errorCode());
+    }
+
+    @org.junit.jupiter.api.Test
+    void 删除_不存在_幂等返回不报错() {
+        when(mapper.selectById(10L)).thenReturn(null);
+        service.delete(10L, member);
+        verify(mapper, never()).deleteById(any(Long.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void 删除_他人非admin_FORBIDDEN() {
+        when(mapper.selectById(10L)).thenReturn(stored(10L, 999L, "enabled"));
+        BizException ex = assertThrows(BizException.class, () -> service.delete(10L, member));
+        assertEquals(CommonError.FORBIDDEN, ex.errorCode());
+        verify(mapper, never()).deleteById(any(Long.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void 停用_owner放行_写disabled() {
+        when(mapper.selectById(10L)).thenReturn(stored(10L, 7L, "enabled"));
+        ArgumentCaptor<App> captor = ArgumentCaptor.forClass(App.class);
+        service.disable(10L, member);
+        verify(mapper).updateById(captor.capture());
+        assertEquals("disabled", captor.getValue().getStatus());
     }
 }
