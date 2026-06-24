@@ -537,3 +537,6 @@ mvn -f server/pom.xml test
 ## ai_model 后端 B-Task2 AiModelService（2026-06-24）
 - CRUD + 启停 + embedding 协议守卫(anthropic+embedding→12001) + 重名/不存在/幂等，14 测全绿。
 - 修：BaseMapper insert/updateById 重载致 any() 歧义，verify 改 any(AiModel.class)。
+
+## ai_model 后端 B-Task3 AdminModelController（2026-06-24）
+- 6 端点混合路由（列表/创建挂供应商下、单条走顶级）通；admin/member/@Valid 校验，8 测全绿。
