@@ -610,3 +610,10 @@ mvn -f server/pom.xml test
 - TDD：AppControllerTest 4 例（@WebMvcTest + 导入 SecurityConfig/JwtService 等 + 成员 JWT）先红（AppController 未定义，编译失败）→ 写实现后绿，覆盖：成员可访问列表（PageResult，Long/long 全局序列化为 string）、未登录 401、创建空名 400/10001、创建成功返回完整资源含 config.systemPrompt。
 - mvn -Dtest=AppControllerTest test：4 测全绿；mvn test 全量：168 tests/0 failures/0 errors（含原 164 + 新增 4），含 Modulith/ArchUnit 模块边界与分层校验无违规。
 - app 模块第一轮后端（Task1-6）全部完成：jsonb 配置载体 → 建表/常量/实体/Mapper → create → get/page → update/delete/enable/disable+团队共享权限 → Controller。
+
+## app 模块 Task7 前端类型与 API 层（2026-06-24）
+- `web/src/types/app.ts`：AppType/AppStatus/AppConfig/App（id/modelId/ownerId 为 string）/AppForm（创建编辑共用，不含 type/modelId）/PageResult<T>（total/page/size 均 string，对齐后端 Long 全局序列化）。
+- `web/src/api/app.ts`：listApps/getApp/createApp/updateApp/deleteApp/enableApp/disableApp 7 个函数，封 `/app/apps` 成员路由（放 `api/` 根，不进 `admin/`）；createApp 在 body 里注入固定 `type:'chat'`。
+- TDD：`web/src/api/__tests__/app.spec.ts` 6 例（mock `@/api/request`，断言 url/params/body）先红（`@/api/app` 解析失败）→ 写 types+api 后绿。
+- `pnpm vitest run src/api/__tests__/app.spec.ts`：6/6 通过；`pnpm test` 全量 17 文件/96 测全绿；`pnpm typecheck`、`pnpm lint` 均无错误。
+- 前端 app 模块类型与 API 层完成，为后续页面（列表/表单组件）任务铺路。
