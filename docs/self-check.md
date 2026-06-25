@@ -642,3 +642,9 @@ mvn -f server/pom.xml test
 - 怎么自证：`mvn -Dtest=ProviderFacadeImplTest,ModularityTests,LayerRulesTest test` → 8 tests/0 failures（ProviderFacadeImplTest 2 + ModularityTests 1 + LayerRulesTest 5）。Modulith/ArchUnit 绿 = 新增 Facade(api) 与 ModelView(api/dto) 不破坏模块边界。
 - 反向验证：把 ProviderFacade 放进非 api 包，ModularityTests/LayerRulesTest 会报对外接口未在 api 暴露——证明边界守门有效。
 - 已知遗留：getChatClient/getEmbeddingModel 方法留 C2。
+
+## provider C1 · Task 3：成员侧模型列表端点（2026-06-25）
+- 对应改动：`provider/controller/ModelQueryController.java`（成员族 GET /api/v1/provider/models?type=chat）。
+- 怎么自证：`mvn -Dtest=ModelQueryControllerTest test` → `Tests run: 2`。覆盖：成员 token 可访问、返回 Result 信封、id 序列化为 string、providerName 存在、type 默认 chat 透传 service；未登录 → 401。
+- 安全配置核对：SecurityConfig admin 匹配器是 `/api/v1/admin/**`（hasRole ADMIN），`/api/v1/provider/**` 落 `anyRequest().authenticated()` → 成员可访问，无需改 SecurityConfig。
+- 反向验证：未登录用例预期 401——若把路由误挂到 admin 段或漏鉴权会变 403/200 而红。
