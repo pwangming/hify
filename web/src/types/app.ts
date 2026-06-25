@@ -23,10 +23,11 @@ export interface App {
   updateTime: string
 }
 
-/** 创建/编辑共用表单。type 本轮固定 chat（api 层补；模型选择器推迟到②，故不含 modelId）。 */
+/** 创建/编辑共用表单。type 本轮固定 chat（api 层补）。modelId 选填（C1 起支持模型选择器）。 */
 export interface AppForm {
   name: string
   description: string
+  modelId: string | null
   config: AppConfig
 }
 

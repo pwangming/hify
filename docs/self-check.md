@@ -655,3 +655,13 @@ mvn -f server/pom.xml test
 - 怎么自证：`mvn -Dtest=AppServiceTest test` → `Tests run: 21`（原 17 + 新增 4：创建/更新各「模型不可用→16002」「modelId 为 null 不校验放行」）；`mvn test` 全量 186/0/0，Modulith+ArchUnit 绿（跨模块 import 合规）。
 - 反向验证：把 assertModelUsableIfPresent 的 null 判断去掉，「modelId 为 null 不校验」用例会因 facade 被调用（verify never 失败）而红。
 - 已知遗留：编辑既有 app 时若所选模型后被禁用，须重选/清空才能存（spec §3.2 已记，C1 接受）。
+
+## provider C1 · Task 5：前端成员侧模型 api（2026-06-25）
+- 对应改动：`web/src/types/model.ts`（+ModelOption）、`web/src/api/provider.ts`（listChatModels）。
+- 怎么自证：`pnpm vitest run src/api/__tests__/provider.spec.ts` → 1 passed；断言 `request.get` 以 `('/provider/models', { params: { type: 'chat' } })` 调用。
+
+## provider C1 · Task 6：app 弹窗模型选择器（2026-06-25）
+- 对应改动：`web/src/types/app.ts`（AppForm +modelId）、`web/src/views/app/AppList.vue`（弹窗 el-select + 打开弹窗拉 listChatModels + 创建/编辑回填）。
+- 怎么自证：`pnpm vitest run src/views/app/__tests__/AppList.spec.ts` → 8 passed（原 4 + 新增 4：打开弹窗拉模型/选中→createApp 带 modelId/不选→null/编辑回填）；`pnpm test` 全量 19 文件 105 测全绿；`pnpm build`（vue-tsc + vite）通过；`pnpm lint` 无问题。
+- 反向验证：把 openCreate 里 `form.modelId = null` 去掉，「不选→modelId 为 null」用例会因残留上次值而红。
+- 已知遗留：模型后被禁用时编辑须重选/清空才能存（spec §3.2）。

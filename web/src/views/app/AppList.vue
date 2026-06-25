@@ -4,7 +4,9 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import {
   listApps, createApp, updateApp, deleteApp, enableApp, disableApp,
 } from '@/api/app'
+import { listChatModels } from '@/api/provider'
 import type { App, AppForm } from '@/types/app'
+import type { ModelOption } from '@/types/model'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
 import PageHeader from '@/components/PageHeader.vue'
@@ -87,7 +89,17 @@ async function onDelete(row: App) {
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
 const formRef = ref<FormInstance>()
-const form = reactive<AppForm>({ name: '', description: '', config: { systemPrompt: '' } })
+const form = reactive<AppForm>({ name: '', description: '', modelId: null, config: { systemPrompt: '' } })
+
+// 模型选择器选项（成员侧「可用」chat 模型），每次打开弹窗刷新一次。
+const modelOptions = ref<ModelOption[]>([])
+async function loadModelOptions() {
+  try {
+    modelOptions.value = await listChatModels()
+  } catch {
+    /* 失败由 request 拦截器统一 toast；下拉留空，不阻塞建应用 */
+  }
+}
 
 const rules: FormRules<AppForm> = {
   name: [
@@ -100,15 +112,19 @@ function openCreate() {
   editingId.value = null
   form.name = ''
   form.description = ''
+  form.modelId = null
   form.config = { systemPrompt: '' }
   dialogVisible.value = true
+  loadModelOptions()
 }
 function openEdit(row: App) {
   editingId.value = row.id
   form.name = row.name
   form.description = row.description ?? ''
+  form.modelId = row.modelId
   form.config = { systemPrompt: row.config.systemPrompt ?? '' }
   dialogVisible.value = true
+  loadModelOptions()
 }
 
 async function submitForm() {
@@ -234,6 +250,22 @@ async function submitForm() {
         <el-form-item label="描述">
           <el-input v-model="form.description" data-test="form-desc" maxlength="200" />
         </el-form-item>
+        <el-form-item label="模型">
+          <el-select
+            v-model="form.modelId"
+            data-test="form-model"
+            placeholder="选择对话模型（可选）"
+            clearable
+            class="app-list__model-select"
+          >
+            <el-option
+              v-for="m in modelOptions"
+              :key="m.id"
+              :value="m.id"
+              :label="`${m.providerName} / ${m.name}`"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="系统提示词">
           <el-input
             v-model="form.config.systemPrompt"
@@ -255,6 +287,9 @@ async function submitForm() {
 <style scoped lang="scss">
 .app-list__search {
   width: 220px;
+}
+.app-list__model-select {
+  width: 100%;
 }
 .app-list__ops {
   display: flex;

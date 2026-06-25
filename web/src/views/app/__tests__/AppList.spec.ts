@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElSelect } from 'element-plus'
 import { listApps, createApp, deleteApp } from '@/api/app'
+import { listChatModels } from '@/api/provider'
 import type { App, PageResult } from '@/types/app'
 import { useUserStore } from '@/stores/user'
 import AppList from '@/views/app/AppList.vue'
@@ -11,6 +12,7 @@ vi.mock('@/api/app', () => ({
   listApps: vi.fn(), getApp: vi.fn(), createApp: vi.fn(), updateApp: vi.fn(),
   deleteApp: vi.fn(), enableApp: vi.fn(), disableApp: vi.fn(),
 }))
+vi.mock('@/api/provider', () => ({ listChatModels: vi.fn() }))
 
 globalThis.ResizeObserver = class {
   observe() {} unobserve() {} disconnect() {}
@@ -25,12 +27,16 @@ const MINE: App = {
   createTime: '2026-06-24T10:00:00+08:00', updateTime: '2026-06-24T10:00:00+08:00',
 }
 const OTHERS: App = { ...MINE, id: '2', name: '他人应用', ownerId: '999' }
+const WITH_MODEL: App = { ...MINE, id: '3', name: '带模型应用', modelId: '5' }
 
 describe('AppList', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     vi.mocked(listApps).mockResolvedValue(page([MINE, OTHERS]))
+    vi.mocked(listChatModels).mockResolvedValue([
+      { id: '5', name: 'GPT-4o', type: 'chat', providerName: '通义千问' },
+    ])
     const store = useUserStore()
     store.user = { id: '7', username: 'bob', role: 'member' } // 当前用户=bob(7)
   })
@@ -69,5 +75,49 @@ describe('AppList', () => {
     await wrapper.find('[data-test="form-submit"]').trigger('click')
     await flushPromises()
     expect(createApp).not.toHaveBeenCalled()
+  })
+
+  it('打开创建弹窗：拉取可用模型、渲染选择器', async () => {
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="create-open"]').trigger('click')
+    await flushPromises()
+    expect(listChatModels).toHaveBeenCalledOnce()
+    expect(wrapper.find('[data-test="form-model"]').exists()).toBe(true)
+  })
+
+  it('创建：选中模型 → createApp body 含 modelId', async () => {
+    vi.mocked(createApp).mockResolvedValue(MINE)
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="create-open"]').trigger('click')
+    await flushPromises()
+    wrapper.find('[data-test="form-name"]').setValue('新应用')
+    wrapper.findComponent(ElSelect).vm.$emit('update:modelValue', '5')
+    await flushPromises()
+    await wrapper.find('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ modelId: '5' }))
+  })
+
+  it('创建：不选模型 → createApp body modelId 为 null', async () => {
+    vi.mocked(createApp).mockResolvedValue(MINE)
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="create-open"]').trigger('click')
+    await flushPromises()
+    wrapper.find('[data-test="form-name"]').setValue('无模型应用')
+    await wrapper.find('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ modelId: null }))
+  })
+
+  it('编辑：回填已选模型 id', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([WITH_MODEL]))
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="edit-3"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.findComponent(ElSelect).props('modelValue')).toBe('5')
   })
 })
