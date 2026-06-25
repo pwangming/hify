@@ -17,6 +17,16 @@ public class ModelProvider extends BaseEntity {
     private String apiKeyCipher; // AES-256-GCM 密文
     private String apiKeyTail;   // 明文后 4 位，仅供掩码展示
     private String status;       // enabled / disabled
+    private int maxConcurrency;
+    private int batchConcurrency;
+    private int retryMaxAttempts;
+    private int cbFailureRate;
+    private int cbWaitOpenSec;
+    private int connectTimeoutSec;
+    private int responseTimeoutSec;
+    private int firstTokenTimeoutSec;
+    private int tokenGapTimeoutSec;
+    private int streamMaxDurationSec;
 
     public String getName() {
         return name;
@@ -64,5 +74,85 @@ public class ModelProvider extends BaseEntity {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public int getMaxConcurrency() {
+        return maxConcurrency;
+    }
+
+    public void setMaxConcurrency(int maxConcurrency) {
+        this.maxConcurrency = maxConcurrency;
+    }
+
+    public int getBatchConcurrency() {
+        return batchConcurrency;
+    }
+
+    public void setBatchConcurrency(int batchConcurrency) {
+        this.batchConcurrency = batchConcurrency;
+    }
+
+    public int getRetryMaxAttempts() {
+        return retryMaxAttempts;
+    }
+
+    public void setRetryMaxAttempts(int retryMaxAttempts) {
+        this.retryMaxAttempts = retryMaxAttempts;
+    }
+
+    public int getCbFailureRate() {
+        return cbFailureRate;
+    }
+
+    public void setCbFailureRate(int cbFailureRate) {
+        this.cbFailureRate = cbFailureRate;
+    }
+
+    public int getCbWaitOpenSec() {
+        return cbWaitOpenSec;
+    }
+
+    public void setCbWaitOpenSec(int cbWaitOpenSec) {
+        this.cbWaitOpenSec = cbWaitOpenSec;
+    }
+
+    public int getConnectTimeoutSec() {
+        return connectTimeoutSec;
+    }
+
+    public void setConnectTimeoutSec(int connectTimeoutSec) {
+        this.connectTimeoutSec = connectTimeoutSec;
+    }
+
+    public int getResponseTimeoutSec() {
+        return responseTimeoutSec;
+    }
+
+    public void setResponseTimeoutSec(int responseTimeoutSec) {
+        this.responseTimeoutSec = responseTimeoutSec;
+    }
+
+    public int getFirstTokenTimeoutSec() {
+        return firstTokenTimeoutSec;
+    }
+
+    public void setFirstTokenTimeoutSec(int firstTokenTimeoutSec) {
+        this.firstTokenTimeoutSec = firstTokenTimeoutSec;
+    }
+
+    public int getTokenGapTimeoutSec() {
+        return tokenGapTimeoutSec;
+    }
+
+    public void setTokenGapTimeoutSec(int tokenGapTimeoutSec) {
+        this.tokenGapTimeoutSec = tokenGapTimeoutSec;
+    }
+
+    public int getStreamMaxDurationSec() {
+        return streamMaxDurationSec;
+    }
+
+    public void setStreamMaxDurationSec(int streamMaxDurationSec) {
+        this.streamMaxDurationSec = streamMaxDurationSec;
     }
 }
