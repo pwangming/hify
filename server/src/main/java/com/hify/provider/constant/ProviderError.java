@@ -10,7 +10,14 @@ import org.springframework.http.HttpStatus;
 public enum ProviderError implements ErrorCode {
 
     /** Anthropic 协议无 embedding 能力，禁止在其下建 embedding 模型。 */
-    EMBEDDING_NOT_SUPPORTED(12001, HttpStatus.BAD_REQUEST, "该协议不支持 embedding 模型");
+    EMBEDDING_NOT_SUPPORTED(12001, HttpStatus.BAD_REQUEST, "该协议不支持 embedding 模型"),
+
+    /** getChatClient 传入不存在/停用/非 chat/供应商停用（兜底，正常路径入口已校）。 */
+    MODEL_NOT_USABLE(12002, HttpStatus.BAD_REQUEST, "所选模型不存在或不可用"),
+    /** 熔断打开 / 超时 / 重试耗尽后的 5xx/连接失败。 */
+    PROVIDER_UNAVAILABLE(12003, HttpStatus.SERVICE_UNAVAILABLE, "模型供应商暂时不可用，请稍后重试"),
+    /** 信号量满（并发已达上限）。 */
+    PROVIDER_BUSY(12004, HttpStatus.TOO_MANY_REQUESTS, "当前使用人数较多，请稍后重试");
 
     private final int code;
     private final HttpStatus status;
