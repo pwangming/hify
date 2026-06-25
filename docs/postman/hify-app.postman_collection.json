@@ -1,0 +1,692 @@
+{
+  "info": {
+    "name": "Hify · App 应用管理（第1轮）",
+    "description": "对话型应用元数据 CRUD + 团队共享权限 + 启停 的接口测试集。\n\n路由族：成员族 /api/v1/app/apps/**（任意登录用户可访问；改/删/启停的 owner+Admin 限制在 service 层判，越权回 403/10004）。\n\n用法：\n1. 先跑「0. 登录(admin)」拿 token（自动存入集合变量 token，后续请求自动带 Bearer）。\n2. 顺序跑「主流程」1→9：创建会把返回 id 存入 appId，供详情/更新/启停/删除复用。\n3. 「反例」组可单独跑（多数自带创建/不依赖删除）。\n4. 「权限矩阵」组是自包含的：它自己用 admin 建一个 app，再用 member 账号验越权 403 与全员可见 —— 需先准备一个 member 账号，并在集合变量填 memberUsername/memberPassword（建账号见 admin-user-management.postman_collection.json）。\n\n约定：响应是 Result 信封 {code,message,data,traceId}；成功 code=200；id/modelId/ownerId 一律序列化为字符串；列表是 PageResult {list,total,page,size}；config 为 jsonb，本轮仅 systemPrompt。\n\n本轮范围提醒：modelId 只存不校（等 provider C 才校模型是否存在），type 仅放行 chat（workflow→16001），type 创建后不可改（更新无 type 字段）。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminUsername", "value": "admin" },
+    { "key": "adminPassword", "value": "change-me-on-first-deploy" },
+    { "key": "memberUsername", "value": "member1" },
+    { "key": "memberPassword", "value": "change-me" },
+    { "key": "token", "value": "" },
+    { "key": "memberToken", "value": "" },
+    { "key": "appId", "value": "" },
+    { "key": "permAppId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. 登录(admin) → 存 token",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/identity/login",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "identity", "login" ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('登录成功 code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('返回 token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+              "pm.collectionVariables.set('token', json.data.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "主流程（按顺序跑 1→9）",
+      "item": [
+        {
+          "name": "1. 创建-对话型 → 存 appId",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps" ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"客服问答助手\",\n  \"description\": \"基于知识库的对话应用\",\n  \"type\": \"chat\",\n  \"modelId\": null,\n  \"config\": { \"systemPrompt\": \"你是一名友好的客服助手。\" }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.test('code=200', () => pm.expect(j.code).to.eql(200));",
+                  "pm.test('type=chat', () => pm.expect(j.data.type).to.eql('chat'));",
+                  "pm.test('状态默认 enabled', () => pm.expect(j.data.status).to.eql('enabled'));",
+                  "pm.test('id 为字符串', () => pm.expect(j.data.id).to.be.a('string'));",
+                  "pm.test('ownerId 为字符串(=当前 admin)', () => pm.expect(j.data.ownerId).to.be.a('string'));",
+                  "pm.test('config.systemPrompt 往返一致', () => pm.expect(j.data.config.systemPrompt).to.eql('你是一名友好的客服助手。'));",
+                  "pm.collectionVariables.set('appId', j.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. 列表（分页 + 字段断言）",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps?page=1&size=20",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.test('code=200', () => pm.expect(j.code).to.eql(200));",
+                  "pm.test('PageResult 结构 list/total/page/size', () => { pm.expect(j.data).to.have.property('list'); pm.expect(j.data).to.have.property('total'); pm.expect(j.data).to.have.property('page'); pm.expect(j.data).to.have.property('size'); });",
+                  "pm.test('list 是数组', () => pm.expect(j.data.list).to.be.an('array'));",
+                  "if (j.data.list.length) { pm.test('行 id 为字符串', () => pm.expect(j.data.list[0].id).to.be.a('string')); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. 列表-按关键字筛选",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps?keyword=客服&page=1&size=20",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps" ],
+              "query": [
+                { "key": "keyword", "value": "客服" },
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.test('code=200', () => pm.expect(j.code).to.eql(200));",
+                  "pm.test('命中至少一条', () => pm.expect(j.data.list.length).to.be.above(0));",
+                  "pm.test('命中名含关键字', () => pm.expect(j.data.list[0].name).to.include('客服'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. 详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{appId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{appId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.test('code=200', () => pm.expect(j.code).to.eql(200));",
+                  "pm.test('id 匹配', () => pm.expect(j.data.id).to.eql(pm.collectionVariables.get('appId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. 更新（改名+改 systemPrompt，验 config 往返）",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{appId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{appId}}" ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"客服问答助手(已改)\",\n  \"description\": \"更新后的描述\",\n  \"modelId\": null,\n  \"config\": { \"systemPrompt\": \"改写后的人设。\" }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.test('code=200', () => pm.expect(j.code).to.eql(200));",
+                  "pm.test('名称已更新', () => pm.expect(j.data.name).to.eql('客服问答助手(已改)'));",
+                  "pm.test('config 已更新', () => pm.expect(j.data.config.systemPrompt).to.eql('改写后的人设。'));",
+                  "pm.test('type 不可改仍为 chat', () => pm.expect(j.data.type).to.eql('chat'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. 禁用",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{appId}}/disable",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{appId}}", "disable" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. 启用",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{appId}}/enable",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{appId}}", "enable" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. 删除（逻辑删除）",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{appId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{appId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. 删除幂等（再删同一 id 仍 200）",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{appId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{appId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('删不存在的也算成功 code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "反例（可单独跑，先跑 0.登录）",
+      "item": [
+        {
+          "name": "反例 · 创建 type=workflow（期望 400/16001）",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps" ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"工作流应用(不该建成)\",\n  \"type\": \"workflow\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('业务码 16001', () => pm.expect(pm.response.json().code).to.eql(16001));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "反例 · 创建缺 name（期望 400/10001）",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps" ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"type\": \"chat\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "const j = pm.response.json();",
+                  "pm.test('业务码 10001', () => pm.expect(j.code).to.eql(10001));",
+                  "pm.test('data 是字段错误数组', () => pm.expect(j.data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "反例 · 重名创建（期望 409/10006）",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 先建一个固定名的 app（若已存在则下面创建直接撞 409，也算通过）",
+                  "const base = pm.collectionVariables.get('baseUrl');",
+                  "const token = pm.collectionVariables.get('token');",
+                  "pm.sendRequest({ url: base + '/api/v1/app/apps', method: 'POST', header: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: { mode: 'raw', raw: JSON.stringify({ name: '重名测试-固定', type: 'chat' }) } }, function () {});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('业务码 10006', () => pm.expect(pm.response.json().code).to.eql(10006));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps" ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"重名测试-固定\",\n  \"type\": \"chat\"\n}"
+            }
+          }
+        },
+        {
+          "name": "反例 · 详情不存在 id（期望 404/10005）",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/99999999",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "99999999" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('业务码 10005', () => pm.expect(pm.response.json().code).to.eql(10005));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "反例 · 分页 page=0（期望 400/10001）",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps?page=0&size=20",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps" ],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('业务码 10001', () => pm.expect(pm.response.json().code).to.eql(10001));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "反例 · 分页过深 page*size>10000（期望 400/10001）",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps?page=600&size=20",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps" ],
+              "query": [
+                { "key": "page", "value": "600" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('业务码 10001', () => pm.expect(pm.response.json().code).to.eql(10001));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "权限矩阵（自包含：需 member 账号 + 填 memberUsername/memberPassword）",
+      "item": [
+        {
+          "name": "P0. admin 建一个测试 app → 存 permAppId",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps" ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"权限测试-admin拥有\",\n  \"type\": \"chat\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 防重名：若上一轮残留同名，先尝试删（忽略失败）。这里简单依赖软删可同名重建，直接建即可。"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.code === 200) { pm.collectionVariables.set('permAppId', j.data.id); pm.test('建成 code=200', () => pm.expect(j.code).to.eql(200)); }",
+                  "else { pm.test('已存在(409)也可接受，请先删除残留再重跑', () => pm.expect(j.code).to.eql(10006)); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P1. 登录(member) → 存 memberToken",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/identity/login",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "identity", "login" ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{memberUsername}}\",\n  \"password\": \"{{memberPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.test('member 登录成功', () => pm.expect(j.code).to.eql(200));",
+                  "pm.collectionVariables.set('memberToken', j.data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P2. member 可见 admin 的 app（全员可见，期望 200）",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{memberToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{permAppId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{permAppId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('全员可见 code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P3. member 改他人 app（期望 403/10004）",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{memberToken}}", "type": "string" } ] },
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{permAppId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{permAppId}}" ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"member乱改\",\n  \"modelId\": null,\n  \"config\": null\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('业务码 10004', () => pm.expect(pm.response.json().code).to.eql(10004));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P4. member 删他人 app（期望 403/10004）",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{memberToken}}", "type": "string" } ] },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{permAppId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{permAppId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('业务码 10004', () => pm.expect(pm.response.json().code).to.eql(10004));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P5. member 禁用他人 app（期望 403/10004）",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{memberToken}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{permAppId}}/disable",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{permAppId}}", "disable" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('业务码 10004', () => pm.expect(pm.response.json().code).to.eql(10004));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P6. admin 删他人/自己的 app 应成功（期望 200）— 兼收尾清理",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/apps/{{permAppId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "app", "apps", "{{permAppId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('admin 删除成功 code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

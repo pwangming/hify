@@ -629,3 +629,10 @@ mvn -f server/pom.xml test
 - #2（卫生）：`AppConfigTypeHandlerTest` 删除未使用的 `import static org.mockito.ArgumentMatchers.anyInt;`（文件内确认无 `anyInt(` 调用）。
 - #3（卫生）：`AppServiceTest` 的 `创建_config缺省兜底为空配置` 用例 `assertEquals(null, ...)` 改 `assertNull(...)`，补 `import static org.junit.jupiter.api.Assertions.assertNull;`。
 - `mvn -Dtest=AppServiceTest,AppConfigTypeHandlerTest test`：AppServiceTest 17 例全绿（16+1）、AppConfigTypeHandlerTest 3 例全绿；`mvn test` 全量：169 tests/0 failures/0 errors（原 168 + 新增 1），含 Modulith/ArchUnit 模块边界校验无违规。
+
+## provider C1 · Task 1：模型可用性只读查询（2026-06-25）
+- 对应改动：`provider/api/dto/ModelView.java`（首个对外 DTO）、`provider/service/ModelQueryService.java`（只读，无 @Transactional）。
+- 做了什么：`findUsableChatModel(id)` 与 `listUsableChatModels(type)`，「可用」= 模型 enabled + type=chat + 所属供应商 enabled。连带供应商判定用两次 MyBatis-Plus wrapper 查询（selectById/selectList + selectBatchIds）拼装，不写手写 SQL。
+- 怎么自证：`mvn -Dtest=ModelQueryServiceTest test` → `Tests run: 9, Failures: 0`（见 target/surefire-reports）。覆盖：可用正常返回 ModelView、模型不存在/停用/非chat（且非chat不查供应商，verify never）/供应商停用均 empty；列表过滤掉停用供应商的模型、无可用回空列表非null、type 为空兜底 chat。
+- 反向验证：把「供应商停用」用例的断言改成期望 present 会立即红——证明连带校验真的生效。
+- 已知遗留：getChatClient/韧性留 C2；embedding 列举留 knowledge 轮（type 参数已预留）。
