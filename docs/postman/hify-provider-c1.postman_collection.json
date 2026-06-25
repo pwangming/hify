@@ -1,0 +1,175 @@
+{
+  "info": {
+    "name": "Hify · provider C1（模型校验 Facade + 成员侧模型列表）",
+    "description": "C1 读侧地基的端到端验证：admin 建供应商+chat模型 → 成员侧列可用模型 → app 选模型创建 → 16002 反例 → 禁用供应商后模型从可用列表消失（连带校验）。\n\n用法：按顺序 0→9 跑一遍。集合变量里改 baseUrl / adminPassword。\n\n约定：Result 信封 {code,message,data,traceId}；成功 code=200；id 一律字符串。\n\nC1 新接口：成员族 GET /api/v1/provider/models?type=chat（任意登录用户可访问）。app 创建/更新带非空 modelId 时经 ProviderFacade 校验，不可用 → 16002/400。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminUsername", "value": "admin" },
+    { "key": "adminPassword", "value": "change-me-on-first-deploy" },
+    { "key": "token", "value": "" },
+    { "key": "providerId", "value": "" },
+    { "key": "modelId", "value": "" },
+    { "key": "appId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. 登录(admin) → 存 token",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/identity/login", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "identity", "login" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "pm.test('登录成功', () => pm.expect(j.code).to.eql(200));",
+        "pm.collectionVariables.set('token', j.data.token);"
+      ] } } ]
+    },
+    {
+      "name": "1. 建供应商(openai) → 存 providerId",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "providers" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"C1测试供应商\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"https://dashscope.aliyuncs.com/compatible-mode/v1\",\n  \"apiKey\": \"sk-c1-test-1234abcd\"\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "if (j.code === 200) { pm.collectionVariables.set('providerId', j.data.id); pm.test('建成', () => pm.expect(j.code).to.eql(200)); }",
+        "else { pm.test('已存在(409)请先删除残留再重跑', () => pm.expect(j.code).to.eql(10006)); }"
+      ] } } ]
+    },
+    {
+      "name": "2. 建 chat 模型 → 存 modelId",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/models", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "providers", "{{providerId}}", "models" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"type\": \"chat\",\n  \"name\": \"GPT-4o 主力\",\n  \"modelKey\": \"gpt-4o\"\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "pm.test('建成', () => pm.expect(j.code).to.eql(200));",
+        "pm.collectionVariables.set('modelId', j.data.id);"
+      ] } } ]
+    },
+    {
+      "name": "3. 成员侧列可用模型（含刚建的模型）",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/provider/models?type=chat",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "provider", "models" ],
+          "query": [ { "key": "type", "value": "chat" } ]
+        }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "pm.test('code=200', () => pm.expect(j.code).to.eql(200));",
+        "pm.test('data 是数组', () => pm.expect(j.data).to.be.an('array'));",
+        "const found = j.data.find(m => m.id === pm.collectionVariables.get('modelId'));",
+        "pm.test('包含刚建的模型', () => pm.expect(found).to.be.an('object'));",
+        "pm.test('id 为字符串', () => pm.expect(found.id).to.be.a('string'));",
+        "pm.test('带 providerName', () => pm.expect(found.providerName).to.eql('C1测试供应商'));",
+        "pm.test('type=chat', () => pm.expect(found.type).to.eql('chat'));"
+      ] } } ]
+    },
+    {
+      "name": "4. app 选可用模型创建 → 成功",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/app/apps", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "app", "apps" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"C1选模型应用\",\n  \"type\": \"chat\",\n  \"modelId\": \"{{modelId}}\",\n  \"config\": { \"systemPrompt\": \"你是助手\" }\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "pm.test('code=200', () => pm.expect(j.code).to.eql(200));",
+        "pm.test('modelId 回显且为字符串', () => pm.expect(j.data.modelId).to.eql(pm.collectionVariables.get('modelId')));",
+        "pm.collectionVariables.set('appId', j.data.id);"
+      ] } } ]
+    },
+    {
+      "name": "反例 · app 选不存在的 modelId（期望 400/16002）",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/app/apps", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "app", "apps" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"C1非法模型应用\",\n  \"type\": \"chat\",\n  \"modelId\": \"99999999\"\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+        "pm.test('业务码 16002', () => pm.expect(pm.response.json().code).to.eql(16002));"
+      ] } } ]
+    },
+    {
+      "name": "5. 禁用供应商（连带：其模型应不再可用）",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/disable", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "providers", "{{providerId}}", "disable" ] }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+      ] } } ]
+    },
+    {
+      "name": "6. 列可用模型（供应商已停用 → 不含该模型）",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/provider/models?type=chat",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "provider", "models" ],
+          "query": [ { "key": "type", "value": "chat" } ]
+        }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "const found = j.data.find(m => m.id === pm.collectionVariables.get('modelId'));",
+        "pm.test('连带校验：供应商停用后该模型不在可用列表', () => pm.expect(found).to.be.undefined);"
+      ] } } ]
+    },
+    {
+      "name": "反例 · app 更新选已停用供应商下的模型（期望 400/16002）",
+      "request": {
+        "method": "PUT",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/app/apps/{{appId}}", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "app", "apps", "{{appId}}" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"C1选模型应用\",\n  \"modelId\": \"{{modelId}}\",\n  \"config\": { \"systemPrompt\": \"你是助手\" }\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+        "pm.test('业务码 16002（供应商已停用→模型不可用）', () => pm.expect(pm.response.json().code).to.eql(16002));"
+      ] } } ]
+    },
+    {
+      "name": "9. 清理：删 app / 删模型 / 删供应商",
+      "event": [ { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+        "const base = pm.collectionVariables.get('baseUrl');",
+        "const token = pm.collectionVariables.get('token');",
+        "const h = { 'Authorization': 'Bearer ' + token };",
+        "pm.sendRequest({ url: base + '/api/v1/app/apps/' + pm.collectionVariables.get('appId'), method: 'DELETE', header: h }, () => {});",
+        "pm.sendRequest({ url: base + '/api/v1/admin/provider/models/' + pm.collectionVariables.get('modelId'), method: 'DELETE', header: h }, () => {});"
+      ] } }, { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('删供应商 code=200（已无模型，可删）', () => pm.expect(pm.response.json().code).to.eql(200));"
+      ] } } ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "providers", "{{providerId}}" ] }
+      }
+    }
+  ]
+}
