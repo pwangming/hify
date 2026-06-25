@@ -636,3 +636,9 @@ mvn -f server/pom.xml test
 - 怎么自证：`mvn -Dtest=ModelQueryServiceTest test` → `Tests run: 9, Failures: 0`（见 target/surefire-reports）。覆盖：可用正常返回 ModelView、模型不存在/停用/非chat（且非chat不查供应商，verify never）/供应商停用均 empty；列表过滤掉停用供应商的模型、无可用回空列表非null、type 为空兜底 chat。
 - 反向验证：把「供应商停用」用例的断言改成期望 present 会立即红——证明连带校验真的生效。
 - 已知遗留：getChatClient/韧性留 C2；embedding 列举留 knowledge 轮（type 参数已预留）。
+
+## provider C1 · Task 2：首个对外门面 ProviderFacade（2026-06-25）
+- 对应改动：`provider/api/ProviderFacade.java`（接口，provider 首个 Facade）、`provider/service/ProviderFacadeImpl.java`（薄委托 ModelQueryService）。
+- 怎么自证：`mvn -Dtest=ProviderFacadeImplTest,ModularityTests,LayerRulesTest test` → 8 tests/0 failures（ProviderFacadeImplTest 2 + ModularityTests 1 + LayerRulesTest 5）。Modulith/ArchUnit 绿 = 新增 Facade(api) 与 ModelView(api/dto) 不破坏模块边界。
+- 反向验证：把 ProviderFacade 放进非 api 包，ModularityTests/LayerRulesTest 会报对外接口未在 api 暴露——证明边界守门有效。
+- 已知遗留：getChatClient/getEmbeddingModel 方法留 C2。
