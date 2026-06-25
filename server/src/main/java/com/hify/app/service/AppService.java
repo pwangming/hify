@@ -15,6 +15,7 @@ import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.common.page.PageResult;
 import com.hify.infra.security.CurrentUser;
+import com.hify.provider.api.ProviderFacade;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,9 +31,11 @@ import java.util.List;
 public class AppService {
 
     private final AppMapper appMapper;
+    private final ProviderFacade providerFacade;
 
-    public AppService(AppMapper appMapper) {
+    public AppService(AppMapper appMapper, ProviderFacade providerFacade) {
         this.appMapper = appMapper;
+        this.providerFacade = providerFacade;
     }
 
     @Transactional
@@ -40,6 +43,7 @@ public class AppService {
         if (!AppType.CHAT.value().equals(req.type())) {
             throw new BizException(AppError.APP_TYPE_NOT_SUPPORTED);
         }
+        assertModelUsableIfPresent(req.modelId());
         App entity = new App();
         entity.setName(req.name());
         entity.setDescription(req.description());
@@ -82,6 +86,7 @@ public class AppService {
     public AppResponse update(Long id, UpdateAppRequest req, CurrentUser current) {
         App app = loadOrThrow(id);
         assertCanModify(app, current);
+        assertModelUsableIfPresent(req.modelId());
         app.setName(req.name());
         app.setDescription(req.description());
         app.setModelId(req.modelId());
@@ -127,6 +132,13 @@ public class AppService {
             throw new BizException(CommonError.NOT_FOUND, "应用不存在");
         }
         return app;
+    }
+
+    /** model_id 选填：非空时经 ProviderFacade 校验「可用」（enabled+chat+供应商enabled），不可用抛 16002。 */
+    private void assertModelUsableIfPresent(Long modelId) {
+        if (modelId != null && providerFacade.findUsableChatModel(modelId).isEmpty()) {
+            throw new BizException(AppError.MODEL_NOT_USABLE);
+        }
     }
 
     /** 团队共享制：仅 owner 或 Admin 可改/删/启停（api-standards 第 6 节），否则 FORBIDDEN。 */

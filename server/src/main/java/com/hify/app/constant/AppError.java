@@ -9,7 +9,10 @@ import org.springframework.http.HttpStatus;
 public enum AppError implements ErrorCode {
 
     /** 本轮仅支持创建对话型应用；传 type=workflow 时拒绝。 */
-    APP_TYPE_NOT_SUPPORTED(16001, HttpStatus.BAD_REQUEST, "暂仅支持创建对话型应用");
+    APP_TYPE_NOT_SUPPORTED(16001, HttpStatus.BAD_REQUEST, "暂仅支持创建对话型应用"),
+
+    /** 所选模型不存在或不可用（不存在/非 chat/已停用/供应商已停用）。create/update 带非空 modelId 时校验。 */
+    MODEL_NOT_USABLE(16002, HttpStatus.BAD_REQUEST, "所选模型不存在或不可用");
 
     private final int code;
     private final HttpStatus status;

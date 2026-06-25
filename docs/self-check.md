@@ -648,3 +648,10 @@ mvn -f server/pom.xml test
 - 怎么自证：`mvn -Dtest=ModelQueryControllerTest test` → `Tests run: 2`。覆盖：成员 token 可访问、返回 Result 信封、id 序列化为 string、providerName 存在、type 默认 chat 透传 service；未登录 → 401。
 - 安全配置核对：SecurityConfig admin 匹配器是 `/api/v1/admin/**`（hasRole ADMIN），`/api/v1/provider/**` 落 `anyRequest().authenticated()` → 成员可访问，无需改 SecurityConfig。
 - 反向验证：未登录用例预期 401——若把路由误挂到 admin 段或漏鉴权会变 403/200 而红。
+
+## provider C1 · Task 4：app 接 ProviderFacade 校验 model_id（2026-06-25）
+- 对应改动：`app/constant/AppError.java`（+16002 MODEL_NOT_USABLE）、`app/service/AppService.java`（注入 ProviderFacade，create/update 调 assertModelUsableIfPresent）。app 首次真正 import `provider::api`（白名单早已允许）。
+- 行为：modelId 选填——非空才经 ProviderFacade.findUsableChatModel 校验，空则 empty 抛 16002；null 直接放行。
+- 怎么自证：`mvn -Dtest=AppServiceTest test` → `Tests run: 21`（原 17 + 新增 4：创建/更新各「模型不可用→16002」「modelId 为 null 不校验放行」）；`mvn test` 全量 186/0/0，Modulith+ArchUnit 绿（跨模块 import 合规）。
+- 反向验证：把 assertModelUsableIfPresent 的 null 判断去掉，「modelId 为 null 不校验」用例会因 facade 被调用（verify never 失败）而红。
+- 已知遗留：编辑既有 app 时若所选模型后被禁用，须重选/清空才能存（spec §3.2 已记，C1 接受）。

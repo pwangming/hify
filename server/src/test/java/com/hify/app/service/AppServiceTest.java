@@ -11,10 +11,14 @@ import com.hify.app.mapper.AppMapper;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.infra.security.CurrentUser;
+import com.hify.provider.api.ProviderFacade;
+import com.hify.provider.api.dto.ModelView;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -28,6 +32,7 @@ import static org.mockito.Mockito.when;
 class AppServiceTest {
 
     private AppMapper mapper;
+    private ProviderFacade providerFacade;
     private AppService service;
 
     private final CurrentUser member = new CurrentUser(7L, "bob", CurrentUser.ROLE_MEMBER);
@@ -35,7 +40,11 @@ class AppServiceTest {
     @BeforeEach
     void setUp() {
         mapper = mock(AppMapper.class);
-        service = new AppService(mapper);
+        providerFacade = mock(ProviderFacade.class);
+        // 默认桩：任意 modelId 视为可用，让带 modelId 的既有用例不因校验红；针对性用例各自覆盖。
+        when(providerFacade.findUsableChatModel(any()))
+                .thenReturn(Optional.of(new ModelView(5L, "GPT-4o", "chat", "通义千问")));
+        service = new AppService(mapper, providerFacade);
     }
 
     private CreateAppRequest chatReq() {
@@ -73,6 +82,22 @@ class AppServiceTest {
         service.create(noCfg, member);
         verify(mapper).insert(captor.capture());
         assertNull(captor.getValue().getConfig().systemPrompt());
+    }
+
+    @Test
+    void 创建_模型不可用_拒绝16002() {
+        when(providerFacade.findUsableChatModel(5L)).thenReturn(Optional.empty());
+        BizException ex = assertThrows(BizException.class, () -> service.create(chatReq(), member));
+        assertEquals(AppError.MODEL_NOT_USABLE, ex.errorCode());
+        verify(mapper, never()).insert(any(App.class));
+    }
+
+    @Test
+    void 创建_modelId为null_不校验模型_放行() {
+        CreateAppRequest noModel = new CreateAppRequest("无模型", null, "chat", null, null);
+        service.create(noModel, member);
+        verify(providerFacade, never()).findUsableChatModel(any());
+        verify(mapper).insert(any(App.class));
     }
 
     @Test
@@ -150,6 +175,25 @@ class AppServiceTest {
         BizException ex = assertThrows(BizException.class, () -> service.update(10L, upd(), member));
         assertEquals(CommonError.FORBIDDEN, ex.errorCode());
         verify(mapper, never()).updateById(any(App.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void 更新_模型不可用_拒绝16002() {
+        when(mapper.selectById(10L)).thenReturn(stored(10L, 7L, "enabled")); // owner=bob(7)
+        when(providerFacade.findUsableChatModel(9L)).thenReturn(Optional.empty()); // upd() 的 modelId=9
+        BizException ex = assertThrows(BizException.class, () -> service.update(10L, upd(), member));
+        assertEquals(AppError.MODEL_NOT_USABLE, ex.errorCode());
+        verify(mapper, never()).updateById(any(App.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void 更新_modelId为null_不校验模型_放行() {
+        when(mapper.selectById(10L)).thenReturn(stored(10L, 7L, "enabled"));
+        UpdateAppRequest noModel = new UpdateAppRequest("新名", "新描述", null,
+                new com.hify.app.api.dto.AppConfig("改了"));
+        service.update(10L, noModel, member);
+        verify(providerFacade, never()).findUsableChatModel(any());
+        verify(mapper).updateById(any(App.class));
     }
 
     @org.junit.jupiter.api.Test
