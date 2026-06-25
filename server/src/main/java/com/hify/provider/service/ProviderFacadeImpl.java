@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * {@link ProviderFacade} 实现：薄委托给内部只读 service，不写业务分支、不注入 Mapper
@@ -29,5 +30,10 @@ public class ProviderFacadeImpl implements ProviderFacade {
     @Override
     public Map<Long, String> getModelNames(Collection<Long> modelIds) {
         return modelQueryService.getModelNames(modelIds);
+    }
+
+    @Override
+    public Set<Long> filterUsableChatModelIds(Collection<Long> modelIds) {
+        return modelQueryService.filterUsableChatModelIds(modelIds);
     }
 }

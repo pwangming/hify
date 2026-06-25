@@ -23,6 +23,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 应用业务逻辑。具体类 + @Service（不拆接口）。团队共享权限判定在本层（assertCanModify）。
@@ -58,7 +59,7 @@ public class AppService {
         } catch (DuplicateKeyException e) {
             throw new BizException(CommonError.CONFLICT, "应用名已存在", e);
         }
-        return toResponse(entity, modelNameOf(entity.getModelId()));
+        return toResponse(entity, modelNameOf(entity.getModelId()), modelUsableOf(entity.getModelId()));
     }
 
     public AppResponse get(Long id) {
@@ -66,7 +67,7 @@ public class AppService {
         if (app == null) {
             throw new BizException(CommonError.NOT_FOUND, "应用不存在");
         }
-        return toResponse(app, modelNameOf(app.getModelId()));
+        return toResponse(app, modelNameOf(app.getModelId()), modelUsableOf(app.getModelId()));
     }
 
     public PageResult<AppResponse> page(String keyword, String type, int page, int size) {
@@ -80,10 +81,14 @@ public class AppService {
                         .eq(StringUtils.hasText(type), App::getType, type)
                         .orderByDesc(App::getId)); // 以 id 结尾保证稳定排序；@TableLogic 自动加 deleted=false
         List<App> records = result.getRecords();
-        Map<Long, String> names = providerFacade.getModelNames(
-                records.stream().map(App::getModelId).filter(java.util.Objects::nonNull).distinct().toList());
+        List<Long> modelIds = records.stream()
+                .map(App::getModelId).filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, String> names = providerFacade.getModelNames(modelIds);
+        Set<Long> usable = providerFacade.filterUsableChatModelIds(modelIds);
         List<AppResponse> list = records.stream()
-                .map(a -> toResponse(a, a.getModelId() == null ? null : names.get(a.getModelId())))
+                .map(a -> toResponse(a,
+                        a.getModelId() == null ? null : names.get(a.getModelId()),
+                        a.getModelId() != null && usable.contains(a.getModelId())))
                 .toList();
         return PageResult.of(list, result.getTotal(), page, size);
     }
@@ -102,7 +107,7 @@ public class AppService {
         } catch (DuplicateKeyException e) {
             throw new BizException(CommonError.CONFLICT, "应用名已存在", e);
         }
-        return toResponse(app, modelNameOf(app.getModelId()));
+        return toResponse(app, modelNameOf(app.getModelId()), modelUsableOf(app.getModelId()));
     }
 
     @Transactional
@@ -162,10 +167,16 @@ public class AppService {
         return providerFacade.getModelNames(List.of(modelId)).get(modelId);
     }
 
-    AppResponse toResponse(App e, String modelName) {
+    /** 单个 modelId 当前是否「可用」（enabled+chat+供应商enabled）；null 模型为 false。 */
+    private boolean modelUsableOf(Long modelId) {
+        return modelId != null && providerFacade.findUsableChatModel(modelId).isPresent();
+    }
+
+    AppResponse toResponse(App e, String modelName, boolean modelUsable) {
         return new AppResponse(
                 e.getId(), e.getName(), e.getDescription(), e.getType(),
-                e.getModelId(), modelName, e.getConfig() == null ? new AppConfig(null) : e.getConfig(),
+                e.getModelId(), modelName, modelUsable,
+                e.getConfig() == null ? new AppConfig(null) : e.getConfig(),
                 e.getOwnerId(), e.getStatus(), e.getCreateTime(), e.getUpdateTime());
     }
 }

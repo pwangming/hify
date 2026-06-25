@@ -5,6 +5,7 @@ import com.hify.provider.api.dto.ModelView;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * provider 模块对外门面（一个模块最多一个 Facade，受 Modulith 强制校验）。
@@ -26,4 +27,10 @@ public interface ProviderFacade {
      * 编辑弹窗展示已停用模型名。空/null 入参返回空 map。与 {@link #findUsableChatModel} 的「可用」过滤区分。
      */
     Map<Long, String> getModelNames(Collection<Long> modelIds);
+
+    /**
+     * 从给定 id 中筛出「可用」的 chat 模型 id（enabled + chat + 供应商 enabled）。
+     * 供 app 列表批量标注模型启停状态。空/null 入参返回空集。
+     */
+    Set<Long> filterUsableChatModelIds(Collection<Long> modelIds);
 }

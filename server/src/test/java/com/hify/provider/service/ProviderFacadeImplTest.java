@@ -48,4 +48,11 @@ class ProviderFacadeImplTest {
                 .thenReturn(java.util.Map.of(5L, "GPT-4o"));
         assertEquals("GPT-4o", facade.getModelNames(java.util.List.of(5L)).get(5L));
     }
+
+    @Test
+    void 透传可用id过滤() {
+        when(modelQueryService.filterUsableChatModelIds(java.util.List.of(5L)))
+                .thenReturn(java.util.Set.of(5L));
+        assertTrue(facade.filterUsableChatModelIds(java.util.List.of(5L)).contains(5L));
+    }
 }

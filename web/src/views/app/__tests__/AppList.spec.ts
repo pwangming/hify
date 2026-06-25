@@ -23,13 +23,13 @@ function page(list: App[]): PageResult<App> {
 }
 const MINE: App = {
   id: '1', name: '我的助手', description: null, type: 'chat', modelId: null, modelName: null,
-  config: { systemPrompt: null }, ownerId: '7', status: 'enabled',
+  modelUsable: false, config: { systemPrompt: null }, ownerId: '7', status: 'enabled',
   createTime: '2026-06-24T10:00:00+08:00', updateTime: '2026-06-24T10:00:00+08:00',
 }
 const OTHERS: App = { ...MINE, id: '2', name: '他人应用', ownerId: '999' }
-// 选了模型且模型已失效（其供应商被停用）：modelName 仍有值、但不在可用列表里
-const WITH_MODEL: App = { ...MINE, id: '3', name: '带模型应用', modelId: '5', modelName: 'GPT-4o' }
-const NAMED: App = { ...MINE, id: '4', name: '命名应用', modelId: '5', modelName: 'GPT-4o' }
+// 选了模型且模型已失效（其供应商被停用）：modelName 仍有值、modelUsable=false、不在可用列表里
+const WITH_MODEL: App = { ...MINE, id: '3', name: '带模型应用', modelId: '5', modelName: 'GPT-4o', modelUsable: false }
+const NAMED: App = { ...MINE, id: '4', name: '命名应用', modelId: '5', modelName: 'GPT-4o', modelUsable: true }
 
 describe('AppList', () => {
   beforeEach(() => {
@@ -129,6 +129,21 @@ describe('AppList', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('GPT-4o') // NAMED 的模型名
     expect(wrapper.text()).toContain('未配置') // MINE 无模型
+  })
+
+  it('列表：模型已停用 → 名字后加（已停用）；可用模型不加', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([WITH_MODEL])) // modelUsable=false
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('GPT-4o（已停用）')
+  })
+
+  it('列表：可用模型不加（已停用）后缀', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([NAMED])) // modelUsable=true
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('GPT-4o')
+    expect(wrapper.text()).not.toContain('（已停用）')
   })
 
   it('编辑：所选模型已失效 → 注入「名字（已停用）」禁用选项，不裸露 id', async () => {

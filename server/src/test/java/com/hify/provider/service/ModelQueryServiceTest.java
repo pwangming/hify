@@ -160,6 +160,30 @@ class ModelQueryServiceTest {
         assertTrue(service.getModelNames(null).isEmpty());
     }
 
+    // ---- filterUsableChatModelIds（批量「可用」过滤，给列表用）----
+
+    @Test
+    void 过滤可用id_只留模型chat启用且供应商启用() {
+        when(modelMapper.selectBatchIds(any())).thenReturn(List.of(
+                model(5L, 1L, "chat", "enabled"),       // 供应商1启用 → 留
+                model(6L, 2L, "chat", "enabled"),       // 供应商2停用 → 去
+                model(7L, 1L, "chat", "disabled")));     // 模型停用 → 去
+        when(providerMapper.selectBatchIds(any())).thenReturn(List.of(
+                provider(1L, "通义千问", "enabled"),
+                provider(2L, "Claude海外", "disabled")));
+
+        var usable = service.filterUsableChatModelIds(List.of(5L, 6L, 7L));
+
+        assertEquals(java.util.Set.of(5L), usable);
+    }
+
+    @Test
+    void 过滤可用id_空入参_空集不查库() {
+        assertTrue(service.filterUsableChatModelIds(List.of()).isEmpty());
+        assertTrue(service.filterUsableChatModelIds(null).isEmpty());
+        verify(modelMapper, never()).selectBatchIds(any());
+    }
+
     // 常量自证，避免硬编码漂移
     @Test
     void 常量一致性() {

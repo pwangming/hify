@@ -45,6 +45,7 @@ class AppServiceTest {
         when(providerFacade.findUsableChatModel(any()))
                 .thenReturn(Optional.of(new ModelView(5L, "GPT-4o", "chat", "通义千问")));
         when(providerFacade.getModelNames(any())).thenReturn(java.util.Map.of());
+        when(providerFacade.filterUsableChatModelIds(any())).thenReturn(java.util.Set.of());
         service = new AppService(mapper, providerFacade);
     }
 
@@ -154,6 +155,26 @@ class AppServiceTest {
 
         com.hify.common.page.PageResult<AppResponse> result = service.page(null, null, 1, 20);
         assertEquals("GPT-4o", result.list().get(0).modelName());
+    }
+
+    @org.junit.jupiter.api.Test
+    void 分页_模型停用_modelName有值但modelUsable为false() {
+        App a = new App();
+        a.setId(1L); a.setName("x"); a.setType("chat"); a.setOwnerId(7L); a.setModelId(5L);
+        a.setStatus("enabled"); a.setConfig(new com.hify.app.api.dto.AppConfig(null));
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<App> pg =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
+        pg.setRecords(java.util.List.of(a));
+        pg.setTotal(1);
+        when(mapper.selectPage(any(), any())).thenReturn(pg);
+        when(providerFacade.getModelNames(java.util.List.of(5L)))
+                .thenReturn(java.util.Map.of(5L, "GPT-4o"));
+        when(providerFacade.filterUsableChatModelIds(java.util.List.of(5L)))
+                .thenReturn(java.util.Set.of()); // 停用：不在可用集合
+
+        AppResponse r = service.page(null, null, 1, 20).list().get(0);
+        assertEquals("GPT-4o", r.modelName());
+        org.junit.jupiter.api.Assertions.assertFalse(r.modelUsable());
     }
 
     @org.junit.jupiter.api.Test

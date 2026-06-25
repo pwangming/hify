@@ -64,6 +64,32 @@ public class ModelQueryService {
                 .collect(Collectors.toMap(AiModel::getId, AiModel::getName));
     }
 
+    /**
+     * 从给定 id 中筛出「可用」的 chat 模型 id（enabled + chat + 供应商 enabled）。给 app 列表批量标注模型启停。
+     * 空/null 入参返回空集、不查库。
+     */
+    public Set<Long> filterUsableChatModelIds(Collection<Long> modelIds) {
+        if (modelIds == null || modelIds.isEmpty()) {
+            return Set.of();
+        }
+        List<AiModel> models = modelMapper.selectBatchIds(modelIds).stream()
+                .filter(m -> ProviderStatus.ENABLED.value().equals(m.getStatus()))
+                .filter(m -> ModelType.CHAT.value().equals(m.getType()))
+                .toList();
+        if (models.isEmpty()) {
+            return Set.of();
+        }
+        Set<Long> providerIds = models.stream().map(AiModel::getProviderId).collect(Collectors.toSet());
+        Set<Long> enabledProviders = providerMapper.selectBatchIds(providerIds).stream()
+                .filter(p -> ProviderStatus.ENABLED.value().equals(p.getStatus()))
+                .map(ModelProvider::getId)
+                .collect(Collectors.toSet());
+        return models.stream()
+                .filter(m -> enabledProviders.contains(m.getProviderId()))
+                .map(AiModel::getId)
+                .collect(Collectors.toSet());
+    }
+
     /** 列全部「可用」模型，按模型名排序。type 为空兜底为 chat（本轮仅 chat 有意义）。 */
     public List<ModelView> listUsableChatModels(String type) {
         String t = StringUtils.hasText(type) ? type : ModelType.CHAT.value();

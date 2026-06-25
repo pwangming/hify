@@ -673,3 +673,10 @@ mvn -f server/pom.xml test
 - 怎么自证：`mvn test` 全量 192/0/0（+6：getModelNames 3 + facade 透传 1 + create/page 回显 2）；`pnpm test` 107 全绿（+2）、`pnpm build`、`pnpm lint` 通过。
 - 坑记录：`Map.of()` 不可变 map 不允许 get(null)，分页里 modelId 为 null 的行要先判空再取名，否则 NPE（已修，AppService.page）。
 - 反向验证：把「失效注入」用例的 listChatModels 改成返回该模型，注入分支不触发、断言禁用选项不存在而红。
+
+## provider C1.2：列表模型列标「（已停用）」（2026-06-25）
+- 背景：列表模型列与编辑弹窗口径一致——停用模型在列表也标注，owner 不点进去就知道模型坏了。
+- 后端：ProviderFacade + ModelQueryService 加 `filterUsableChatModelIds(ids)`（批量「可用」过滤，复用 enabled+chat+供应商enabled 定义）；AppResponse 加 `modelUsable` 布尔；AppService 单条 modelUsableOf（复用 findUsableChatModel）+ 分页批量 filterUsableChatModelIds，null 模型 modelUsable=false。
+- 前端：App 类型加 modelUsable；列表模型列在 modelName 后按 !modelUsable 追加灰色「（已停用）」（同一行渲染消除空格间隙，保证连续文本）。
+- 怎么自证：`mvn test` 全量 196/0/0（+4：filterUsableChatModelIds 2 + facade 透传 1 + 分页 modelUsable 1）；`pnpm test` 109 全绿（+2）、build、lint 通过。
+- 反向验证：把列表用例的 WITH_MODEL.modelUsable 改 true，「名字后加（已停用）」用例会因后缀不出现而红。

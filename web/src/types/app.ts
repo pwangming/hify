@@ -17,6 +17,7 @@ export interface App {
   type: AppType
   modelId: string | null
   modelName: string | null
+  modelUsable: boolean
   config: AppConfig
   ownerId: string
   status: AppStatus

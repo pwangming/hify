@@ -194,7 +194,10 @@ async function submitForm() {
         </el-table-column>
         <el-table-column label="模型">
           <template #default="{ row }">
-            <span v-if="(row as App).modelName">{{ (row as App).modelName }}</span>
+            <span v-if="(row as App).modelName"
+              >{{ (row as App).modelName
+              }}<span v-if="!(row as App).modelUsable" class="app-list__muted">（已停用）</span></span
+            >
             <span v-else class="app-list__muted">未配置</span>
           </template>
         </el-table-column>
