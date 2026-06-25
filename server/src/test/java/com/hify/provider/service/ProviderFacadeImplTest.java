@@ -41,4 +41,11 @@ class ProviderFacadeImplTest {
         when(modelQueryService.findUsableChatModel(9L)).thenReturn(Optional.empty());
         assertTrue(facade.findUsableChatModel(9L).isEmpty());
     }
+
+    @Test
+    void 透传名字映射() {
+        when(modelQueryService.getModelNames(java.util.List.of(5L)))
+                .thenReturn(java.util.Map.of(5L, "GPT-4o"));
+        assertEquals("GPT-4o", facade.getModelNames(java.util.List.of(5L)).get(5L));
+    }
 }

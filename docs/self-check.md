@@ -665,3 +665,11 @@ mvn -f server/pom.xml test
 - 怎么自证：`pnpm vitest run src/views/app/__tests__/AppList.spec.ts` → 8 passed（原 4 + 新增 4：打开弹窗拉模型/选中→createApp 带 modelId/不选→null/编辑回填）；`pnpm test` 全量 19 文件 105 测全绿；`pnpm build`（vue-tsc + vite）通过；`pnpm lint` 无问题。
 - 反向验证：把 openCreate 里 `form.modelId = null` 去掉，「不选→modelId 为 null」用例会因残留上次值而红。
 - 已知遗留：模型后被禁用时编辑须重选/清空才能存（spec §3.2）。
+
+## provider C1.1：列表/详情回显模型名 + 失效模型不裸露 id（2026-06-25）
+- 背景：浏览器验证发现两点 UX——列表不显示所选模型名；模型供应商被停用后编辑弹窗裸露 modelId 数字。根因同一个：前端只有 modelId 没有名字。
+- 后端：ProviderFacade + ModelQueryService 加 `getModelNames(ids)`（展示用，不管启停都返回名字，与「可用」过滤区分）；AppResponse 加 `modelName`（只增不改契约）；AppService 单条 modelNameOf + 分页批量解析。
+- 前端：App 类型加 modelName；列表加「模型」列（无则「未配置」）；编辑弹窗用 selectOptions 计算属性，所选模型不在可用列表时注入「名字（已停用）」禁用选项，不再裸露数字。
+- 怎么自证：`mvn test` 全量 192/0/0（+6：getModelNames 3 + facade 透传 1 + create/page 回显 2）；`pnpm test` 107 全绿（+2）、`pnpm build`、`pnpm lint` 通过。
+- 坑记录：`Map.of()` 不可变 map 不允许 get(null)，分页里 modelId 为 null 的行要先判空再取名，否则 NPE（已修，AppService.page）。
+- 反向验证：把「失效注入」用例的 listChatModels 改成返回该模型，注入分支不触发、断言禁用选项不存在而红。

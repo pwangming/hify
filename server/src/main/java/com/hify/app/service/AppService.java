@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 应用业务逻辑。具体类 + @Service（不拆接口）。团队共享权限判定在本层（assertCanModify）。
@@ -57,7 +58,7 @@ public class AppService {
         } catch (DuplicateKeyException e) {
             throw new BizException(CommonError.CONFLICT, "应用名已存在", e);
         }
-        return toResponse(entity);
+        return toResponse(entity, modelNameOf(entity.getModelId()));
     }
 
     public AppResponse get(Long id) {
@@ -65,7 +66,7 @@ public class AppService {
         if (app == null) {
             throw new BizException(CommonError.NOT_FOUND, "应用不存在");
         }
-        return toResponse(app);
+        return toResponse(app, modelNameOf(app.getModelId()));
     }
 
     public PageResult<AppResponse> page(String keyword, String type, int page, int size) {
@@ -78,7 +79,12 @@ public class AppService {
                         .like(StringUtils.hasText(keyword), App::getName, keyword)
                         .eq(StringUtils.hasText(type), App::getType, type)
                         .orderByDesc(App::getId)); // 以 id 结尾保证稳定排序；@TableLogic 自动加 deleted=false
-        List<AppResponse> list = result.getRecords().stream().map(this::toResponse).toList();
+        List<App> records = result.getRecords();
+        Map<Long, String> names = providerFacade.getModelNames(
+                records.stream().map(App::getModelId).filter(java.util.Objects::nonNull).distinct().toList());
+        List<AppResponse> list = records.stream()
+                .map(a -> toResponse(a, a.getModelId() == null ? null : names.get(a.getModelId())))
+                .toList();
         return PageResult.of(list, result.getTotal(), page, size);
     }
 
@@ -96,7 +102,7 @@ public class AppService {
         } catch (DuplicateKeyException e) {
             throw new BizException(CommonError.CONFLICT, "应用名已存在", e);
         }
-        return toResponse(app);
+        return toResponse(app, modelNameOf(app.getModelId()));
     }
 
     @Transactional
@@ -148,10 +154,18 @@ public class AppService {
         }
     }
 
-    AppResponse toResponse(App e) {
+    /** 单个 modelId 的展示名（null 或解析不到则为 null）。 */
+    private String modelNameOf(Long modelId) {
+        if (modelId == null) {
+            return null;
+        }
+        return providerFacade.getModelNames(List.of(modelId)).get(modelId);
+    }
+
+    AppResponse toResponse(App e, String modelName) {
         return new AppResponse(
                 e.getId(), e.getName(), e.getDescription(), e.getType(),
-                e.getModelId(), e.getConfig() == null ? new AppConfig(null) : e.getConfig(),
+                e.getModelId(), modelName, e.getConfig() == null ? new AppConfig(null) : e.getConfig(),
                 e.getOwnerId(), e.getStatus(), e.getCreateTime(), e.getUpdateTime());
     }
 }

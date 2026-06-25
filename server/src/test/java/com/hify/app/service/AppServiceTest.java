@@ -44,6 +44,7 @@ class AppServiceTest {
         // 默认桩：任意 modelId 视为可用，让带 modelId 的既有用例不因校验红；针对性用例各自覆盖。
         when(providerFacade.findUsableChatModel(any()))
                 .thenReturn(Optional.of(new ModelView(5L, "GPT-4o", "chat", "通义千问")));
+        when(providerFacade.getModelNames(any())).thenReturn(java.util.Map.of());
         service = new AppService(mapper, providerFacade);
     }
 
@@ -101,6 +102,14 @@ class AppServiceTest {
     }
 
     @Test
+    void 创建_带模型_响应回显modelName() {
+        when(providerFacade.getModelNames(java.util.List.of(5L)))
+                .thenReturn(java.util.Map.of(5L, "GPT-4o"));
+        AppResponse resp = service.create(chatReq(), member); // chatReq modelId=5
+        assertEquals("GPT-4o", resp.modelName());
+    }
+
+    @Test
     void 创建_撞唯一索引_转CONFLICT() {
         when(mapper.insert(any(App.class))).thenThrow(new DuplicateKeyException("dup"));
         BizException ex = assertThrows(BizException.class, () -> service.create(chatReq(), member));
@@ -128,6 +137,23 @@ class AppServiceTest {
         com.hify.common.page.PageResult<AppResponse> result = service.page(null, null, 1, 20);
         assertEquals(1, result.total());
         assertEquals("x", result.list().get(0).name());
+    }
+
+    @org.junit.jupiter.api.Test
+    void 分页_批量回显modelName() {
+        App a = new App();
+        a.setId(1L); a.setName("x"); a.setType("chat"); a.setOwnerId(7L); a.setModelId(5L);
+        a.setStatus("enabled"); a.setConfig(new com.hify.app.api.dto.AppConfig(null));
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<App> pg =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
+        pg.setRecords(java.util.List.of(a));
+        pg.setTotal(1);
+        when(mapper.selectPage(any(), any())).thenReturn(pg);
+        when(providerFacade.getModelNames(java.util.List.of(5L)))
+                .thenReturn(java.util.Map.of(5L, "GPT-4o"));
+
+        com.hify.common.page.PageResult<AppResponse> result = service.page(null, null, 1, 20);
+        assertEquals("GPT-4o", result.list().get(0).modelName());
     }
 
     @org.junit.jupiter.api.Test

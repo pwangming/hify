@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import ElementPlus, { ElSelect } from 'element-plus'
+import ElementPlus, { ElSelect, ElOption } from 'element-plus'
 import { listApps, createApp, deleteApp } from '@/api/app'
 import { listChatModels } from '@/api/provider'
 import type { App, PageResult } from '@/types/app'
@@ -22,12 +22,14 @@ function page(list: App[]): PageResult<App> {
   return { list, total: String(list.length), page: '1', size: '20' }
 }
 const MINE: App = {
-  id: '1', name: '我的助手', description: null, type: 'chat', modelId: null,
+  id: '1', name: '我的助手', description: null, type: 'chat', modelId: null, modelName: null,
   config: { systemPrompt: null }, ownerId: '7', status: 'enabled',
   createTime: '2026-06-24T10:00:00+08:00', updateTime: '2026-06-24T10:00:00+08:00',
 }
 const OTHERS: App = { ...MINE, id: '2', name: '他人应用', ownerId: '999' }
-const WITH_MODEL: App = { ...MINE, id: '3', name: '带模型应用', modelId: '5' }
+// 选了模型且模型已失效（其供应商被停用）：modelName 仍有值、但不在可用列表里
+const WITH_MODEL: App = { ...MINE, id: '3', name: '带模型应用', modelId: '5', modelName: 'GPT-4o' }
+const NAMED: App = { ...MINE, id: '4', name: '命名应用', modelId: '5', modelName: 'GPT-4o' }
 
 describe('AppList', () => {
   beforeEach(() => {
@@ -119,5 +121,26 @@ describe('AppList', () => {
     await wrapper.find('[data-test="edit-3"]').trigger('click')
     await flushPromises()
     expect(wrapper.findComponent(ElSelect).props('modelValue')).toBe('5')
+  })
+
+  it('列表：有模型显示模型名，无模型显示未配置', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([NAMED, MINE]))
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('GPT-4o') // NAMED 的模型名
+    expect(wrapper.text()).toContain('未配置') // MINE 无模型
+  })
+
+  it('编辑：所选模型已失效 → 注入「名字（已停用）」禁用选项，不裸露 id', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([WITH_MODEL]))
+    vi.mocked(listChatModels).mockResolvedValue([]) // 该模型不在可用列表（供应商停用）
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="edit-3"]').trigger('click')
+    await flushPromises()
+    const injected = wrapper.findAllComponents(ElOption).find((o) => o.props('value') === '5')
+    expect(injected).toBeTruthy()
+    expect(injected!.props('label')).toBe('GPT-4o（已停用）')
+    expect(injected!.props('disabled')).toBe(true)
   })
 })

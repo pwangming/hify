@@ -16,6 +16,7 @@ export interface App {
   description: string | null
   type: AppType
   modelId: string | null
+  modelName: string | null
   config: AppConfig
   ownerId: string
   status: AppStatus

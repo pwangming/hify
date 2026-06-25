@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -132,6 +133,31 @@ class ModelQueryServiceTest {
         service.listUsableChatModels(null);
         // 不抛异常即可（兜底为 chat），返回空
         assertTrue(service.listUsableChatModels(null).isEmpty());
+    }
+
+    // ---- getModelNames（展示用，不管启停都返回名字）----
+
+    @Test
+    void 名字映射_含已停用模型也返回() {
+        AiModel disabled = model(6L, 2L, "chat", "disabled");
+        disabled.setName("已停用模型");
+        when(modelMapper.selectBatchIds(any())).thenReturn(List.of(
+                model(5L, 1L, "chat", "enabled"), disabled));
+        Map<Long, String> names = service.getModelNames(List.of(5L, 6L));
+        assertEquals("GPT-4o", names.get(5L));
+        assertEquals("已停用模型", names.get(6L)); // 停用也返回名字（展示用途）
+    }
+
+    @Test
+    void 名字映射_空入参_返回空map不查库() {
+        Map<Long, String> names = service.getModelNames(List.of());
+        assertTrue(names.isEmpty());
+        verify(modelMapper, never()).selectBatchIds(any());
+    }
+
+    @Test
+    void 名字映射_null入参_返回空map() {
+        assertTrue(service.getModelNames(null).isEmpty());
     }
 
     // 常量自证，避免硬编码漂移

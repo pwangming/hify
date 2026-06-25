@@ -11,6 +11,7 @@ import com.hify.provider.mapper.ModelProviderMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,18 @@ public class ModelQueryService {
             return Optional.empty();
         }
         return Optional.of(new ModelView(m.getId(), m.getName(), m.getType(), p.getName()));
+    }
+
+    /**
+     * 批量取模型名映射（id→name），<b>展示用途，不管启停都返回</b>（与 findUsableChatModel 的「可用」过滤区分）。
+     * 给 app 列表/详情回显模型名、以及编辑弹窗展示已停用模型名。空/null 入参返回空 map、不查库。
+     */
+    public Map<Long, String> getModelNames(Collection<Long> modelIds) {
+        if (modelIds == null || modelIds.isEmpty()) {
+            return Map.of();
+        }
+        return modelMapper.selectBatchIds(modelIds).stream()
+                .collect(Collectors.toMap(AiModel::getId, AiModel::getName));
     }
 
     /** 列全部「可用」模型，按模型名排序。type 为空兜底为 chat（本轮仅 chat 有意义）。 */

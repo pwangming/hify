@@ -2,6 +2,8 @@ package com.hify.provider.api;
 
 import com.hify.provider.api.dto.ModelView;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -18,4 +20,10 @@ public interface ProviderFacade {
      * 不存在/停用/非 chat/供应商停用均返回 {@link Optional#empty()}；调用方据空与否决定自身错误码。
      */
     Optional<ModelView> findUsableChatModel(Long modelId);
+
+    /**
+     * 批量取模型名映射（id→name），<b>展示用途，不管启停都返回</b>。供 app 列表/详情回显模型名、
+     * 编辑弹窗展示已停用模型名。空/null 入参返回空 map。与 {@link #findUsableChatModel} 的「可用」过滤区分。
+     */
+    Map<Long, String> getModelNames(Collection<Long> modelIds);
 }

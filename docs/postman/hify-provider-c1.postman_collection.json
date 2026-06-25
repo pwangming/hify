@@ -96,6 +96,7 @@
         "const j = pm.response.json();",
         "pm.test('code=200', () => pm.expect(j.code).to.eql(200));",
         "pm.test('modelId 回显且为字符串', () => pm.expect(j.data.modelId).to.eql(pm.collectionVariables.get('modelId')));",
+        "pm.test('modelName 回显（展示用）', () => pm.expect(j.data.modelName).to.eql('GPT-4o 主力'));",
         "pm.collectionVariables.set('appId', j.data.id);"
       ] } } ]
     },

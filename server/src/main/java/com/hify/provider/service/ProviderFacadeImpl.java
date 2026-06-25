@@ -4,6 +4,8 @@ import com.hify.provider.api.ProviderFacade;
 import com.hify.provider.api.dto.ModelView;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -22,5 +24,10 @@ public class ProviderFacadeImpl implements ProviderFacade {
     @Override
     public Optional<ModelView> findUsableChatModel(Long modelId) {
         return modelQueryService.findUsableChatModel(modelId);
+    }
+
+    @Override
+    public Map<Long, String> getModelNames(Collection<Long> modelIds) {
+        return modelQueryService.getModelNames(modelIds);
     }
 }
