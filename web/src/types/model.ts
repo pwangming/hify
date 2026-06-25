@@ -18,3 +18,14 @@ export interface ModelForm {
   name: string
   modelKey: string
 }
+
+/**
+ * 成员侧「可用」模型选项（对齐后端 ProviderFacade 的 ModelView）。
+ * 供 app 弹窗模型选择器用；id 为 string（Long 序列化）。
+ */
+export interface ModelOption {
+  id: string
+  name: string
+  type: string
+  providerName: string
+}
