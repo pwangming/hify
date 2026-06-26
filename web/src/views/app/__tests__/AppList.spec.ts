@@ -178,4 +178,16 @@ describe('AppList', () => {
 
     expect(wrapper.find('[data-test="chat-3"]').attributes('disabled')).toBeDefined()
   })
+
+  it('试聊按钮：非 owner 也可见可点（团队共享，使用类不门控）', async () => {
+    const NOT_MINE_USABLE: App = { ...NAMED, id: '5', ownerId: '999' }
+    vi.mocked(listApps).mockResolvedValue(page([NOT_MINE_USABLE]))
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    // 非 owner：无编辑按钮，但仍有可点的试聊按钮
+    expect(wrapper.find('[data-test="edit-5"]').exists()).toBe(false)
+    await wrapper.find('[data-test="chat-5"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/apps/5/chat')
+  })
 })

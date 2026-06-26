@@ -224,17 +224,17 @@ async function submitForm() {
         <el-table-column label="创建时间">
           <template #default="{ row }">{{ formatDateTime((row as App).createTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="260">
+        <el-table-column label="操作" width="320">
           <template #default="{ row }">
+            <el-button
+              link
+              type="primary"
+              :data-test="`chat-${(row as App).id}`"
+              :disabled="!(row as App).modelUsable || (row as App).status === 'disabled'"
+              @click="openChat(row as App)"
+              >试聊</el-button
+            >
             <div v-if="canModify(row as App)" class="app-list__ops">
-              <el-button
-                link
-                type="primary"
-                :data-test="`chat-${(row as App).id}`"
-                :disabled="!(row as App).modelUsable || (row as App).status === 'disabled'"
-                @click="openChat(row as App)"
-                >试聊</el-button
-              >
               <el-button
                 v-if="(row as App).status === 'enabled'"
                 :data-test="`disable-${(row as App).id}`"
