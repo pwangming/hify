@@ -14,6 +14,9 @@ vi.mock('@/api/app', () => ({
 }))
 vi.mock('@/api/provider', () => ({ listChatModels: vi.fn() }))
 
+const routerPush = vi.fn()
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: routerPush }) }))
+
 globalThis.ResizeObserver = class {
   observe() {} unobserve() {} disconnect() {}
 } as unknown as typeof ResizeObserver
@@ -157,5 +160,22 @@ describe('AppList', () => {
     expect(injected).toBeTruthy()
     expect(injected!.props('label')).toBe('GPT-4o（已停用）')
     expect(injected!.props('disabled')).toBe(true)
+  })
+
+  it('试聊按钮：可用模型应用点击跳转 /apps/{id}/chat', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([NAMED]))
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="chat-4"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/apps/4/chat')
+  })
+
+  it('试聊按钮：模型不可用应用禁用', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([WITH_MODEL])) // modelUsable=false
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="chat-3"]').attributes('disabled')).toBeDefined()
   })
 })

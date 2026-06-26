@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { useRouter } from 'vue-router'
 import {
   listApps, createApp, updateApp, deleteApp, enableApp, disableApp,
 } from '@/api/app'
@@ -16,6 +17,11 @@ const NAME_MAX = 50
 const DESC_MAX = 200
 
 const userStore = useUserStore()
+const router = useRouter()
+
+function openChat(app: App) {
+  router.push(`/apps/${app.id}/chat`)
+}
 
 const apps = ref<App[]>([])
 const total = ref(0)
@@ -221,6 +227,14 @@ async function submitForm() {
         <el-table-column label="操作" width="260">
           <template #default="{ row }">
             <div v-if="canModify(row as App)" class="app-list__ops">
+              <el-button
+                link
+                type="primary"
+                :data-test="`chat-${(row as App).id}`"
+                :disabled="!(row as App).modelUsable || (row as App).status === 'disabled'"
+                @click="openChat(row as App)"
+                >试聊</el-button
+              >
               <el-button
                 v-if="(row as App).status === 'enabled'"
                 :data-test="`disable-${(row as App).id}`"
