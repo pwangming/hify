@@ -100,6 +100,19 @@ const rules: FormRules<ProviderForm> = {
     { required: true, message: '请输入 Base URL', trigger: 'blur' },
     { pattern: /^https?:\/\//, message: 'Base URL 需以 http:// 或 https:// 开头', trigger: 'blur' },
   ],
+  // API Key 新增时必填、编辑时可空（留空=不修改），故用 validator 按模式判定。
+  apiKey: [
+    {
+      validator: (_rule, value: string, callback: (error?: Error) => void) => {
+        if (editingId.value === null && !value) {
+          callback(new Error('请输入 API Key'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
 }
 
 function openCreate() {

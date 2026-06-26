@@ -85,6 +85,22 @@ describe('ProviderList', () => {
     expect(createProvider).not.toHaveBeenCalled()
   })
 
+  // 新增时 API Key 必填：填了名称和 Base URL、独缺 API Key 也不应提交。
+  // （真实浏览器下 el-form 规则会在输入框下显示「请输入 API Key」红字；happy-dom 不渲染内联校验消息，
+  //  故此处只断言"不提交"，与「名称为空时拦截」用例同口径。）
+  it('新建：API Key 为空时拦截，不调 createProvider', async () => {
+    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.get('[data-test="create-open"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="form-name"]').setValue('New')
+    await wrapper.get('[data-test="form-baseurl"]').setValue('https://x.com/v1')
+    // 不填 API Key
+    await wrapper.get('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createProvider).not.toHaveBeenCalled()
+  })
+
   it('新建成功：调 createProvider(body 带 protocol) 后重拉列表', async () => {
     vi.mocked(createProvider).mockResolvedValue({
       id: '9',
