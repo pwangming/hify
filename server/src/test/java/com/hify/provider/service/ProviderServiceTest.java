@@ -10,6 +10,7 @@ import com.hify.provider.dto.UpdateProviderRequest;
 import com.hify.provider.entity.ModelProvider;
 import com.hify.provider.mapper.AiModelMapper;
 import com.hify.provider.mapper.ModelProviderMapper;
+import com.hify.provider.service.resilience.ResilienceRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -37,6 +38,7 @@ class ProviderServiceTest {
     private ModelProviderMapper mapper;
     private AiModelMapper aiModelMapper;
     private ApiKeyCipher cipher;
+    private ResilienceRegistry registry;
     private ProviderService service;
 
     @BeforeEach
@@ -47,7 +49,8 @@ class ProviderServiceTest {
         ProviderCryptoProperties props = new ProviderCryptoProperties();
         props.setMasterKey("unit-test-master-key");
         cipher = new ApiKeyCipher(props);
-        service = new ProviderService(mapper, aiModelMapper, cipher);
+        registry = mock(ResilienceRegistry.class);
+        service = new ProviderService(mapper, aiModelMapper, cipher, registry);
     }
 
     private CreateProviderRequest createReq() {
@@ -206,5 +209,20 @@ class ProviderServiceTest {
         BizException ex = assertThrows(BizException.class, () -> service.delete(5L));
         assertEquals(CommonError.CONFLICT, ex.errorCode());
         verify(mapper, never()).deleteById(anyLong());
+    }
+
+    @Test
+    void 更新供应商后_失效缓存() {
+        when(mapper.selectById(1L)).thenReturn(stored(1L, "通义-生产", ProviderStatus.ENABLED.value()));
+        when(mapper.selectCount(any())).thenReturn(0L);
+        service.update(1L, new UpdateProviderRequest("新名", "openai", "https://x", null));
+        verify(registry).invalidate(1L);
+    }
+
+    @Test
+    void 禁用供应商后_失效缓存() {
+        when(mapper.selectById(1L)).thenReturn(stored(1L, "通义-生产", ProviderStatus.ENABLED.value()));
+        service.disable(1L);
+        verify(registry).invalidate(1L);
     }
 }

@@ -36,13 +36,15 @@ class AiModelServiceTest {
 
     private AiModelMapper modelMapper;
     private ModelProviderMapper providerMapper;
+    private com.hify.provider.service.resilience.ResilienceRegistry registry;
     private AiModelService service;
 
     @BeforeEach
     void setUp() {
         modelMapper = mock(AiModelMapper.class);
         providerMapper = mock(ModelProviderMapper.class);
-        service = new AiModelService(modelMapper, providerMapper);
+        registry = mock(com.hify.provider.service.resilience.ResilienceRegistry.class);
+        service = new AiModelService(modelMapper, providerMapper, registry);
     }
 
     private ModelProvider provider(long id, String protocol) {
@@ -210,5 +212,12 @@ class AiModelServiceTest {
         assertEquals(2, list.size());
         assertEquals("chat", list.get(0).type());
         assertEquals(ProviderStatus.DISABLED.value(), list.get(1).status());
+    }
+
+    @Test
+    void 禁用模型后_失效该模型缓存() {
+        when(modelMapper.selectById(5L)).thenReturn(model(5L, 1L, "chat", ProviderStatus.ENABLED.value()));
+        service.disable(5L);
+        verify(registry).invalidateModel(5L);
     }
 }

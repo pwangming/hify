@@ -11,6 +11,7 @@ import com.hify.provider.entity.AiModel;
 import com.hify.provider.entity.ModelProvider;
 import com.hify.provider.mapper.AiModelMapper;
 import com.hify.provider.mapper.ModelProviderMapper;
+import com.hify.provider.service.resilience.ResilienceRegistry;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,12 +30,14 @@ public class ProviderService {
     private final ModelProviderMapper providerMapper;
     private final AiModelMapper aiModelMapper;
     private final ApiKeyCipher apiKeyCipher;
+    private final ResilienceRegistry resilienceRegistry;
 
     public ProviderService(ModelProviderMapper providerMapper, AiModelMapper aiModelMapper,
-                           ApiKeyCipher apiKeyCipher) {
+                           ApiKeyCipher apiKeyCipher, ResilienceRegistry resilienceRegistry) {
         this.providerMapper = providerMapper;
         this.aiModelMapper = aiModelMapper;
         this.apiKeyCipher = apiKeyCipher;
+        this.resilienceRegistry = resilienceRegistry;
     }
 
     @Transactional
@@ -72,6 +75,7 @@ public class ProviderService {
         } catch (DuplicateKeyException e) {
             throw new BizException(CommonError.CONFLICT, "供应商名称已存在", e);
         }
+        resilienceRegistry.invalidate(id); // 配置/Key 变更热生效：清四件套 + 名下 client
         return toResponse(entity);
     }
 
@@ -90,6 +94,7 @@ public class ProviderService {
         }
         entity.setStatus(ProviderStatus.ENABLED.value());
         providerMapper.updateById(entity);
+        resilienceRegistry.invalidate(id);
     }
 
     @Transactional
@@ -100,6 +105,7 @@ public class ProviderService {
         }
         entity.setStatus(ProviderStatus.DISABLED.value());
         providerMapper.updateById(entity);
+        resilienceRegistry.invalidate(id);
     }
 
     /**
@@ -114,6 +120,7 @@ public class ProviderService {
             throw new BizException(CommonError.CONFLICT, "请先删除该供应商下的模型");
         }
         providerMapper.deleteById(id);
+        resilienceRegistry.invalidate(id);
     }
 
     private ModelProvider require(Long id) {

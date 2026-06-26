@@ -13,6 +13,7 @@ import com.hify.provider.entity.AiModel;
 import com.hify.provider.entity.ModelProvider;
 import com.hify.provider.mapper.AiModelMapper;
 import com.hify.provider.mapper.ModelProviderMapper;
+import com.hify.provider.service.resilience.ResilienceRegistry;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,10 +31,13 @@ public class AiModelService {
 
     private final AiModelMapper modelMapper;
     private final ModelProviderMapper providerMapper;
+    private final ResilienceRegistry resilienceRegistry;
 
-    public AiModelService(AiModelMapper modelMapper, ModelProviderMapper providerMapper) {
+    public AiModelService(AiModelMapper modelMapper, ModelProviderMapper providerMapper,
+                          ResilienceRegistry resilienceRegistry) {
         this.modelMapper = modelMapper;
         this.providerMapper = providerMapper;
+        this.resilienceRegistry = resilienceRegistry;
     }
 
     @Transactional
@@ -73,6 +77,7 @@ public class AiModelService {
         } catch (DuplicateKeyException e) {
             throw new BizException(CommonError.CONFLICT, "该供应商下已存在同名模型标识", e);
         }
+        resilienceRegistry.invalidateModel(id); // 模型变更热生效：清该模型的 client 缓存
         return toResponse(entity);
     }
 
@@ -93,6 +98,7 @@ public class AiModelService {
         }
         entity.setStatus(ProviderStatus.ENABLED.value());
         modelMapper.updateById(entity);
+        resilienceRegistry.invalidateModel(id);
     }
 
     @Transactional
@@ -103,12 +109,14 @@ public class AiModelService {
         }
         entity.setStatus(ProviderStatus.DISABLED.value());
         modelMapper.updateById(entity);
+        resilienceRegistry.invalidateModel(id);
     }
 
     /** 逻辑删除：删不存在的也算成功（幂等）。 */
     @Transactional
     public void delete(Long id) {
         modelMapper.deleteById(id);
+        resilienceRegistry.invalidateModel(id);
     }
 
     private AiModel require(Long id) {
