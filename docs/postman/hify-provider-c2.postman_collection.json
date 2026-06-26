@@ -1,0 +1,162 @@
+{
+  "info": {
+    "name": "Hify · provider C2（getChatClient + 四层韧性 + admin 测试连通）",
+    "description": "C2 端到端验证：admin 建供应商+chat模型 → POST /models/{id}/test 真实连通（带韧性）→ 不存在 modelId(12002) → 改错 Key 后(12003) → member 越权(10004)。\n\n⚠️ 测试连通会真实调用 LLM，需填一个可用的 openai 兼容供应商凭证（baseUrl + Key）。先按 0→2 准备数据。\n\n约定：Result 信封 {code,message,data,traceId}；成功 code=200；id 字符串。\n\nC2 新接口：POST /api/v1/admin/provider/models/{id}/test（仅 admin）。错误映射：模型不可用/不存在→12002(400)，供应商故障/熔断→12003(503)，信号量满/限流→12004(429)。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminUsername", "value": "admin" },
+    { "key": "adminPassword", "value": "change-me-on-first-deploy" },
+    { "key": "memberUsername", "value": "member1" },
+    { "key": "memberPassword", "value": "change-me" },
+    { "key": "realBaseUrl", "value": "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+    { "key": "realApiKey", "value": "sk-填真实可用的Key" },
+    { "key": "realModelKey", "value": "qwen-plus" },
+    { "key": "token", "value": "" },
+    { "key": "memberToken", "value": "" },
+    { "key": "providerId", "value": "" },
+    { "key": "modelId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. 登录(admin) → 存 token",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/identity/login", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "identity", "login" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "pm.test('登录成功', () => pm.expect(j.code).to.eql(200));",
+        "pm.collectionVariables.set('token', j.data.token);"
+      ] } } ]
+    },
+    {
+      "name": "1. 建供应商(真实 openai 兼容) → 存 providerId",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "providers" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"C2连通测试供应商\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"{{realBaseUrl}}\",\n  \"apiKey\": \"{{realApiKey}}\"\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "if (j.code === 200) { pm.collectionVariables.set('providerId', j.data.id); pm.test('建成', () => pm.expect(j.code).to.eql(200)); }",
+        "else { pm.test('已存在(409)请先删除残留再重跑', () => pm.expect(j.code).to.eql(10006)); }"
+      ] } } ]
+    },
+    {
+      "name": "2. 建 chat 模型(真实 modelKey) → 存 modelId",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}/models", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "providers", "{{providerId}}", "models" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"type\": \"chat\",\n  \"name\": \"连通测试模型\",\n  \"modelKey\": \"{{realModelKey}}\"\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "pm.test('建成', () => pm.expect(j.code).to.eql(200));",
+        "pm.collectionVariables.set('modelId', j.data.id);"
+      ] } } ]
+    },
+    {
+      "name": "3. 测试连通(真实调用) → 200 且 data.sample 存在",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/models/{{modelId}}/test", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "models", "{{modelId}}", "test" ] }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "pm.test('code=200', () => pm.expect(j.code).to.eql(200));",
+        "pm.test('返回模型回复样本 sample', () => pm.expect(j.data.sample).to.be.a('string').and.not.empty);"
+      ] } } ]
+    },
+    {
+      "name": "反例 · 不存在的 modelId → 12002/400",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/models/99999999/test", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "models", "99999999", "test" ] }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+        "pm.test('业务码 12002', () => pm.expect(pm.response.json().code).to.eql(12002));"
+      ] } } ]
+    },
+    {
+      "name": "4. 改错 Key（验热生效 + 故障映射）",
+      "request": {
+        "method": "PUT",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "providers", "{{providerId}}" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"C2连通测试供应商\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"{{realBaseUrl}}\",\n  \"apiKey\": \"sk-wrong-key-invalid\"\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('改 Key 成功 code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+      ] } } ]
+    },
+    {
+      "name": "反例 · 改错 Key 后测试连通 → 鉴权失败映射(非200)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/models/{{modelId}}/test", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "models", "{{modelId}}", "test" ] }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "pm.test('不再 200（错 Key 立即热生效，无需重启）', () => pm.expect(j.code).to.not.eql(200));",
+        "pm.test('鉴权类失败：401 映射 12003 / 或对外 503，非重试空转', () => pm.expect([12003, 12002]).to.include(j.code));"
+      ] } } ]
+    },
+    {
+      "name": "5. 登录(member) → 存 memberToken",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/v1/identity/login", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "identity", "login" ] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{memberUsername}}\",\n  \"password\": \"{{memberPassword}}\"\n}" }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "const j = pm.response.json();",
+        "if (j.code === 200) pm.collectionVariables.set('memberToken', j.data.token);"
+      ] } } ]
+    },
+    {
+      "name": "反例 · member 调测试连通 → 403/10004",
+      "request": {
+        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{memberToken}}", "type": "string" } ] },
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/models/{{modelId}}/test", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "models", "{{modelId}}", "test" ] }
+      },
+      "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+        "pm.test('业务码 10004', () => pm.expect(pm.response.json().code).to.eql(10004));"
+      ] } } ]
+    },
+    {
+      "name": "9. 清理：删模型 / 删供应商",
+      "event": [ { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+        "const base = pm.collectionVariables.get('baseUrl');",
+        "const h = { 'Authorization': 'Bearer ' + pm.collectionVariables.get('token') };",
+        "pm.sendRequest({ url: base + '/api/v1/admin/provider/models/' + pm.collectionVariables.get('modelId'), method: 'DELETE', header: h }, () => {});"
+      ] } }, { "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('删供应商 code=200', () => pm.expect(pm.response.json().code).to.eql(200));"
+      ] } } ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/provider/providers/{{providerId}}", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "admin", "provider", "providers", "{{providerId}}" ] }
+      }
+    }
+  ]
+}
