@@ -18,6 +18,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, title: '应用管理', menu: true, icon: 'Grid' },
   },
   {
+    path: '/apps/:appId/chat',
+    name: 'AppChat',
+    component: () => import('@/views/conversation/ChatView.vue'),
+    meta: { requiresAuth: true, title: '试聊' },
+  },
+  {
     path: '/admin/provider',
     name: 'ProviderList',
     component: () => import('@/views/admin/provider/ProviderList.vue'),
