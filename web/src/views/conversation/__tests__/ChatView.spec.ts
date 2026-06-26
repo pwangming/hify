@@ -18,7 +18,7 @@ describe('ChatView', () => {
       conversationId: '100',
       message: {
         id: '200', role: 'assistant', content: '你好，我是助手',
-        promptTokens: '12', completionTokens: '8', createTime: '2026-06-26T10:00:00+08:00',
+        promptTokens: 12, completionTokens: 8, createTime: '2026-06-26T10:00:00+08:00',
       },
     })
   })

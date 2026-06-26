@@ -1,13 +1,13 @@
 /** 消息角色（对齐后端 message.role）。 */
 export type MessageRole = 'user' | 'assistant'
 
-/** 消息视图（对齐后端 MessageView）。id/token 为 string（Long 序列化防精度丢失）。 */
+/** 消息视图（对齐后端 MessageView）。id 为 string（Long）；token 为 number（Integer）。 */
 export interface MessageView {
   id: string
   role: MessageRole
   content: string
-  promptTokens: string | null
-  completionTokens: string | null
+  promptTokens: number | null
+  completionTokens: number | null
   createTime: string
 }
 
