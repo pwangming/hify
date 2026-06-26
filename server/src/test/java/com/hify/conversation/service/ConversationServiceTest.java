@@ -1,8 +1,7 @@
 package com.hify.conversation.service;
 
 import com.hify.app.api.AppFacade;
-import com.hify.app.api.dto.AppConfig;
-import com.hify.app.api.dto.AppRuntimeView;
+import com.hify.app.api.AppRuntimeView;
 import com.hify.common.exception.BizException;
 import com.hify.conversation.constant.ConversationError;
 import com.hify.conversation.constant.MessageRole;
@@ -54,7 +53,7 @@ class ConversationServiceTest {
 
     private void stubRunnableApp(String systemPrompt) {
         when(appFacade.findRunnableChatApp(eq(7L)))
-                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, new AppConfig(systemPrompt))));
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt)));
         when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
     }
 
@@ -123,7 +122,7 @@ class ConversationServiceTest {
     @Test
     void send_模型不可用_透传12002_user消息已落但不落assistant() {
         when(appFacade.findRunnableChatApp(eq(7L)))
-                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, new AppConfig(null))));
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, null)));
         when(store.openTurn(any(), any(), any(), any())).thenReturn(100L);
         when(providerFacade.getChatClient(eq(5L)))
                 .thenThrow(new BizException(ProviderError.MODEL_NOT_USABLE));

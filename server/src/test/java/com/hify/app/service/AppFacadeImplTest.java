@@ -1,7 +1,7 @@
 package com.hify.app.service;
 
+import com.hify.app.api.AppRuntimeView;
 import com.hify.app.api.dto.AppConfig;
-import com.hify.app.api.dto.AppRuntimeView;
 import com.hify.app.constant.AppStatus;
 import com.hify.app.constant.AppType;
 import com.hify.app.entity.App;
@@ -45,7 +45,7 @@ class AppFacadeImplTest {
         Optional<AppRuntimeView> v = facade.findRunnableChatApp(10L);
         assertTrue(v.isPresent());
         assertEquals(5L, v.get().modelId());
-        assertEquals("你是客服", v.get().config().systemPrompt());
+        assertEquals("你是客服", v.get().systemPrompt());
     }
 
     @Test

@@ -1,8 +1,7 @@
 package com.hify.app.service;
 
 import com.hify.app.api.AppFacade;
-import com.hify.app.api.dto.AppConfig;
-import com.hify.app.api.dto.AppRuntimeView;
+import com.hify.app.api.AppRuntimeView;
 import com.hify.app.constant.AppStatus;
 import com.hify.app.constant.AppType;
 import com.hify.app.entity.App;
@@ -35,7 +34,7 @@ public class AppFacadeImpl implements AppFacade {
                 || app.getModelId() == null) {
             return Optional.empty();
         }
-        AppConfig config = app.getConfig() == null ? new AppConfig(null) : app.getConfig();
-        return Optional.of(new AppRuntimeView(app.getId(), app.getModelId(), config));
+        String systemPrompt = app.getConfig() == null ? null : app.getConfig().systemPrompt();
+        return Optional.of(new AppRuntimeView(app.getId(), app.getModelId(), systemPrompt));
     }
 }

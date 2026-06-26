@@ -1,7 +1,7 @@
 package com.hify.conversation.service;
 
 import com.hify.app.api.AppFacade;
-import com.hify.app.api.dto.AppRuntimeView;
+import com.hify.app.api.AppRuntimeView;
 import com.hify.common.exception.BizException;
 import com.hify.conversation.constant.ConversationError;
 import com.hify.conversation.dto.MessageView;
@@ -47,7 +47,7 @@ public class ConversationService {
         Long cid = store.openTurn(appId, conversationId, current.userId(), content);
         // 4) 取 ChatClient（不可用抛 12002）并调用——事务外
         ChatClient chatClient = providerFacade.getChatClient(app.modelId());
-        LlmReply reply = chatInvoker.invoke(chatClient, app.config().systemPrompt(), content);
+        LlmReply reply = chatInvoker.invoke(chatClient, app.systemPrompt(), content);
         // 5) 事务B：落 assistant 消息
         Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens());
         return new SendMessageResponse(cid, toView(saved));

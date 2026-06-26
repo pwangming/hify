@@ -1,7 +1,5 @@
 package com.hify.app.api;
 
-import com.hify.app.api.dto.AppRuntimeView;
-
 import java.util.Optional;
 
 /**
