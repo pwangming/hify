@@ -54,3 +54,11 @@
 - 自证：`mvn test` 全量 **227/0/0、BUILD SUCCESS**（含 ModularityTests + LayerRulesTest，模块边界绿）。Postman：`docs/postman/hify-provider-c2.postman_collection.json`（admin 登录→建供应商+模型→测试连通 sample→不存在 12002→改错 Key 热生效→member 403），JSON 校验通过。
 - 真实 LLM 走查（需用户参与）：见 `docs/superpowers/plans/2026-06-25-provider-c2-verification.md` §人工验证（起服务确认 Flyway V8、真实凭证测连通、改错 Key 热生效、熔断打开毫秒级失败）。
 - C2 后端全部 11 Task 完成。待用户人工 e2e 后合并 main。
+
+## 修复：测试连通 500/10000（韧性字段被写 0）（2026-06-26）
+
+- 现象：`POST /admin/provider/models/11/test` → 500 `{code:10000 系统繁忙}`。日志（按 traceId）：`IllegalArgumentException: failureRateThreshold must be between 1 and 100` at ResilienceBundle.build。
+- 根因：ModelProvider 的 10 个韧性字段是 `int` 基本类型，新建供应商时默认 0，MyBatis-Plus insert 把 0 也显式写库，**盖掉了 V8 的 DB DEFAULT**。V8 之后新建的 provider（id 9–12）这些列全是 0；熔断阈值 0 不在 1–100 → Resilience4j 抛异常 → 未被分类器接住 → 全局兜底 10000/500。验证：`select ... from model_provider` 显示 id 4–8（V8 前建，ALTER 填默认值）正常、id 9–12 全 0。
+- 修复：① 10 字段改 `Integer`（null 时 MP 不写该列，DB DEFAULT 生效）；② Flyway **V9** 把存量 0 行重置回 V8 默认值（这些字段取 0 业务上均非法）。
+- 自证：`mvn test` 全量 227/0/0；重启后日志确认 V9 应用、id 9–12 修回 50/10/3/30/120；测试连通不再 500/10000（真实 Key→200 sample，假 Key→映射 12003）。
+- 已知遗留：这些配置无输入校验，未来若开放 admin 编辑需加范围校验（否则坏值会再次 IllegalArgumentException→10000）。当前无编辑入口，不阻塞。
