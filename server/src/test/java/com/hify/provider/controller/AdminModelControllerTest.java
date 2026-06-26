@@ -45,6 +45,9 @@ class AdminModelControllerTest {
     @MockitoBean
     private AiModelService aiModelService;
 
+    @MockitoBean
+    private com.hify.provider.service.ModelConnectionService modelConnectionService;
+
     private String adminToken() {
         return jwtService.generateToken(new CurrentUser(1L, "root", CurrentUser.ROLE_ADMIN));
     }
@@ -133,5 +136,36 @@ class AdminModelControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(10001))
                 .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    void 测试连通_admin_200返回sample() throws Exception {
+        when(modelConnectionService.test(7L))
+                .thenReturn(new com.hify.provider.api.dto.ModelTestResponse("pong"));
+
+        mockMvc.perform(post("/api/v1/admin/provider/models/7/test")
+                        .header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sample").value("pong"));
+    }
+
+    @Test
+    void 测试连通_member_403() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/provider/models/7/test")
+                        .header("Authorization", "Bearer " + memberToken()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(10004));
+    }
+
+    @Test
+    void 测试连通_供应商不可用_503且12003() throws Exception {
+        when(modelConnectionService.test(7L))
+                .thenThrow(new com.hify.common.exception.BizException(
+                        com.hify.provider.constant.ProviderError.PROVIDER_UNAVAILABLE));
+
+        mockMvc.perform(post("/api/v1/admin/provider/models/7/test")
+                        .header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value(12003));
     }
 }

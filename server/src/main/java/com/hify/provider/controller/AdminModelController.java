@@ -1,10 +1,12 @@
 package com.hify.provider.controller;
 
 import com.hify.common.Result;
+import com.hify.provider.api.dto.ModelTestResponse;
 import com.hify.provider.dto.CreateModelRequest;
 import com.hify.provider.dto.ModelResponse;
 import com.hify.provider.dto.UpdateModelRequest;
 import com.hify.provider.service.AiModelService;
+import com.hify.provider.service.ModelConnectionService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,9 +29,12 @@ import java.util.List;
 public class AdminModelController {
 
     private final AiModelService aiModelService;
+    private final ModelConnectionService modelConnectionService;
 
-    public AdminModelController(AiModelService aiModelService) {
+    public AdminModelController(AiModelService aiModelService,
+                               ModelConnectionService modelConnectionService) {
         this.aiModelService = aiModelService;
+        this.modelConnectionService = modelConnectionService;
     }
 
     @GetMapping("/providers/{providerId}/models")
@@ -65,5 +70,11 @@ public class AdminModelController {
     public Result<Void> disable(@PathVariable Long id) {
         aiModelService.disable(id);
         return Result.ok(null);
+    }
+
+    /** 测试连通：发一句最短 prompt 真实调用该模型，验证 Key/baseUrl/网络。失败按韧性映射（12002/12003/12004）。 */
+    @PostMapping("/models/{id}/test")
+    public Result<ModelTestResponse> test(@PathVariable Long id) {
+        return Result.ok(modelConnectionService.test(id));
     }
 }
