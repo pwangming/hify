@@ -17,16 +17,18 @@ public class ModelProvider extends BaseEntity {
     private String apiKeyCipher; // AES-256-GCM 密文
     private String apiKeyTail;   // 明文后 4 位，仅供掩码展示
     private String status;       // enabled / disabled
-    private int maxConcurrency;
-    private int batchConcurrency;
-    private int retryMaxAttempts;
-    private int cbFailureRate;
-    private int cbWaitOpenSec;
-    private int connectTimeoutSec;
-    private int responseTimeoutSec;
-    private int firstTokenTimeoutSec;
-    private int tokenGapTimeoutSec;
-    private int streamMaxDurationSec;
+    // 韧性配置 10 字段：用 Integer（非 int），新建留空时让 MyBatis-Plus 不写该列、由 DB DEFAULT 兜底；
+    // 写成 int 会因基本类型默认 0 被显式 INSERT，盖掉 DB 默认值（曾导致 failureRateThreshold=0 报错）。
+    private Integer maxConcurrency;
+    private Integer batchConcurrency;
+    private Integer retryMaxAttempts;
+    private Integer cbFailureRate;
+    private Integer cbWaitOpenSec;
+    private Integer connectTimeoutSec;
+    private Integer responseTimeoutSec;
+    private Integer firstTokenTimeoutSec;
+    private Integer tokenGapTimeoutSec;
+    private Integer streamMaxDurationSec;
 
     public String getName() {
         return name;
@@ -76,83 +78,83 @@ public class ModelProvider extends BaseEntity {
         this.status = status;
     }
 
-    public int getMaxConcurrency() {
+    public Integer getMaxConcurrency() {
         return maxConcurrency;
     }
 
-    public void setMaxConcurrency(int maxConcurrency) {
+    public void setMaxConcurrency(Integer maxConcurrency) {
         this.maxConcurrency = maxConcurrency;
     }
 
-    public int getBatchConcurrency() {
+    public Integer getBatchConcurrency() {
         return batchConcurrency;
     }
 
-    public void setBatchConcurrency(int batchConcurrency) {
+    public void setBatchConcurrency(Integer batchConcurrency) {
         this.batchConcurrency = batchConcurrency;
     }
 
-    public int getRetryMaxAttempts() {
+    public Integer getRetryMaxAttempts() {
         return retryMaxAttempts;
     }
 
-    public void setRetryMaxAttempts(int retryMaxAttempts) {
+    public void setRetryMaxAttempts(Integer retryMaxAttempts) {
         this.retryMaxAttempts = retryMaxAttempts;
     }
 
-    public int getCbFailureRate() {
+    public Integer getCbFailureRate() {
         return cbFailureRate;
     }
 
-    public void setCbFailureRate(int cbFailureRate) {
+    public void setCbFailureRate(Integer cbFailureRate) {
         this.cbFailureRate = cbFailureRate;
     }
 
-    public int getCbWaitOpenSec() {
+    public Integer getCbWaitOpenSec() {
         return cbWaitOpenSec;
     }
 
-    public void setCbWaitOpenSec(int cbWaitOpenSec) {
+    public void setCbWaitOpenSec(Integer cbWaitOpenSec) {
         this.cbWaitOpenSec = cbWaitOpenSec;
     }
 
-    public int getConnectTimeoutSec() {
+    public Integer getConnectTimeoutSec() {
         return connectTimeoutSec;
     }
 
-    public void setConnectTimeoutSec(int connectTimeoutSec) {
+    public void setConnectTimeoutSec(Integer connectTimeoutSec) {
         this.connectTimeoutSec = connectTimeoutSec;
     }
 
-    public int getResponseTimeoutSec() {
+    public Integer getResponseTimeoutSec() {
         return responseTimeoutSec;
     }
 
-    public void setResponseTimeoutSec(int responseTimeoutSec) {
+    public void setResponseTimeoutSec(Integer responseTimeoutSec) {
         this.responseTimeoutSec = responseTimeoutSec;
     }
 
-    public int getFirstTokenTimeoutSec() {
+    public Integer getFirstTokenTimeoutSec() {
         return firstTokenTimeoutSec;
     }
 
-    public void setFirstTokenTimeoutSec(int firstTokenTimeoutSec) {
+    public void setFirstTokenTimeoutSec(Integer firstTokenTimeoutSec) {
         this.firstTokenTimeoutSec = firstTokenTimeoutSec;
     }
 
-    public int getTokenGapTimeoutSec() {
+    public Integer getTokenGapTimeoutSec() {
         return tokenGapTimeoutSec;
     }
 
-    public void setTokenGapTimeoutSec(int tokenGapTimeoutSec) {
+    public void setTokenGapTimeoutSec(Integer tokenGapTimeoutSec) {
         this.tokenGapTimeoutSec = tokenGapTimeoutSec;
     }
 
-    public int getStreamMaxDurationSec() {
+    public Integer getStreamMaxDurationSec() {
         return streamMaxDurationSec;
     }
 
-    public void setStreamMaxDurationSec(int streamMaxDurationSec) {
+    public void setStreamMaxDurationSec(Integer streamMaxDurationSec) {
         this.streamMaxDurationSec = streamMaxDurationSec;
     }
 }
