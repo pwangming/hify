@@ -16,3 +16,10 @@ export interface SendMessageResponse {
   conversationId: string
   message: MessageView
 }
+
+/** 会话列表项（对齐后端 ConversationView）。id 为 string（Long）；title 可空；updateTime 为最近活跃时间。 */
+export interface ConversationView {
+  id: string
+  title: string | null
+  updateTime: string
+}
