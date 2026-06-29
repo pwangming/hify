@@ -5,7 +5,9 @@ import com.hify.app.api.AppRuntimeView;
 import com.hify.common.exception.BizException;
 import com.hify.conversation.constant.ConversationError;
 import com.hify.conversation.constant.MessageRole;
+import com.hify.conversation.dto.ConversationView;
 import com.hify.conversation.dto.SendMessageResponse;
+import com.hify.conversation.entity.Conversation;
 import com.hify.conversation.entity.Message;
 import com.hify.infra.security.CurrentUser;
 import com.hify.provider.api.ProviderFacade;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.ai.chat.client.ChatClient;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -171,5 +174,21 @@ class ConversationServiceTest {
         assertEquals(1, list.size());
         assertEquals(200L, list.get(0).id());
         verify(store).listMessages(100L, 42L);
+    }
+
+    @Test
+    void listConversations_委托store_映射为视图() {
+        Conversation c = new Conversation();
+        c.setId(1L);
+        c.setTitle("会话一");
+        c.setUpdateTime(OffsetDateTime.parse("2026-06-29T10:00:00+08:00"));
+        when(store.listConversations(eq(7L), eq(42L))).thenReturn(List.of(c));
+
+        List<ConversationView> views = service.listConversations(7L, member);
+
+        assertEquals(1, views.size());
+        assertEquals(1L, views.get(0).id());
+        assertEquals("会话一", views.get(0).title());
+        verify(store).listConversations(7L, 42L);
     }
 }

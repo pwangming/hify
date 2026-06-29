@@ -85,6 +85,15 @@ public class ConversationStore {
         return m;
     }
 
+    /** 读：本人在某 app 下最近活跃会话（update_time desc，cap recent-limit）。@TableLogic 自动加 deleted=false。 */
+    public List<Conversation> listConversations(Long appId, Long userId) {
+        return conversationMapper.selectList(new LambdaQueryWrapper<Conversation>()
+                .eq(Conversation::getUserId, userId)
+                .eq(Conversation::getAppId, appId)
+                .orderByDesc(Conversation::getUpdateTime)
+                .last("limit " + props.list().recentLimit()));
+    }
+
     /** 读：列出某会话消息（按 id 升序）。会话非本人/不存在抛 404。 */
     public List<Message> listMessages(Long conversationId, Long userId) {
         assertOwned(conversationId, userId);

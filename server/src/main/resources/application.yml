@@ -108,3 +108,6 @@ hify:
     memory:
       # 滑动窗口轮数 N：最近 N 轮(2N 条) + 当前消息进 prompt。改记忆长度只动这里。
       window-rounds: ${HIFY_CONVERSATION_WINDOW_ROUNDS:10}
+    list:
+      # 会话侧边栏返回的最近会话条数上限（按 update_time desc，不分页）。
+      recent-limit: ${HIFY_CONVERSATION_LIST_LIMIT:50}

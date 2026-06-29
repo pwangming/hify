@@ -93,4 +93,19 @@ class ConversationControllerTest {
         mockMvc.perform(get("/api/v1/conversation/messages?conversationId=100"))
                 .andExpect(status().isUnauthorized());
     }
+
+    private com.hify.conversation.dto.ConversationView conv() {
+        return new com.hify.conversation.dto.ConversationView(100L, "你好",
+                OffsetDateTime.parse("2026-06-29T10:00:00+08:00"));
+    }
+
+    @Test
+    void 会话列表_返回数组_id为string() throws Exception {
+        when(conversationService.listConversations(eq(7L), any())).thenReturn(List.of(conv()));
+        mockMvc.perform(get("/api/v1/conversation/conversations?appId=7")
+                        .header("Authorization", "Bearer " + memberToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value("100"))   // Long→string
+                .andExpect(jsonPath("$.data[0].title").value("你好"));
+    }
 }

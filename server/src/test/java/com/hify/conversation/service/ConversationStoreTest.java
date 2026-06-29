@@ -36,7 +36,8 @@ class ConversationStoreTest {
         conversationMapper = mock(ConversationMapper.class);
         messageMapper = mock(MessageMapper.class);
         store = new ConversationStore(conversationMapper, messageMapper,
-                new ConversationProperties(new ConversationProperties.Memory(10)));
+                new ConversationProperties(new ConversationProperties.Memory(10),
+                        new ConversationProperties.ListProps(50)));
         // 默认窗口读返回空（具体测试再覆盖）；strict-stub 未启用，多余 stub 无碍。
         when(messageMapper.selectList(any())).thenReturn(new ArrayList<>());
     }
@@ -136,5 +137,20 @@ class ConversationStoreTest {
         when(conversationMapper.selectById(eq(100L))).thenReturn(other);
         BizException ex = assertThrows(BizException.class, () -> store.listMessages(100L, 42L));
         assertEquals(CommonError.NOT_FOUND, ex.errorCode());
+    }
+
+    @Test
+    void listConversations_委托mapper_返回结果() {
+        Conversation c = new Conversation();
+        c.setId(1L);
+        c.setUserId(42L);
+        c.setAppId(7L);
+        c.setTitle("会话一");
+        when(conversationMapper.selectList(any())).thenReturn(new ArrayList<>(List.of(c)));
+
+        List<Conversation> list = store.listConversations(7L, 42L);
+
+        assertEquals(1, list.size());
+        assertEquals(1L, list.get(0).getId());
     }
 }

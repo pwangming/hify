@@ -4,6 +4,7 @@ import com.hify.app.api.AppFacade;
 import com.hify.app.api.AppRuntimeView;
 import com.hify.common.exception.BizException;
 import com.hify.conversation.constant.ConversationError;
+import com.hify.conversation.dto.ConversationView;
 import com.hify.conversation.dto.MessageView;
 import com.hify.conversation.dto.SendMessageResponse;
 import com.hify.conversation.entity.Message;
@@ -57,6 +58,12 @@ public class ConversationService {
     public List<MessageView> history(Long conversationId, CurrentUser current) {
         return store.listMessages(conversationId, current.userId()).stream()
                 .map(ConversationService::toView)
+                .toList();
+    }
+
+    public List<ConversationView> listConversations(Long appId, CurrentUser current) {
+        return store.listConversations(appId, current.userId()).stream()
+                .map(c -> new ConversationView(c.getId(), c.getTitle(), c.getUpdateTime()))
                 .toList();
     }
 
