@@ -20,11 +20,12 @@ const queryCid = computed(() => (route.query.c as string | undefined) ?? null)
 watch(
   queryCid,
   async (cid) => {
-    if (cid) {
-      await store.loadMessages(cid)
-    } else {
+    if (!cid) {
       store.newConversation()
+      return
     }
+    if (cid === currentId.value) return // 已是当前会话（如刚发完新会话首条，URL 写回不必重新拉取）
+    await store.loadMessages(cid)
   },
   { immediate: true },
 )
@@ -37,7 +38,7 @@ function selectConversation(id: string) {
 
 function startNew() {
   store.newConversation()
-  if (queryCid.value) router.push({ query: {} })
+  if (queryCid.value) router.replace({ query: {} })
 }
 
 async function onSend() {
