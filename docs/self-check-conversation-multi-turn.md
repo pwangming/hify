@@ -106,3 +106,21 @@ curl -s -X POST http://localhost:8080/api/v1/conversation/messages \
 ```
 
 完成后将结果（成功/失败 + 关键输出）追加本节并提交。
+
+---
+
+## 八、手验发现的问题与修复（2026-06-29）
+
+**现象**：用户首次发消息「超时」，重试成功，但侧边栏多出一条重复会话；续聊同样先超时再成功。
+
+**根因（systematic-debugging 确证）**：
+- 前端 axios 全局超时 **30s**（`VITE_API_TIMEOUT`），后端单次 LLM 预算 **120s**（provider `response_timeout_sec` 默认值，V8/V9）。真实模型 >30s 时前端先 `abort` → 用户见「超时」；后端不知客户端已断，继续把调用跑完并落库。
+- `ConversationService.send` 先 `openTurn`（事务A：建会话+落 user 消息，毫秒级提交）再调 LLM。前端超时时会话已落库；`store.send` 抛错未拿到 cid → `currentId` 仍 null → 用户重发被当「新会话」→ 后端再建一条 → **侧边栏重复**。
+- 两缺陷均**上几轮既有**（30s 全局超时、openTurn 先落库），本轮新增侧边栏使「孤儿会话」首次显形。
+
+**修复（仅 D1，用户拍板）**：commit `22b874d` —— 发消息改用独立长超时 `config.chatApiTimeout`（默认 **125s** ≥ 后端 120s 预算，`VITE_CHAT_API_TIMEOUT` 可覆盖），前端不再提前 abort，「超时 + 重试建重复会话」一并消除。TDD 红→绿，全前端 134 绿 + typecheck + build。
+
+**残留（用户选择本轮不做）**：
+- D2：若后端**真实失败**（模型 120s 内真错），`openTurn` 已落的会话仍成孤儿——根治需「LLM 成功后才落库」或后端幂等，留后续。
+- 长等待 UX（2 分钟转圈）的正解是 **SSE 流式**（下一轮）。
+- 历史遗留的重复/孤儿会话：删除会话功能未做（本轮范围外），可手动 DB 清理或等删除功能。
