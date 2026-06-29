@@ -36,12 +36,10 @@ public class ChatInvoker {
         return out;
     }
 
-    public LlmReply invoke(ChatClient chatClient, String systemPrompt, String userContent) {
-        ChatClient.ChatClientRequestSpec spec = chatClient.prompt().user(userContent);
-        if (StringUtils.hasText(systemPrompt)) {
-            spec = spec.system(systemPrompt);
-        }
-        ChatResponse resp = spec.call().chatResponse();
+    public LlmReply invoke(ChatClient chatClient, String systemPrompt, List<Message> window) {
+        ChatResponse resp = chatClient.prompt()
+                .messages(toMessages(systemPrompt, window))
+                .call().chatResponse();
         String content = resp.getResult().getOutput().getText();
         Usage usage = resp.getMetadata().getUsage();
         int promptTokens = usage != null && usage.getPromptTokens() != null ? usage.getPromptTokens() : 0;

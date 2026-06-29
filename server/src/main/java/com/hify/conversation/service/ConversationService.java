@@ -43,11 +43,12 @@ public class ConversationService {
         // 2) 校验应用可对话（读，无事务）
         AppRuntimeView app = appFacade.findRunnableChatApp(appId)
                 .orElseThrow(() -> new BizException(ConversationError.APP_NOT_RUNNABLE));
-        // 3) 事务A：建/取会话 + 落 user 消息
-        Long cid = store.openTurn(appId, conversationId, current.userId(), content);
-        // 4) 取 ChatClient（不可用抛 12002）并调用——事务外
+        // 3) 事务A：建/取会话 + 落 user 消息 + 读窗口
+        TurnContext turn = store.openTurn(appId, conversationId, current.userId(), content);
+        Long cid = turn.conversationId();
+        // 4) 取 ChatClient（不可用抛 12002）并调用——事务外，喂历史窗口
         ChatClient chatClient = providerFacade.getChatClient(app.modelId());
-        LlmReply reply = chatInvoker.invoke(chatClient, app.systemPrompt(), content);
+        LlmReply reply = chatInvoker.invoke(chatClient, app.systemPrompt(), turn.window());
         // 5) 事务B：落 assistant 消息
         Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens());
         return new SendMessageResponse(cid, toView(saved));

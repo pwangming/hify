@@ -12,10 +12,10 @@ import com.hify.provider.api.ProviderFacade;
 import com.hify.provider.constant.ProviderError;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.ai.chat.client.ChatClient;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -57,6 +57,20 @@ class ConversationServiceTest {
         when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
     }
 
+    private Message userMsg(String content) {
+        Message m = new Message();
+        m.setRole(MessageRole.USER.value());
+        m.setContent(content);
+        return m;
+    }
+
+    private Message assistantMsg(String content) {
+        Message m = new Message();
+        m.setRole(MessageRole.ASSISTANT.value());
+        m.setContent(content);
+        return m;
+    }
+
     private Message savedAssistant() {
         Message m = new Message();
         m.setId(200L);
@@ -71,19 +85,21 @@ class ConversationServiceTest {
     @Test
     void send_新会话_三段时序_配额先行_返回assistant视图() {
         stubRunnableApp("你是客服");
-        when(store.openTurn(eq(7L), eq(null), eq(42L), eq("你好"))).thenReturn(100L);
-        when(chatInvoker.invoke(eq(chatClient), eq("你是客服"), eq("你好")))
+        List<Message> window = List.of(userMsg("你好"));
+        when(store.openTurn(eq(7L), eq(null), eq(42L), eq("你好")))
+                .thenReturn(new TurnContext(100L, window));
+        when(chatInvoker.invoke(eq(chatClient), eq("你是客服"), eq(window)))
                 .thenReturn(new LlmReply("你好，我是助手", 12, 8));
         when(store.appendAssistant(eq(100L), eq("你好，我是助手"), eq(12), eq(8)))
                 .thenReturn(savedAssistant());
 
         SendMessageResponse resp = service.send(7L, null, "你好", member);
 
-        // 配额检查在落库前
+        // 配额检查在落库前；窗口喂模型在两次 store 写之间
         InOrder order = inOrder(quotaGuard, store, chatInvoker);
         order.verify(quotaGuard).check(42L, 7L);
         order.verify(store).openTurn(7L, null, 42L, "你好");
-        order.verify(chatInvoker).invoke(chatClient, "你是客服", "你好");
+        order.verify(chatInvoker).invoke(chatClient, "你是客服", window);
         order.verify(store).appendAssistant(100L, "你好，我是助手", 12, 8);
 
         assertEquals(100L, resp.conversationId());
@@ -94,19 +110,17 @@ class ConversationServiceTest {
     }
 
     @Test
-    void send_单轮_只把当前消息喂模型_不含历史() {
+    void send_多轮_把store返回的窗口整体喂模型() {
         stubRunnableApp(null);
-        when(store.openTurn(any(), any(), any(), any())).thenReturn(100L);
+        List<Message> window = List.of(userMsg("第一句"), assistantMsg("回复一"), userMsg("第二句"));
+        when(store.openTurn(any(), any(), any(), any())).thenReturn(new TurnContext(100L, window));
         when(chatInvoker.invoke(any(), any(), any())).thenReturn(new LlmReply("ok", 1, 1));
         when(store.appendAssistant(any(), any(), anyInt(), anyInt())).thenReturn(savedAssistant());
 
         service.send(7L, 100L, "第二句", member);
 
-        ArgumentCaptor<String> sys = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String> usr = ArgumentCaptor.forClass(String.class);
-        verify(chatInvoker).invoke(eq(chatClient), sys.capture(), usr.capture());
-        assertEquals(null, sys.getValue());        // systemPrompt 为 null 透传
-        assertEquals("第二句", usr.getValue());     // 只当前消息，无历史
+        // 窗口原样透传给 invoker（含历史，末位当前消息），systemPrompt 为 null 透传
+        verify(chatInvoker).invoke(eq(chatClient), eq(null), eq(window));
     }
 
     @Test
@@ -123,7 +137,8 @@ class ConversationServiceTest {
     void send_模型不可用_透传12002_user消息已落但不落assistant() {
         when(appFacade.findRunnableChatApp(eq(7L)))
                 .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, null)));
-        when(store.openTurn(any(), any(), any(), any())).thenReturn(100L);
+        when(store.openTurn(any(), any(), any(), any()))
+                .thenReturn(new TurnContext(100L, List.of(userMsg("你好"))));
         when(providerFacade.getChatClient(eq(5L)))
                 .thenThrow(new BizException(ProviderError.MODEL_NOT_USABLE));
 
@@ -136,7 +151,8 @@ class ConversationServiceTest {
     @Test
     void send_模型调用故障_透传12003_不落assistant() {
         stubRunnableApp(null);
-        when(store.openTurn(any(), any(), any(), any())).thenReturn(100L);
+        when(store.openTurn(any(), any(), any(), any()))
+                .thenReturn(new TurnContext(100L, List.of(userMsg("你好"))));
         when(chatInvoker.invoke(any(), any(), any()))
                 .thenThrow(new BizException(ProviderError.PROVIDER_UNAVAILABLE));
 
@@ -148,7 +164,7 @@ class ConversationServiceTest {
     @Test
     void history_委托store_按当前用户过滤() {
         Message m = savedAssistant();
-        when(store.listMessages(eq(100L), eq(42L))).thenReturn(java.util.List.of(m));
+        when(store.listMessages(eq(100L), eq(42L))).thenReturn(List.of(m));
 
         var list = service.history(100L, member);
 

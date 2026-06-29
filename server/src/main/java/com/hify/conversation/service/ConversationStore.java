@@ -3,6 +3,7 @@ package com.hify.conversation.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
+import com.hify.conversation.config.ConversationProperties;
 import com.hify.conversation.constant.MessageRole;
 import com.hify.conversation.entity.Conversation;
 import com.hify.conversation.entity.Message;
@@ -11,6 +12,7 @@ import com.hify.conversation.mapper.MessageMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -24,15 +26,18 @@ public class ConversationStore {
 
     private final ConversationMapper conversationMapper;
     private final MessageMapper messageMapper;
+    private final ConversationProperties props;
 
-    public ConversationStore(ConversationMapper conversationMapper, MessageMapper messageMapper) {
+    public ConversationStore(ConversationMapper conversationMapper, MessageMapper messageMapper,
+                             ConversationProperties props) {
         this.conversationMapper = conversationMapper;
         this.messageMapper = messageMapper;
+        this.props = props;
     }
 
-    /** 事务A：解析/新建会话 + 落 user 消息，返回 conversationId。 */
+    /** 事务A：解析/新建会话 + 落 user 消息 + 同事务读最近窗口，返回 (cid, window)。 */
     @Transactional
-    public Long openTurn(Long appId, Long conversationId, Long userId, String userContent) {
+    public TurnContext openTurn(Long appId, Long conversationId, Long userId, String userContent) {
         Long cid;
         if (conversationId == null) {
             Conversation c = new Conversation();
@@ -50,7 +55,18 @@ public class ConversationStore {
         user.setRole(MessageRole.USER.value());
         user.setContent(userContent.strip());
         messageMapper.insert(user);
-        return cid;
+        return new TurnContext(cid, readWindow(cid));
+    }
+
+    /** 读最近 2N+1 条（N 轮历史 + 当前消息），时间正序。@TableLogic 自动加 deleted=false。 */
+    private List<Message> readWindow(Long conversationId) {
+        int limit = 2 * props.memory().windowRounds() + 1;
+        List<Message> desc = messageMapper.selectList(new LambdaQueryWrapper<Message>()
+                .eq(Message::getConversationId, conversationId)
+                .orderByDesc(Message::getId)
+                .last("limit " + limit));
+        Collections.reverse(desc);
+        return desc;
     }
 
     /** 事务B：落 assistant 消息 + touch 会话 update_time。 */
