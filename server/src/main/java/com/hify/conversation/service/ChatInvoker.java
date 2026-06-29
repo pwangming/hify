@@ -17,7 +17,8 @@ import java.util.List;
 /**
  * Spring AI ChatClient 的薄适配层（仿 provider 的 ModelConnectionService）：把流式 API 收敛成 LlmReply。
  * 不带 @Transactional——这里发生真实外部 IO。systemPrompt 空白则不加 system 段。
- * 单元测试不覆盖本类（薄适配，真实调用由收尾自检手验，见 self-check）；ConversationService 测试 mock 它。
+ * toMessages 为纯映射方法（领域消息窗口→Spring AI 消息），有单元测试（ChatInvokerTest）；
+ * invoke 涉及真实模型调用（外部 IO），不做单元测试，由收尾自检手验（见 self-check）。
  */
 @Service
 public class ChatInvoker {

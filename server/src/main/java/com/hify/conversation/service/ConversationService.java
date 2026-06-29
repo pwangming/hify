@@ -16,9 +16,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * 单轮聊天编排。本类**不带 @Transactional**：事务边界全在 ConversationStore，
+ * 多轮聊天编排。本类**不带 @Transactional**：事务边界全在 ConversationStore，
  * LLM 调用（chatInvoker.invoke）夹在两个事务之间、不被任何事务包裹（CLAUDE.md 硬规则 6）。
- * 单轮：组 prompt 只含 systemPrompt + 当前消息，不读历史。
+ * 多轮：openTurn 在事务内返回最近窗口（TurnContext.window()，含历史 + 当前消息），整窗口喂模型。
  */
 @Service
 public class ConversationService {
