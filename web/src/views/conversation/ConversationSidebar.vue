@@ -108,6 +108,8 @@ const groups = computed<Group[]>(() => {
   flex-direction: column;
   width: 220px;
   padding: 12px;
+  // 白色面板：与右侧 #fafafa 聊天区分层（设计 token：白=容器，#fafafa=页面底色）
+  background: var(--el-bg-color);
   border-right: 1px solid var(--el-border-color-light);
 
   &__new {
@@ -129,8 +131,11 @@ const groups = computed<Group[]>(() => {
     min-height: 0;
   }
 
-  // 收紧 el-collapse 的默认样式，适配紧凑侧边栏
+  // 收紧 el-collapse 的默认样式 + 透明化（让它继承侧栏背景，不再自带白底/边框）
   &__collapse {
+    --el-collapse-header-bg-color: transparent;
+    --el-collapse-content-bg-color: transparent;
+    --el-collapse-border-color: transparent;
     border: none;
 
     :deep(.el-collapse-item__header) {
