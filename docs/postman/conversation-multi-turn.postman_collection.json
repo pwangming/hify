@@ -1,0 +1,202 @@
+{
+  "info": {
+    "name": "Hify · conversation 多轮记忆",
+    "description": "conversation 模块成员族接口（多轮记忆轮）。\n\n所有接口都是成员族 /api/v1/conversation/**，需要 JWT（Member 或 Admin）。\n会话是个人数据，仅本人可见。Long 字段序列化为 string。\n\n使用前：\n1. 在 Collection Variables 里设 baseUrl（默认 http://localhost:8080）。\n2. 先跑「登录」拿 token（自动写入 token 变量），或手动把已有 JWT 填进 token。\n3. 设 appId 为一个『绑定了可用 chat 模型』的对话型应用 id。\n4. 跑「发消息-新会话」会自动把返回的 conversationId 写入 cid 变量，后续『续聊』『拉历史』直接复用。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "appId", "value": "" },
+    { "key": "cid", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "0. 登录（拿 token）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// 登录接口属 identity 模块，这里仅为方便取 token。若已有 JWT 可跳过本步、直接设 token 变量。",
+              "const json = pm.response.json();",
+              "if (json && json.data && json.data.token) {",
+              "  pm.collectionVariables.set('token', json.data.token);",
+              "  pm.test('token 已写入集合变量', () => pm.expect(json.data.token).to.be.a('string'));",
+              "} else {",
+              "  pm.test('登录响应含 token', () => pm.expect.fail('未找到 data.token，请按真实登录接口调整字段'));",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "login"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"<your-username>\",\n  \"password\": \"<your-password>\"\n}"
+        },
+        "description": "登录拿 JWT。字段以 identity 模块真实登录接口为准；本步骤仅为取 token，验多轮记忆的核心是下面三个 conversation 接口。"
+      }
+    },
+    {
+      "name": "1. 发消息 · 新会话（POST /messages，conversationId 不传）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('返回 conversationId（string）', () => pm.expect(json.data.conversationId).to.be.a('string'));",
+              "pm.test('assistant 回复非空', () => pm.expect(json.data.message.content).to.be.a('string').and.not.empty);",
+              "pm.test('role=assistant', () => pm.expect(json.data.message.role).to.eql('assistant'));",
+              "// 把会话 id 存起来，供『续聊』『拉历史』复用",
+              "pm.collectionVariables.set('cid', json.data.conversationId);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/v1/conversation/messages", "host": ["{{baseUrl}}"], "path": ["api", "v1", "conversation", "messages"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"appId\": \"{{appId}}\",\n  \"content\": \"我叫小明，记住我的名字\"\n}"
+        },
+        "description": "新会话：不传 conversationId（或传 null），后端建会话、落 user 消息、读窗口、调模型、落 assistant、返回 conversationId + assistant 视图。\n\n响应：data.conversationId（string）、data.message.{id,role,content,promptTokens,completionTokens,createTime}。"
+      }
+    },
+    {
+      "name": "2. 发消息 · 续聊（POST /messages，带 conversationId）—— 多轮记忆核心",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('同一会话 conversationId 不变', () => pm.expect(json.data.conversationId).to.eql(pm.collectionVariables.get('cid')));",
+              "// 真实模型下，回复应能答出上一轮提供的名字（窗口把历史喂进了 prompt）",
+              "pm.test('回复体现历史记忆（含『小明』）', () => pm.expect(json.data.message.content).to.include('小明'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/v1/conversation/messages", "host": ["{{baseUrl}}"], "path": ["api", "v1", "conversation", "messages"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"appId\": \"{{appId}}\",\n  \"conversationId\": \"{{cid}}\",\n  \"content\": \"我叫什么名字？\"\n}"
+        },
+        "description": "续聊：带上一步的 conversationId。后端读最近 2N+1 条窗口（N=10）一并喂模型——这是多轮记忆的验证点。真实模型应答出『小明』。\n\n注：断言『含小明』依赖活模型；用 mock/无模型环境会失败，属预期。"
+      }
+    },
+    {
+      "name": "3. 拉历史（GET /messages?conversationId=）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('data 为数组', () => pm.expect(json.data).to.be.an('array'));",
+              "pm.test('至少含 4 条（2 轮 user+assistant）', () => pm.expect(json.data.length).to.be.at.least(4));",
+              "pm.test('按时间正序（首条为最早）', () => {",
+              "  const ids = json.data.map(m => Number(m.id));",
+              "  const sorted = [...ids].sort((a,b)=>a-b);",
+              "  pm.expect(ids).to.eql(sorted);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/conversation/messages?conversationId={{cid}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "conversation", "messages"],
+          "query": [{ "key": "conversationId", "value": "{{cid}}" }]
+        },
+        "description": "拉某会话全部消息（按 id 升序 = 时间正序），用于前端刷新恢复。非本人会话返回 10005 NOT_FOUND。"
+      }
+    },
+    {
+      "name": "4. 会话列表（GET /conversations?appId=）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('data 为数组（不分页）', () => pm.expect(json.data).to.be.an('array'));",
+              "pm.test('每项含 id/title/updateTime，id 为 string', () => {",
+              "  if (json.data.length) {",
+              "    const c = json.data[0];",
+              "    pm.expect(c.id).to.be.a('string');",
+              "    pm.expect(c).to.have.property('title');",
+              "    pm.expect(c).to.have.property('updateTime');",
+              "  }",
+              "});",
+              "pm.test('最多 recent-limit 条（默认 50）', () => pm.expect(json.data.length).to.be.at.most(50));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/conversation/conversations?appId={{appId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "conversation", "conversations"],
+          "query": [{ "key": "appId", "value": "{{appId}}" }]
+        },
+        "description": "本人在该 app 下最近活跃会话（update_time desc，cap recent-limit 默认 50，不分页）。appId 无匹配返回空数组（非错误）。"
+      }
+    },
+    {
+      "name": "5.（反例）未登录 → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/conversation/messages?conversationId={{cid}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "conversation", "messages"],
+          "query": [{ "key": "conversationId", "value": "{{cid}}" }]
+        },
+        "description": "不带 Authorization 头 → 401，验证成员族鉴权生效。"
+      }
+    }
+  ]
+}
