@@ -26,8 +26,9 @@ export const useConversationStore = defineStore('conversation', () => {
 
   /** 载入某会话历史到聊天区（切换/刷新恢复时调用）。 */
   async function loadMessages(conversationId: string) {
+    const loaded = await getMessages(conversationId)
     currentId.value = conversationId
-    messages.value = await getMessages(conversationId)
+    messages.value = loaded
   }
 
   /** 进入「新会话」空白态（不发请求）。 */

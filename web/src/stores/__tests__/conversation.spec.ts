@@ -39,6 +39,16 @@ describe('useConversationStore', () => {
     expect(store.messages).toEqual([assistant])
   })
 
+  it('loadMessages 抛错时保持 currentId 和 messages 一致', async () => {
+    vi.mocked(getMessages).mockRejectedValue(new Error('fetch failed'))
+    const store = useConversationStore()
+    store.currentId = '1'
+    store.messages = [assistant]
+    await expect(store.loadMessages('999')).rejects.toThrow('fetch failed')
+    expect(store.currentId).toBe('1')
+    expect(store.messages).toEqual([assistant])
+  })
+
   it('newConversation 清空当前会话与消息', () => {
     const store = useConversationStore()
     store.currentId = '100'
