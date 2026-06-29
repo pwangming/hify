@@ -1,67 +1,94 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRoute } from 'vue-router'
-import { sendMessage } from '@/api/conversation'
-import type { MessageView } from '@/types/conversation'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useConversationStore } from '@/stores/conversation'
+import ConversationSidebar from './ConversationSidebar.vue'
 
 const route = useRoute()
+const router = useRouter()
 const appId = route.params.appId as string
 
-const messages = ref<MessageView[]>([])
-const conversationId = ref<string | null>(null)
+const store = useConversationStore()
+const { conversations, messages, currentId, sending } = storeToRefs(store)
+
 const input = ref('')
-const sending = ref(false)
+
+// URL query.c 是当前会话 id 的「真相」：刷新/切换都以它为准载入历史。
+const queryCid = computed(() => (route.query.c as string | undefined) ?? null)
+
+watch(
+  queryCid,
+  async (cid) => {
+    if (!cid) {
+      store.newConversation()
+      return
+    }
+    if (cid === currentId.value) return // 已是当前会话（如刚发完新会话首条，URL 写回不必重新拉取）
+    await store.loadMessages(cid)
+  },
+  { immediate: true },
+)
+
+onMounted(() => store.loadConversations(appId))
+
+function selectConversation(id: string) {
+  if (id !== currentId.value) router.push({ query: { c: id } })
+}
+
+function startNew() {
+  store.newConversation()
+  if (queryCid.value) router.replace({ query: {} })
+}
 
 async function onSend() {
   const text = input.value.trim()
   if (!text || sending.value) return
-  // 本地先渲染用户气泡（id 用本地占位，不与后端冲突）
-  messages.value.push({
-    id: `local-${Date.now()}`,
-    role: 'user',
-    content: text,
-    promptTokens: null,
-    completionTokens: null,
-    createTime: new Date().toISOString(),
-  })
   input.value = ''
-  sending.value = true
-  try {
-    const res = await sendMessage(appId, conversationId.value, text)
-    conversationId.value = res.conversationId
-    messages.value.push(res.message)
-  } finally {
-    sending.value = false
+  const wasNew = currentId.value === null
+  const cid = await store.send(appId, text)
+  if (wasNew) {
+    // 新会话拿到 id：写回 URL（replace 不增历史栈）并刷新侧边栏
+    await router.replace({ query: { c: cid } })
+    await store.loadConversations(appId)
   }
 }
 </script>
 
 <template>
   <div class="chat">
-    <div class="chat__list">
-      <div
-        v-for="m in messages"
-        :key="m.id"
-        :class="['chat__bubble', `chat__bubble--${m.role}`]"
-        data-test="msg"
-      >
-        {{ m.content }}
+    <ConversationSidebar
+      :conversations="conversations"
+      :current-id="currentId"
+      @select="selectConversation"
+      @new="startNew"
+    />
+    <div class="chat__main">
+      <div class="chat__list">
+        <div
+          v-for="m in messages"
+          :key="m.id"
+          :class="['chat__bubble', `chat__bubble--${m.role}`]"
+          data-test="msg"
+        >
+          {{ m.content }}
+        </div>
       </div>
-    </div>
-    <div class="chat__input">
-      <div data-test="chat-input">
-        <el-input
-          v-model="input"
-          type="textarea"
-          :rows="2"
-          :disabled="sending"
-          placeholder="输入消息，回车或点发送…"
-          @keyup.enter.exact.prevent="onSend"
-        />
+      <div class="chat__input">
+        <div data-test="chat-input">
+          <el-input
+            v-model="input"
+            type="textarea"
+            :rows="2"
+            :disabled="sending"
+            placeholder="输入消息，回车或点发送…"
+            @keyup.enter.exact.prevent="onSend"
+          />
+        </div>
+        <el-button type="primary" data-test="chat-send" :loading="sending" @click="onSend">
+          发送
+        </el-button>
       </div>
-      <el-button type="primary" data-test="chat-send" :loading="sending" @click="onSend">
-        发送
-      </el-button>
     </div>
   </div>
 </template>
@@ -69,10 +96,15 @@ async function onSend() {
 <style scoped lang="scss">
 .chat {
   display: flex;
-  flex-direction: column;
   height: 100%;
-  padding: 16px;
-  gap: 12px;
+
+  &__main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
 
   &__list {
     flex: 1;

@@ -104,3 +104,10 @@ hify:
       # 供应商 API Key 加密主密钥（AES-256-GCM，经 SHA-256 派生 32 字节密钥）。
       # 主密钥走 .env，生产务必用 HIFY_PROVIDER_MASTER_KEY 覆盖这个开发默认值（CLAUDE.md 安全要点）。
       master-key: ${HIFY_PROVIDER_MASTER_KEY:dev-only-hify-provider-master-key-please-override}
+  conversation:
+    memory:
+      # 滑动窗口轮数 N：最近 N 轮(2N 条) + 当前消息进 prompt。改记忆长度只动这里。
+      window-rounds: ${HIFY_CONVERSATION_WINDOW_ROUNDS:10}
+    list:
+      # 会话侧边栏返回的最近会话条数上限（按 update_time desc，不分页）。
+      recent-limit: ${HIFY_CONVERSATION_LIST_LIMIT:50}
