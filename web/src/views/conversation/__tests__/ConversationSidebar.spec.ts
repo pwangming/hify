@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElCollapse } from 'element-plus'
 import ConversationSidebar from '@/views/conversation/ConversationSidebar.vue'
 
 // 用相对“今天”的日期构造数据，保证分桶断言与运行日期无关。
@@ -72,21 +72,11 @@ describe('ConversationSidebar', () => {
     expect(todayItem.text()).not.toMatch(/\d{4}-\d{2}-\d{2}/)
   })
 
-  it('点击分组头可折叠/展开该组（默认展开）', async () => {
-    const wrapper = mountSidebar({
-      conversations: [convs[0], { id: '5', title: '今天2', updateTime: daysAgo(0) }],
-    })
-    const list = () => wrapper.find('[data-test="list-today"]')
-    const header = () => wrapper.find('[data-test="group-today"]')
-    // 默认展开：caret ▼，list 未被 v-show 隐藏
-    expect(header().text()).toContain('▼')
-    expect(list().attributes('style') ?? '').not.toContain('display: none')
-    await header().trigger('click') // 折叠
-    expect(header().text()).toContain('▶')
-    expect(list().attributes('style')).toContain('display: none')
-    await header().trigger('click') // 再展开
-    expect(header().text()).toContain('▼')
-    expect(list().attributes('style') ?? '').not.toContain('display: none')
+  it('用 el-collapse 承载分组，默认四组全展开', () => {
+    // 折叠交互由 el-collapse 提供（不重测库）；这里验我方默认配置：各组 name 都在展开列表里。
+    const wrapper = mountSidebar()
+    const active = wrapper.findComponent(ElCollapse).props('modelValue') as string[]
+    expect(active).toEqual(expect.arrayContaining(['today', 'week', 'month', 'older']))
   })
 
   it('点击会话 emit select 带 id', async () => {

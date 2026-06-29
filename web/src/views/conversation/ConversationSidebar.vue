@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, ref } from 'vue'
+import { Plus } from '@element-plus/icons-vue'
 import type { ConversationView } from '@/types/conversation'
 
 const props = defineProps<{
@@ -12,11 +13,8 @@ const emit = defineEmits<{
   (e: 'new'): void
 }>()
 
-// 折叠状态：记下被折叠的组 key（默认空 = 全展开），仅内存态，刷新复位。
-const collapsed = reactive<Record<string, boolean>>({})
-function toggle(key: string) {
-  collapsed[key] = !collapsed[key]
-}
+// el-collapse 的展开项（name 列表）：默认四组全展开；用户折叠时 el-collapse 自行增删。仅内存态。
+const active = ref(['today', 'week', 'month', 'older'])
 
 interface Group {
   key: string
@@ -67,38 +65,40 @@ const groups = computed<Group[]>(() => {
 
 <template>
   <aside class="sidebar">
-    <el-button class="sidebar__new" type="primary" data-test="conv-new" @click="emit('new')">
+    <el-button
+      class="sidebar__new"
+      type="primary"
+      :icon="Plus"
+      data-test="conv-new"
+      @click="emit('new')"
+    >
       新建会话
     </el-button>
 
     <div class="sidebar__history-label" data-test="history-label">问答历史</div>
 
-    <div class="sidebar__groups">
-      <div v-for="g in groups" :key="g.key" class="sidebar__group">
-        <button
-          type="button"
-          class="sidebar__group-header"
-          :data-test="`group-${g.key}`"
-          @click="toggle(g.key)"
-        >
-          <span class="sidebar__caret">{{ collapsed[g.key] ? '▶' : '▼' }}</span>
-          {{ g.label }}
-        </button>
-        <ul v-show="!collapsed[g.key]" class="sidebar__list" :data-test="`list-${g.key}`">
-          <li
-            v-for="c in g.items"
-            :key="c.id"
-            :class="['sidebar__item', { 'sidebar__item--active': c.id === currentId }]"
-            data-test="conv-item"
-            :title="c.title ?? '未命名会话'"
-            @click="emit('select', c.id)"
-          >
-            <span v-if="g.key === 'older'" class="sidebar__date">{{ ymd(c.updateTime) }}</span>
-            <span class="sidebar__title">{{ c.title ?? '未命名会话' }}</span>
-          </li>
-        </ul>
-      </div>
-    </div>
+    <el-scrollbar class="sidebar__scroll">
+      <el-collapse v-model="active" class="sidebar__collapse">
+        <el-collapse-item v-for="g in groups" :key="g.key" :name="g.key">
+          <template #title>
+            <span :data-test="`group-${g.key}`">{{ g.label }}</span>
+          </template>
+          <ul class="sidebar__list">
+            <li
+              v-for="c in g.items"
+              :key="c.id"
+              :class="['sidebar__item', { 'sidebar__item--active': c.id === currentId }]"
+              data-test="conv-item"
+              :title="c.title ?? '未命名会话'"
+              @click="emit('select', c.id)"
+            >
+              <span v-if="g.key === 'older'" class="sidebar__date">{{ ymd(c.updateTime) }}</span>
+              <span class="sidebar__title">{{ c.title ?? '未命名会话' }}</span>
+            </li>
+          </ul>
+        </el-collapse-item>
+      </el-collapse>
+    </el-scrollbar>
   </aside>
 </template>
 
@@ -124,36 +124,25 @@ const groups = computed<Group[]>(() => {
     color: var(--el-text-color-secondary);
   }
 
-  &__groups {
+  &__scroll {
     flex: 1;
-    overflow-y: auto;
+    min-height: 0;
   }
 
-  &__group + &__group {
-    margin-top: 4px;
-  }
-
-  &__group-header {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    width: 100%;
-    padding: 6px 4px;
+  // 收紧 el-collapse 的默认样式，适配紧凑侧边栏
+  &__collapse {
     border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
-    text-align: left;
 
-    &:hover {
-      color: var(--el-text-color-primary);
+    :deep(.el-collapse-item__header) {
+      height: 32px;
+      font-size: 12px;
+      color: var(--el-text-color-secondary);
+      border-bottom: none;
     }
-  }
 
-  &__caret {
-    font-size: 10px;
-    width: 12px;
+    :deep(.el-collapse-item__content) {
+      padding-bottom: 4px;
+    }
   }
 
   &__list {
