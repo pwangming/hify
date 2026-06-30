@@ -16,6 +16,19 @@ export const useConversationStore = defineStore('conversation', () => {
   const sending = ref(false)
   const chat = useChatStream()
 
+  // ── Render-pacing state ──────────────────────────────────────────────────
+  // Buffer SSE deltas; drain timer moves a chunk each tick for smooth typewriter effect.
+  let pendingText = ''
+  let drainTimer: ReturnType<typeof setInterval> | null = null
+
+  /** Clears the drain timer (no-op if already cleared). */
+  function clearDrainTimer() {
+    if (drainTimer !== null) {
+      clearInterval(drainTimer)
+      drainTimer = null
+    }
+  }
+
   /** 拉侧边栏会话列表（最近 N 条，不分页）。 */
   async function loadConversations(appId: string) {
     loadingList.value = true
@@ -42,6 +55,11 @@ export const useConversationStore = defineStore('conversation', () => {
   /**
    * 流式发送：推用户气泡 + 空助手占位 → 增量追加（打字机） → done 替换为真值。
    * 返回本次会话 id（新会话由后端生成），交调用方写回 URL 并刷新列表。
+   *
+   * Render-pacing: SSE deltas are buffered in `pendingText` and drained into the
+   * visible bubble by a 30ms interval timer so text appears at a smooth readable
+   * cadence rather than in raw network bursts.  `onDone` / `onError` / `abort()`
+   * all flush + clear the timer so there are no leaks.
    */
   function send(appId: string, content: string): Promise<string> {
     messages.value.push({
@@ -54,16 +72,41 @@ export const useConversationStore = defineStore('conversation', () => {
     }) - 1
     sending.value = true
 
+    // Reset pacing state for this send
+    clearDrainTimer()
+    pendingText = ''
+
+    // Adaptive drain: take a proportional slice each tick so a long fast response
+    // still finishes promptly while short ones type out visibly (~60–120 chars/s).
+    drainTimer = setInterval(() => {
+      if (pendingText.length === 0) return
+      const take = Math.max(2, Math.ceil(pendingText.length / 8))
+      messages.value[idx].content += pendingText.slice(0, take)  // array proxy → reactive
+      pendingText = pendingText.slice(take)
+    }, 30)
+
     return new Promise<string>((resolve, reject) => {
       const onError = (err: { code: number; message: string }) => {
+        // Flush remaining buffer first so partial content is visible before the ⚠️
+        if (pendingText.length > 0) {
+          messages.value[idx].content += pendingText
+          pendingText = ''
+        }
+        clearDrainTimer()
         const cur = messages.value[idx].content
         messages.value[idx].content = cur ? `${cur}\n⚠️ ${err.message}` : `⚠️ ${err.message}`
         sending.value = false
         reject(err)
       }
       chat.start(appId, currentId.value, content, {
-        onDelta: (t) => { messages.value[idx].content += t },   // 经数组代理触发响应式
+        onDelta: (t) => { pendingText += t },   // buffer; drain timer writes to bubble
         onDone: (conversationId, messageId, usage) => {
+          // Flush all remaining buffered text before committing the final id/usage
+          if (pendingText.length > 0) {
+            messages.value[idx].content += pendingText
+            pendingText = ''
+          }
+          clearDrainTimer()
           messages.value[idx].id = messageId
           messages.value[idx].promptTokens = usage.promptTokens
           messages.value[idx].completionTokens = usage.completionTokens
@@ -76,9 +119,10 @@ export const useConversationStore = defineStore('conversation', () => {
     })
   }
 
-  /** 切会话/卸载时止血：取消在途流。 */
+  /** 切会话/卸载时止血：取消在途流，同时清除 drain timer 防止泄漏。 */
   function abort() {
     chat.abort()
+    clearDrainTimer()
     sending.value = false
   }
 

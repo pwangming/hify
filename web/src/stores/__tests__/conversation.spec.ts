@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { getMessages, listConversations } from '@/api/conversation'
 import { useChatStream } from '@/composables/useChatStream'
@@ -149,5 +149,125 @@ describe('useConversationStore', () => {
 
     // 第二个参数应是已有的 currentId
     expect(start).toHaveBeenCalledWith('7', 'existing-id', '续聊消息', expect.any(Object))
+  })
+})
+
+/** ─── Render-pacing tests (fake timers) ─────────────────────────────────── */
+describe('send render-pacing (throttle)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start: vi.fn(), abort: vi.fn() })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** 辅助：返回一个永不 resolve 的 start mock，并通过 capturedH 让外部手动触发回调 */
+  function makeControlledStart() {
+    let capturedH: {
+      onDelta: (t: string) => void
+      onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void
+      onError: (e: { code: number; message: string }) => void
+    }
+    const start = vi.fn(
+      (
+        _a: unknown,
+        _c: unknown,
+        _t: unknown,
+        h: typeof capturedH,
+      ) => {
+        capturedH = h
+        return new Promise<void>(() => {}) // never resolves; we drive it via capturedH
+      },
+    )
+    return { start, getH: () => capturedH! }
+  }
+
+  it('onDelta 入缓冲区，不立即渲染到气泡', () => {
+    vi.useFakeTimers()
+    const { start, getH } = makeControlledStart()
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    void store.send('7', '你好').catch(() => {})
+
+    getH().onDelta('你好，我是助手')
+    const bubbleIdx = store.messages.length - 1
+    // Immediately after onDelta: buffer holds text, bubble is still empty
+    expect(store.messages[bubbleIdx].content).toBe('')
+  })
+
+  it('timer tick 后气泡逐渐累积，最终含全部增量文本', () => {
+    vi.useFakeTimers()
+    const { start, getH } = makeControlledStart()
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    void store.send('7', '你好').catch(() => {})
+
+    getH().onDelta('你好，我是助手') // 7 chars total
+    const bubbleIdx = store.messages.length - 1
+
+    // Pre-drain: bubble empty
+    expect(store.messages[bubbleIdx].content).toBe('')
+
+    // After one 30ms tick: some chars drain but not all (take = max(2, ceil(7/8)) = 2 < 7)
+    vi.advanceTimersByTime(30)
+    const afterOneTick = store.messages[bubbleIdx].content
+    expect(afterOneTick.length).toBeGreaterThan(0)
+    expect(afterOneTick.length).toBeLessThan('你好，我是助手'.length)
+
+    // After enough ticks: fully drained
+    vi.advanceTimersByTime(500)
+    expect(store.messages[bubbleIdx].content).toBe('你好，我是助手')
+  })
+
+  it('onDone 立即冲刷缓冲并替换 messageId，不等 timer', async () => {
+    vi.useFakeTimers()
+    const { start, getH } = makeControlledStart()
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    const sendPromise = store.send('7', '你好')
+    const bubbleIdx = store.messages.length - 1
+
+    getH().onDelta('你好，我是助手')
+    // Still buffered — timer hasn't fired
+    expect(store.messages[bubbleIdx].content).toBe('')
+
+    // onDone must flush synchronously before setting id/usage
+    getH().onDone('100', '200', { promptTokens: 12, completionTokens: 8 })
+    expect(store.messages[bubbleIdx].content).toBe('你好，我是助手')
+    expect(store.messages[bubbleIdx].id).toBe('200')
+    expect(store.sending).toBe(false)
+
+    const cid = await sendPromise
+    expect(cid).toBe('100')
+  })
+
+  it('abort() 清除 drain timer，之后 tick 不再改变气泡', () => {
+    vi.useFakeTimers()
+    const abortFn = vi.fn()
+    const { start, getH } = makeControlledStart()
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: abortFn })
+
+    const store = useConversationStore()
+    void store.send('7', '你好').catch(() => {})
+    const bubbleIdx = store.messages.length - 1
+
+    getH().onDelta('你好，我是助手')
+    expect(store.messages[bubbleIdx].content).toBe('')
+
+    // Abort — must clear the drain timer
+    store.abort()
+    expect(abortFn).toHaveBeenCalledOnce()
+    expect(store.sending).toBe(false)
+
+    // Advancing timers must NOT mutate the bubble further
+    const contentAfterAbort = store.messages[bubbleIdx].content
+    vi.advanceTimersByTime(1000)
+    expect(store.messages[bubbleIdx].content).toBe(contentAfterAbort)
   })
 })
