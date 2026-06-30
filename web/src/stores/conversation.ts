@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { sendMessage, getMessages, listConversations } from '@/api/conversation'
+import { getMessages, listConversations } from '@/api/conversation'
+import { useChatStream } from '@/composables/useChatStream'
 import type { MessageView, ConversationView } from '@/types/conversation'
 
 /**
@@ -13,6 +14,7 @@ export const useConversationStore = defineStore('conversation', () => {
   const currentId = ref<string | null>(null)
   const loadingList = ref(false)
   const sending = ref(false)
+  const chat = useChatStream()
 
   /** 拉侧边栏会话列表（最近 N 条，不分页）。 */
   async function loadConversations(appId: string) {
@@ -38,27 +40,44 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   /**
-   * 发送一条消息：先本地渲染用户气泡，再追加助手回复。
+   * 流式发送：推用户气泡 + 空助手占位 → 增量追加（打字机） → done 替换为真值。
    * 返回本次会话 id（新会话由后端生成），交调用方写回 URL 并刷新列表。
    */
-  async function send(appId: string, content: string): Promise<string> {
+  function send(appId: string, content: string): Promise<string> {
     messages.value.push({
-      id: `local-${Date.now()}`,
-      role: 'user',
-      content,
-      promptTokens: null,
-      completionTokens: null,
-      createTime: new Date().toISOString(),
+      id: `local-${Date.now()}`, role: 'user', content,
+      promptTokens: null, completionTokens: null, createTime: new Date().toISOString(),
     })
+    const idx = messages.value.push({
+      id: `local-asst-${Date.now()}`, role: 'assistant', content: '',
+      promptTokens: null, completionTokens: null, createTime: new Date().toISOString(),
+    }) - 1
     sending.value = true
-    try {
-      const res = await sendMessage(appId, currentId.value, content)
-      currentId.value = res.conversationId
-      messages.value.push(res.message)
-      return res.conversationId
-    } finally {
-      sending.value = false
-    }
+
+    return new Promise<string>((resolve, reject) => {
+      void chat.start(appId, currentId.value, content, {
+        onDelta: (t) => { messages.value[idx].content += t },   // 经数组代理触发响应式
+        onDone: (conversationId, messageId, usage) => {
+          messages.value[idx].id = messageId
+          messages.value[idx].promptTokens = usage.promptTokens
+          messages.value[idx].completionTokens = usage.completionTokens
+          currentId.value = conversationId
+          sending.value = false
+          resolve(conversationId)
+        },
+        onError: (err) => {
+          messages.value[idx].content = messages.value[idx].content || `⚠️ ${err.message}`
+          sending.value = false
+          reject(err)
+        },
+      })
+    })
+  }
+
+  /** 切会话/卸载时止血：取消在途流。 */
+  function abort() {
+    chat.abort()
+    sending.value = false
   }
 
   return {
@@ -71,5 +90,6 @@ export const useConversationStore = defineStore('conversation', () => {
     loadMessages,
     newConversation,
     send,
+    abort,
   }
 })

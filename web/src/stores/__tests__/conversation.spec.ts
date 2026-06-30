@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { sendMessage, getMessages, listConversations } from '@/api/conversation'
+import { getMessages, listConversations } from '@/api/conversation'
+import { useChatStream } from '@/composables/useChatStream'
 import { useConversationStore } from '@/stores/conversation'
 
 vi.mock('@/api/conversation', () => ({
@@ -8,6 +9,8 @@ vi.mock('@/api/conversation', () => ({
   getMessages: vi.fn(),
   listConversations: vi.fn(),
 }))
+
+vi.mock('@/composables/useChatStream', () => ({ useChatStream: vi.fn() }))
 
 const assistant = {
   id: '200', role: 'assistant' as const, content: '你好，我是助手',
@@ -18,6 +21,8 @@ describe('useConversationStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    // 默认 useChatStream mock，确保非 send 测试中 chat 对象有效
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start: vi.fn(), abort: vi.fn() })
   })
 
   it('loadConversations 填充列表', async () => {
@@ -58,23 +63,35 @@ describe('useConversationStore', () => {
     expect(store.messages).toEqual([])
   })
 
-  it('send 新会话：先渲染用户气泡再追加助手回复，回写 currentId 并返回 cid', async () => {
-    vi.mocked(sendMessage).mockResolvedValue({ conversationId: '100', message: assistant })
+  it('send：增量追加助手气泡，done 用真 id 替换并返回会话 id', async () => {
+    const start = vi.fn(async (_a: unknown, _c: unknown, _t: unknown, h: { onDelta: (t: string) => void; onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void; onError: (e: { code: number; message: string }) => void }) => {
+      h.onDelta('你好，'); h.onDelta('我是助手')
+      h.onDone('100', '200', { promptTokens: 12, completionTokens: 8 })
+    })
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
     const store = useConversationStore()
     const cid = await store.send('7', '你好')
-    expect(sendMessage).toHaveBeenCalledWith('7', null, '你好') // 新会话 currentId 为 null
+
     expect(cid).toBe('100')
     expect(store.currentId).toBe('100')
-    expect(store.messages).toHaveLength(2) // user + assistant
-    expect(store.messages[0].role).toBe('user')
-    expect(store.messages[1]).toEqual(assistant)
+    // 末气泡是拼接后的助手全文、id 为真值
+    const last = store.messages[store.messages.length - 1]
+    expect(last.role).toBe('assistant')
+    expect(last.content).toBe('你好，我是助手')
+    expect(last.id).toBe('200')
+    expect(store.sending).toBe(false)
   })
 
-  it('send 续聊：复用 currentId', async () => {
-    vi.mocked(sendMessage).mockResolvedValue({ conversationId: '100', message: assistant })
+  it('send：error 时占位气泡内联错误、sending 复位', async () => {
+    const start = vi.fn(async (_a: unknown, _c: unknown, _t: unknown, h: { onDelta: (t: string) => void; onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void; onError: (e: { code: number; message: string }) => void }) => h.onError({ code: 12003, message: '模型供应商暂时不可用' }))
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
     const store = useConversationStore()
-    store.currentId = '100'
-    await store.send('7', '第二句')
-    expect(sendMessage).toHaveBeenCalledWith('7', '100', '第二句')
+    await store.send('7', '你好').catch(() => {})
+
+    const last = store.messages[store.messages.length - 1]
+    expect(last.content).toContain('模型供应商暂时不可用')
+    expect(store.sending).toBe(false)
   })
 })

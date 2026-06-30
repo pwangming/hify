@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { reactive } from 'vue'
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
+import { nextTick, reactive } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
-import { sendMessage, getMessages, listConversations } from '@/api/conversation'
+import { getMessages, listConversations } from '@/api/conversation'
+import { useChatStream } from '@/composables/useChatStream'
+import { useConversationStore } from '@/stores/conversation'
 import ChatView from '@/views/conversation/ChatView.vue'
 
 vi.mock('@/api/conversation', () => ({
@@ -11,6 +13,8 @@ vi.mock('@/api/conversation', () => ({
   getMessages: vi.fn(),
   listConversations: vi.fn(),
 }))
+
+vi.mock('@/composables/useChatStream', () => ({ useChatStream: vi.fn() }))
 
 const routeQuery = reactive<{ c?: string }>({})
 const push = vi.fn()
@@ -41,7 +45,14 @@ describe('ChatView', () => {
     delete routeQuery.c
     vi.mocked(listConversations).mockResolvedValue([])
     vi.mocked(getMessages).mockResolvedValue([])
-    vi.mocked(sendMessage).mockResolvedValue({ conversationId: '100', message: assistant })
+    // 默认 useChatStream mock：模拟一次成功的流式发送
+    ;(useChatStream as unknown as Mock).mockReturnValue({
+      start: vi.fn(async (_a: unknown, _c: unknown, _t: unknown, h: { onDelta: (t: string) => void; onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void; onError: (e: { code: number; message: string }) => void }) => {
+        h.onDelta('你好，我是助手')
+        h.onDone('100', '200', { promptTokens: 12, completionTokens: 8 })
+      }),
+      abort: vi.fn(),
+    })
   })
 
   afterEach(() => {
@@ -54,13 +65,12 @@ describe('ChatView', () => {
     expect(listConversations).toHaveBeenCalledWith('7')
   })
 
-  it('发送后渲染用户气泡与助手回复，新会话 conversationId 为 null', async () => {
+  it('发送后渲染用户气泡与助手回复', async () => {
     wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
     await wrapper.find('[data-test="chat-input"] textarea').setValue('你好')
     await wrapper.find('[data-test="chat-send"]').trigger('click')
     await flushPromises()
-    expect(sendMessage).toHaveBeenCalledWith('7', null, '你好')
     expect(wrapper.findAll('[data-test="msg"]')).toHaveLength(2)
     expect(wrapper.text()).toContain('你好')
     expect(wrapper.text()).toContain('你好，我是助手')
@@ -100,7 +110,9 @@ describe('ChatView', () => {
     await wrapper.find('[data-test="chat-input"] textarea').setValue('   ')
     await wrapper.find('[data-test="chat-send"]').trigger('click')
     await flushPromises()
-    expect(sendMessage).not.toHaveBeenCalled()
+    // store.send 不应被触发（start 不应被调用）
+    const store = useConversationStore()
+    expect(store.messages).toHaveLength(0)
   })
 
   it('新会话首发后 URL 写回当前会话 id 不触发重复 loadMessages', async () => {
@@ -114,5 +126,17 @@ describe('ChatView', () => {
     await flushPromises()
     // store.send 已把 currentId 设为 '100'，watch 守卫应跳过 loadMessages
     expect(getMessages).not.toHaveBeenCalled()
+  })
+
+  it('助手气泡随 store 增量更新（打字机）', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({ id: 'a', role: 'assistant', content: '你好', promptTokens: null, completionTokens: null, createTime: '' })
+    await nextTick()
+    expect(wrapper.findAll('[data-test="msg"]').at(-1)!.text()).toContain('你好')
+    store.messages[store.messages.length - 1].content += '世界'
+    await nextTick()
+    expect(wrapper.findAll('[data-test="msg"]').at(-1)!.text()).toContain('你好世界')
   })
 })

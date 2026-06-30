@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useConversationStore } from '@/stores/conversation'
@@ -20,6 +20,7 @@ const queryCid = computed(() => (route.query.c as string | undefined) ?? null)
 watch(
   queryCid,
   async (cid) => {
+    store.abort()                       // 切会话先止血在途流
     if (!cid) {
       store.newConversation()
       return
@@ -31,6 +32,7 @@ watch(
 )
 
 onMounted(() => store.loadConversations(appId))
+onBeforeUnmount(() => store.abort())
 
 function selectConversation(id: string) {
   if (id !== currentId.value) router.push({ query: { c: id } })
