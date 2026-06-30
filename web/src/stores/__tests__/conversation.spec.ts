@@ -5,7 +5,6 @@ import { useChatStream } from '@/composables/useChatStream'
 import { useConversationStore } from '@/stores/conversation'
 
 vi.mock('@/api/conversation', () => ({
-  sendMessage: vi.fn(),
   getMessages: vi.fn(),
   listConversations: vi.fn(),
 }))

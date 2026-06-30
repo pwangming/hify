@@ -9,7 +9,6 @@ import { useConversationStore } from '@/stores/conversation'
 import ChatView from '@/views/conversation/ChatView.vue'
 
 vi.mock('@/api/conversation', () => ({
-  sendMessage: vi.fn(),
   getMessages: vi.fn(),
   listConversations: vi.fn(),
 }))
