@@ -51,12 +51,9 @@ public class JacksonConfig {
     @Bean
     public Jackson2ObjectMapperBuilderCustomizer hifyJacksonCustomizer() {
         return builder -> {
-            // Long/long、Integer/int -> 字符串（前端 Number 只有 2^53 精度，Long 超范围丢精度；
-            // Integer 同理统一转字符串，减少前端类型歧义，api-standards.md §4）
+            // Long/long -> 字符串（前端 Number 只有 2^53 精度，Long 超范围丢精度；api-standards.md §4）
             builder.serializerByType(Long.class, ToStringSerializer.instance);
             builder.serializerByType(Long.TYPE, ToStringSerializer.instance);
-            builder.serializerByType(Integer.class, ToStringSerializer.instance);
-            builder.serializerByType(Integer.TYPE, ToStringSerializer.instance);
 
             // null 字段照常输出
             builder.serializationInclusion(JsonInclude.Include.ALWAYS);

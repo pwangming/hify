@@ -138,7 +138,7 @@ class ConversationControllerTest {
         assertThat(body)
                 .contains("event:message").contains("\"delta\":\"你好，\"")
                 .contains("event:done").contains("\"conversationId\":\"100\"")
-                .contains("\"messageId\":\"200\"").contains("\"promptTokens\":\"12\"");
+                .contains("\"messageId\":\"200\"").contains("\"promptTokens\":12");
     }
 
     @Test

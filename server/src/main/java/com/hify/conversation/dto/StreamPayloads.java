@@ -1,6 +1,6 @@
 package com.hify.conversation.dto;
 
-/** SSE 事件载荷（经全局 Jackson：Long/数字→string，与 MessageView 一致）。 */
+/** SSE 事件载荷（全局 Jackson：Long→string；Integer/int 保持数字，与 MessageView 一致）。 */
 public final class StreamPayloads {
 
     private StreamPayloads() {}

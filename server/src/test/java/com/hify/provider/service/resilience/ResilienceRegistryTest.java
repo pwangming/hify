@@ -54,6 +54,9 @@ class ResilienceRegistryTest {
         p.setId(1L); p.setProtocol("openai"); p.setStatus(status);
         p.setMaxConcurrency(2); p.setRetryMaxAttempts(3); p.setCbFailureRate(50);
         p.setCbWaitOpenSec(30); p.setResponseTimeoutSec(120);
+        p.setFirstTokenTimeoutSec(30);
+        p.setTokenGapTimeoutSec(60);
+        p.setStreamMaxDurationSec(600);
         return p;
     }
 

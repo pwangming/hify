@@ -75,10 +75,12 @@ public class ConversationController {
     private ServerSentEvent<String> toSse(StreamEvent e) {
         if (e instanceof StreamEvent.Delta d) {
             return sse("message", new StreamPayloads.Delta(d.text()));
+        } else if (e instanceof StreamEvent.Done done) {
+            return sse("done", new StreamPayloads.Done(done.conversationId(), done.messageId(),
+                    new StreamPayloads.Usage(done.promptTokens(), done.completionTokens())));
+        } else {
+            throw new IllegalStateException("Unknown StreamEvent: " + e.getClass());
         }
-        StreamEvent.Done done = (StreamEvent.Done) e;
-        return sse("done", new StreamPayloads.Done(done.conversationId(), done.messageId(),
-                new StreamPayloads.Usage(done.promptTokens(), done.completionTokens())));
     }
 
     private ServerSentEvent<String> toErrorSse(Throwable ex) {
