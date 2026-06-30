@@ -94,4 +94,61 @@ describe('useConversationStore', () => {
     expect(last.content).toContain('模型供应商暂时不可用')
     expect(store.sending).toBe(false)
   })
+
+  // Fix 1: start() 自身 reject（未调用任何回调）时 send() 也应 reject，sending 复位，气泡内联错误
+  it('send：start() reject 时 send() 拒绝、sending 复位、气泡内联错误', async () => {
+    const start = vi.fn(() => Promise.reject(new Error('fetch 失败')))
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    await expect(store.send('7', '你好')).rejects.toMatchObject({ message: 'fetch 失败' })
+    expect(store.sending).toBe(false)
+    const last = store.messages[store.messages.length - 1]
+    expect(last.content).toContain('fetch 失败')
+  })
+
+  // Fix 2: 已有增量内容再报错，错误应追加而非丢弃
+  it('send：部分增量后 error → 内容追加错误文本', async () => {
+    const start = vi.fn(async (_a: unknown, _c: unknown, _t: unknown, h: { onDelta: (t: string) => void; onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void; onError: (e: { code: number; message: string }) => void }) => {
+      h.onDelta('部分内容')
+      h.onError({ code: 12003, message: '服务中断' })
+    })
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    await store.send('7', '你好').catch(() => {})
+
+    const last = store.messages[store.messages.length - 1]
+    expect(last.content).toContain('部分内容')
+    expect(last.content).toContain('⚠️ 服务中断')
+    expect(store.sending).toBe(false)
+  })
+
+  // Fix 3: abort() 调用 useChatStream 的 abort 并重置 sending
+  it('abort() 调用 chat.abort 并重置 sending', () => {
+    const abortFn = vi.fn()
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start: vi.fn(), abort: abortFn })
+
+    const store = useConversationStore()
+    store.sending = true
+    store.abort()
+
+    expect(abortFn).toHaveBeenCalledOnce()
+    expect(store.sending).toBe(false)
+  })
+
+  // Fix 4: 续聊路径 — currentId 已有值时，send() 把它传给 chat.start 的第二个参数
+  it('send：currentId 已有值时作为 conversationId 传给 chat.start', async () => {
+    const start = vi.fn(async (_a: unknown, _c: unknown, _t: unknown, h: { onDelta: (t: string) => void; onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void; onError: (e: { code: number; message: string }) => void }) => {
+      h.onDone('existing-id', '201', { promptTokens: 5, completionTokens: 3 })
+    })
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    store.currentId = 'existing-id'
+    await store.send('7', '续聊消息')
+
+    // 第二个参数应是已有的 currentId
+    expect(start).toHaveBeenCalledWith('7', 'existing-id', '续聊消息', expect.any(Object))
+  })
 })

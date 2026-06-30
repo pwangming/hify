@@ -55,7 +55,13 @@ export const useConversationStore = defineStore('conversation', () => {
     sending.value = true
 
     return new Promise<string>((resolve, reject) => {
-      void chat.start(appId, currentId.value, content, {
+      const onError = (err: { code: number; message: string }) => {
+        const cur = messages.value[idx].content
+        messages.value[idx].content = cur ? `${cur}\n⚠️ ${err.message}` : `⚠️ ${err.message}`
+        sending.value = false
+        reject(err)
+      }
+      chat.start(appId, currentId.value, content, {
         onDelta: (t) => { messages.value[idx].content += t },   // 经数组代理触发响应式
         onDone: (conversationId, messageId, usage) => {
           messages.value[idx].id = messageId
@@ -65,12 +71,8 @@ export const useConversationStore = defineStore('conversation', () => {
           sending.value = false
           resolve(conversationId)
         },
-        onError: (err) => {
-          messages.value[idx].content = messages.value[idx].content || `⚠️ ${err.message}`
-          sending.value = false
-          reject(err)
-        },
-      })
+        onError,
+      }).catch((e: unknown) => onError({ code: -1, message: (e as Error)?.message ?? '网络异常，请稍后重试' }))
     })
   }
 
