@@ -49,4 +49,33 @@ describe('useChatStream', () => {
     await start('7', null, '你好', { onDelta: () => {}, onDone: () => {}, onError: (e) => { err = e } })
     expect(err?.code).toBe(17001)
   })
+
+  it('abort() 静默退出——不触发 onError', async () => {
+    // 用可控 reader mock：read() 返回受控 promise，让测试手动注入 AbortError
+    let rejectRead!: (reason: unknown) => void
+    const readPromise = new Promise<ReadableStreamReadResult<Uint8Array>>((_, r) => { rejectRead = r })
+    const mockReader = { read: vi.fn().mockReturnValue(readPromise) }
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { getReader: () => mockReader },
+    }))
+
+    const errFn = vi.fn()
+    const { start, abort } = useChatStream()
+
+    // start() 会在 read() await 处挂住
+    const started = start('7', null, '你好', { onDelta: () => {}, onDone: () => {}, onError: errFn })
+
+    // 给 start 一个 tick 进入 read() await
+    await Promise.resolve()
+    abort()
+
+    // 模拟浏览器行为：fetch 被 abort 后 reader.read() 拒绝为 AbortError
+    rejectRead(new DOMException('The operation was aborted.', 'AbortError'))
+
+    await started
+    expect(errFn).not.toHaveBeenCalled()
+  })
 })

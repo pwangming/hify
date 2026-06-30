@@ -48,11 +48,15 @@ async function onSend() {
   if (!text || sending.value) return
   input.value = ''
   const wasNew = currentId.value === null
-  const cid = await store.send(appId, text)
-  if (wasNew) {
-    // 新会话拿到 id：写回 URL（replace 不增历史栈）并刷新侧边栏
-    await router.replace({ query: { c: cid } })
-    await store.loadConversations(appId)
+  try {
+    const cid = await store.send(appId, text)
+    if (wasNew) {
+      // 新会话拿到 id：写回 URL（replace 不增历史栈）并刷新侧边栏
+      await router.replace({ query: { c: cid } })
+      await store.loadConversations(appId)
+    }
+  } catch {
+    // 错误已由 store 的 onError 行内展示，此处静默兜底防止未处理 rejection
   }
 }
 </script>

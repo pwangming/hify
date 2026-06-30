@@ -27,8 +27,9 @@ export function useChatStream() {
         body: JSON.stringify({ appId, conversationId, content }),
         signal: controller.signal,
       })
-    } catch {
-      h.onError({ code: -1, message: '网络异常，请稍后重试' })
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return
+      h.onError({ code: -1, message: (e as Error)?.message ?? '网络异常，请稍后重试' })
       return
     }
 
@@ -42,16 +43,21 @@ export function useChatStream() {
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      let sep: number
-      while ((sep = buffer.indexOf('\n\n')) !== -1) {
-        const block = buffer.slice(0, sep)
-        buffer = buffer.slice(sep + 2)
-        dispatch(block, h)
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let sep: number
+        while ((sep = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, sep)
+          buffer = buffer.slice(sep + 2)
+          dispatch(block, h)
+        }
       }
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return
+      h.onError({ code: -1, message: (e as Error)?.message ?? '网络异常，请稍后重试' })
     }
   }
 
@@ -59,7 +65,7 @@ export function useChatStream() {
     let event = 'message'
     let data = ''
     for (const line of block.split('\n')) {
-      if (line.startsWith(':')) return // 心跳注释行
+      if (line.startsWith(':')) continue // 心跳注释行
       if (line.startsWith('event:')) event = line.slice(6).trim()
       else if (line.startsWith('data:')) data += line.slice(5).trim()
     }

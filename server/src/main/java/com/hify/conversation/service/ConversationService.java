@@ -16,6 +16,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 
@@ -85,10 +86,10 @@ public class ConversationService {
                     return (t == null || t.isEmpty()) ? null : new StreamEvent.Delta(t);
                 });
 
-        Mono<StreamEvent> done = Mono.fromCallable(() -> {
+        Mono<StreamEvent> done = Mono.<StreamEvent>fromCallable(() -> {
             Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1]); // 事务B
             return new StreamEvent.Done(cid, saved.getId(), usage[0], usage[1]);
-        });
+        }).subscribeOn(Schedulers.boundedElastic());
 
         return deltas.concatWith(done);
     }
