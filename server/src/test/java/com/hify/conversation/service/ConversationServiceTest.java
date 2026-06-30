@@ -24,6 +24,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -90,7 +91,7 @@ class ConversationServiceTest {
         stubRunnableApp("你是客服");
         List<Message> window = List.of(userMsg("你好"));
         when(store.openTurn(eq(7L), eq(null), eq(42L), eq("你好")))
-                .thenReturn(new TurnContext(100L, window));
+                .thenReturn(new TurnContext(100L, window, 300L, true));
         when(chatInvoker.invoke(eq(chatClient), eq("你是客服"), eq(window)))
                 .thenReturn(new LlmReply("你好，我是助手", 12, 8));
         when(store.appendAssistant(eq(100L), eq("你好，我是助手"), eq(12), eq(8)))
@@ -116,7 +117,7 @@ class ConversationServiceTest {
     void send_多轮_把store返回的窗口整体喂模型() {
         stubRunnableApp(null);
         List<Message> window = List.of(userMsg("第一句"), assistantMsg("回复一"), userMsg("第二句"));
-        when(store.openTurn(any(), any(), any(), any())).thenReturn(new TurnContext(100L, window));
+        when(store.openTurn(any(), any(), any(), any())).thenReturn(new TurnContext(100L, window, 300L, false));
         when(chatInvoker.invoke(any(), any(), any())).thenReturn(new LlmReply("ok", 1, 1));
         when(store.appendAssistant(any(), any(), anyInt(), anyInt())).thenReturn(savedAssistant());
 
@@ -141,7 +142,7 @@ class ConversationServiceTest {
         when(appFacade.findRunnableChatApp(eq(7L)))
                 .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, null)));
         when(store.openTurn(any(), any(), any(), any()))
-                .thenReturn(new TurnContext(100L, List.of(userMsg("你好"))));
+                .thenReturn(new TurnContext(100L, List.of(userMsg("你好")), 300L, true));
         when(providerFacade.getChatClient(eq(5L)))
                 .thenThrow(new BizException(ProviderError.MODEL_NOT_USABLE));
 
@@ -155,7 +156,7 @@ class ConversationServiceTest {
     void send_模型调用故障_透传12003_不落assistant() {
         stubRunnableApp(null);
         when(store.openTurn(any(), any(), any(), any()))
-                .thenReturn(new TurnContext(100L, List.of(userMsg("你好"))));
+                .thenReturn(new TurnContext(100L, List.of(userMsg("你好")), 300L, true));
         when(chatInvoker.invoke(any(), any(), any()))
                 .thenThrow(new BizException(ProviderError.PROVIDER_UNAVAILABLE));
 
@@ -213,7 +214,7 @@ class ConversationServiceTest {
     void sendStream_增量吐字_结束落全文与usage_发Done() {
         stubRunnableApp("你是客服");
         when(store.openTurn(eq(7L), eq(null), eq(42L), eq("你好")))
-                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好"))));
+                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好")), 300L, true));
         when(chatInvoker.invokeStream(eq(chatClient), eq("你是客服"), any()))
                 .thenReturn(reactor.core.publisher.Flux.just(chunk("你好，"), chunkWithUsage("我是助手", 12, 8)));
         when(store.appendAssistant(eq(100L), eq("你好，我是助手"), eq(12), eq(8)))
@@ -233,7 +234,7 @@ class ConversationServiceTest {
     void sendStream_流报错_半截不落assistant() {
         stubRunnableApp(null);
         when(store.openTurn(any(), any(), any(), any()))
-                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好"))));
+                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好")), 300L, true));
         when(chatInvoker.invokeStream(any(), any(), any()))
                 .thenReturn(reactor.core.publisher.Flux.concat(
                         reactor.core.publisher.Flux.just(chunk("半")),
@@ -245,5 +246,56 @@ class ConversationServiceTest {
                         && b.errorCode() == ProviderError.PROVIDER_UNAVAILABLE)
                 .verify();
         verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void sendStream_新会话_流报错_清理孤儿并抛错且不落assistant() {
+        // 场景(a)：新建会话 + 流失败 → cleanupFailedTurn(cid, msgId, true) 被调、错误透传、appendAssistant 不调
+        stubRunnableApp(null);
+        when(store.openTurn(eq(7L), eq(null), eq(42L), eq("你好")))
+                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好")), 300L, true));
+        when(chatInvoker.invokeStream(any(), any(), any()))
+                .thenReturn(reactor.core.publisher.Flux.error(
+                        new BizException(ProviderError.PROVIDER_UNAVAILABLE)));
+
+        reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
+                .expectErrorMatches(e -> e instanceof BizException b
+                        && b.errorCode() == ProviderError.PROVIDER_UNAVAILABLE)
+                .verify();
+        verify(store).cleanupFailedTurn(100L, 300L, true);
+        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void sendStream_续聊_流报错_只删消息不删会话() {
+        // 场景(b)：续聊（已有会话）+ 流失败 → cleanupFailedTurn(cid, msgId, false) 被调
+        stubRunnableApp(null);
+        when(store.openTurn(eq(7L), eq(100L), eq(42L), eq("继续")))
+                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("继续")), 300L, false));
+        when(chatInvoker.invokeStream(any(), any(), any()))
+                .thenReturn(reactor.core.publisher.Flux.error(
+                        new BizException(ProviderError.PROVIDER_UNAVAILABLE)));
+
+        reactor.test.StepVerifier.create(service.sendStream(7L, 100L, "继续", member))
+                .expectError()
+                .verify();
+        verify(store).cleanupFailedTurn(100L, 300L, false);
+    }
+
+    @Test
+    void sendStream_成功完成_不清理孤儿() {
+        // 场景(c)：正常完成 → cleanupFailedTurn 不调
+        stubRunnableApp(null);
+        when(store.openTurn(any(), any(), any(), any()))
+                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好")), 300L, true));
+        when(chatInvoker.invokeStream(any(), any(), any()))
+                .thenReturn(reactor.core.publisher.Flux.just(chunkWithUsage("答案", 5, 3)));
+        when(store.appendAssistant(any(), any(), anyInt(), anyInt())).thenReturn(savedAssistant());
+
+        reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
+                .expectNext(new StreamEvent.Delta("答案"))
+                .expectNextMatches(e -> e instanceof StreamEvent.Done)
+                .verifyComplete();
+        verify(store, never()).cleanupFailedTurn(any(), any(), anyBoolean());
     }
 }

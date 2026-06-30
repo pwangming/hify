@@ -35,11 +35,12 @@ public class ConversationStore {
         this.props = props;
     }
 
-    /** 事务A：解析/新建会话 + 落 user 消息 + 同事务读最近窗口，返回 (cid, window)。 */
+    /** 事务A：解析/新建会话 + 落 user 消息 + 同事务读最近窗口，返回 (cid, window, userMessageId, newConversation)。 */
     @Transactional
     public TurnContext openTurn(Long appId, Long conversationId, Long userId, String userContent) {
+        boolean isNew = (conversationId == null);
         Long cid;
-        if (conversationId == null) {
+        if (isNew) {
             Conversation c = new Conversation();
             c.setAppId(appId);
             c.setUserId(userId);
@@ -55,7 +56,19 @@ public class ConversationStore {
         user.setRole(MessageRole.USER.value());
         user.setContent(userContent.strip());
         messageMapper.insert(user);
-        return new TurnContext(cid, readWindow(cid));
+        return new TurnContext(cid, readWindow(cid), user.getId(), isNew);
+    }
+
+    /**
+     * 流式失败时清理孤儿：删本轮 user 消息；若本轮新建会话则连会话一并删（软删 @TableLogic）。
+     * 仅由真失败路径调用，取消/正常完成不调。
+     */
+    @Transactional
+    public void cleanupFailedTurn(Long conversationId, Long userMessageId, boolean newConversation) {
+        messageMapper.deleteById(userMessageId);
+        if (newConversation) {
+            conversationMapper.deleteById(conversationId);
+        }
     }
 
     /** 读最近 2N+1 条（N 轮历史 + 当前消息），时间正序。@TableLogic 自动加 deleted=false。 */

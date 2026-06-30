@@ -153,4 +153,20 @@ class ConversationStoreTest {
         assertEquals(1, list.size());
         assertEquals(1L, list.get(0).getId());
     }
+
+    // ===== cleanupFailedTurn =====
+
+    @Test
+    void cleanupFailedTurn_新会话_删消息且删会话() {
+        store.cleanupFailedTurn(100L, 300L, true);
+        verify(messageMapper).deleteById(300L);
+        verify(conversationMapper).deleteById(100L);
+    }
+
+    @Test
+    void cleanupFailedTurn_续聊会话_只删消息不删会话() {
+        store.cleanupFailedTurn(100L, 300L, false);
+        verify(messageMapper).deleteById(300L);
+        verify(conversationMapper, never()).deleteById(any(Long.class));
+    }
 }

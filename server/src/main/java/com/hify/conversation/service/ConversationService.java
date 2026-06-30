@@ -91,7 +91,13 @@ public class ConversationService {
             return new StreamEvent.Done(cid, saved.getId(), usage[0], usage[1]);
         }).subscribeOn(Schedulers.boundedElastic());
 
-        return deltas.concatWith(done);
+        return deltas.concatWith(done)
+                // 真失败(onError)即清理孤儿；取消(用户切会话)是 cancel 信号、不进 onErrorResume，故不会误删。
+                // 清理是阻塞 JDBC，放 boundedElastic。
+                .onErrorResume(err -> Mono.fromRunnable(() ->
+                                store.cleanupFailedTurn(turn.conversationId(), turn.userMessageId(), turn.newConversation()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .then(Mono.<StreamEvent>error(err)));
     }
 
     public List<MessageView> history(Long conversationId, CurrentUser current) {
