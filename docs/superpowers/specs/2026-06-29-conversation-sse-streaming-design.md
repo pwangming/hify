@@ -61,7 +61,12 @@
 
 ### Controller
 
-新增 `POST /api/v1/conversation/messages/stream`，`produces=MediaType.TEXT_EVENT_STREAM_VALUE`，返回 `SseEmitter`。
+新增 `POST /api/v1/conversation/messages/stream`，`produces=MediaType.TEXT_EVENT_STREAM_VALUE`。
+
+> 实现细化（见计划）：控制器返回 **`Flux<ServerSentEvent<String>>`**（Spring MVC 经 `ReactiveTypeHandler`
+> 适配为流式 SSE），而非手写 `SseEmitter`——外部行为一致（text/event-stream、四事件、断开取消上游），
+> 取消语义更干净、可被 MockMvc 异步测试。下方伪码示 `SseEmitter` 形态，二者等价。
+
 协议层职责（无业务逻辑、无 `@Transactional`）：
 
 ```
