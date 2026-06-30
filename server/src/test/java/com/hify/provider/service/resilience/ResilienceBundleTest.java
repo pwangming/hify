@@ -15,6 +15,9 @@ class ResilienceBundleTest {
         p.setCbFailureRate(50);
         p.setCbWaitOpenSec(30);
         p.setResponseTimeoutSec(120);
+        p.setFirstTokenTimeoutSec(30);
+        p.setTokenGapTimeoutSec(60);
+        p.setStreamMaxDurationSec(600);
         return p;
     }
 

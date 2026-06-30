@@ -36,7 +36,7 @@ public interface ProviderFacade {
     Set<Long> filterUsableChatModelIds(Collection<Long> modelIds);
 
     /**
-     * 取一个「可用」chat 模型的 {@link ChatClient}（自带非流式韧性：重试/熔断/信号量/超时）。
+     * 取一个「可用」chat 模型的 {@link ChatClient}（自带韧性：call 全四件套 + stream 够用子集（信号量/三层超时/熔断，不重试））。
      * 不可用抛 {@code BizException(ProviderError.MODEL_NOT_USABLE)}。供 conversation / admin 测试调用。
      */
     ChatClient getChatClient(Long modelId);

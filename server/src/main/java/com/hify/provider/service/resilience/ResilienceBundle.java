@@ -16,7 +16,9 @@ import java.time.Duration;
 
 /** 一个供应商实例的四件套韧性配置（按 model_provider 字段构建；固定常量写死）。 */
 public record ResilienceBundle(TimeLimiter timeLimiter, Bulkhead bulkhead,
-                               CircuitBreaker circuitBreaker, Retry retry) {
+                               CircuitBreaker circuitBreaker, Retry retry,
+                               Duration firstTokenTimeout, Duration tokenGapTimeout,
+                               Duration streamMaxDuration) {
 
     public static ResilienceBundle build(ModelProvider p) {
         String name = "llm-provider-" + p.getId();
@@ -49,6 +51,10 @@ public record ResilienceBundle(TimeLimiter timeLimiter, Bulkhead bulkhead,
                 .retryOnException(ResilienceExceptions::isRetryable)
                 .build());
 
-        return new ResilienceBundle(timeLimiter, bulkhead, circuitBreaker, retry);
+        Duration firstTokenTimeout = Duration.ofSeconds(p.getFirstTokenTimeoutSec());
+        Duration tokenGapTimeout = Duration.ofSeconds(p.getTokenGapTimeoutSec());
+        Duration streamMaxDuration = Duration.ofSeconds(p.getStreamMaxDurationSec());
+        return new ResilienceBundle(timeLimiter, bulkhead, circuitBreaker, retry,
+                firstTokenTimeout, tokenGapTimeout, streamMaxDuration);
     }
 }

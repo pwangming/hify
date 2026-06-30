@@ -5,13 +5,18 @@ import com.hify.provider.constant.ProviderError;
 import com.hify.provider.entity.ModelProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -33,6 +38,9 @@ class ResilientChatModelTest {
         p.setCbFailureRate(50);
         p.setCbWaitOpenSec(30);
         p.setResponseTimeoutSec(timeoutSec);
+        p.setFirstTokenTimeoutSec(30);
+        p.setTokenGapTimeoutSec(60);
+        p.setStreamMaxDurationSec(600);
         return p;
     }
 
@@ -84,5 +92,45 @@ class ResilientChatModelTest {
 
         BizException ex = assertThrows(BizException.class, () -> m.call(new Prompt("hi")));
         assertEquals(ProviderError.PROVIDER_UNAVAILABLE, ex.errorCode());
+    }
+
+    private ModelProvider streamProvider(int firstSec, int gapSec, int totalSec) {
+        ModelProvider p = provider(1, 120);          // 复用现有，已含四件套字段
+        p.setFirstTokenTimeoutSec(firstSec);
+        p.setTokenGapTimeoutSec(gapSec);
+        p.setStreamMaxDurationSec(totalSec);
+        return p;
+    }
+
+    @Test
+    void 流式_首token超时_映射503() {
+        ChatModel delegate = new ChatModel() {
+            public ChatResponse call(Prompt p) { return new ChatResponse(List.of()); }
+            public Flux<ChatResponse> stream(Prompt p) {
+                return Flux.never();      // 永不吐第一个 token
+            }
+        };
+        ResilientChatModel m = wrap(delegate, streamProvider(1, 60, 600)); // 首 token 1s
+
+        StepVerifier.create(m.stream(new Prompt("hi")))
+                .expectErrorSatisfies(e -> assertEquals(ProviderError.PROVIDER_UNAVAILABLE,
+                        ((BizException) e).errorCode()))
+                .verify(java.time.Duration.ofSeconds(3));
+    }
+
+    @Test
+    void 流式_正常吐字_全部透传() {
+        ChatResponse c1 = new ChatResponse(List.of(
+                new Generation(new AssistantMessage("你好"))));
+        ChatModel delegate = new ChatModel() {
+            public ChatResponse call(Prompt p) { return c1; }
+            public Flux<ChatResponse> stream(Prompt p) {
+                return Flux.just(c1, c1);
+            }
+        };
+        ResilientChatModel m = wrap(delegate, streamProvider(30, 60, 600));
+
+        StepVerifier.create(m.stream(new Prompt("hi")))
+                .expectNext(c1).expectNext(c1).verifyComplete();
     }
 }
