@@ -10,6 +10,7 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +36,14 @@ public class ChatInvoker {
                     : new UserMessage(m.getContent()));
         }
         return out;
+    }
+
+    /** 流式调用：把 ChatClient 的逐块响应原样吐出（韧性已在 provider 的 ResilientChatModel.stream 内）。 */
+    public Flux<ChatResponse> invokeStream(ChatClient chatClient, String systemPrompt, List<Message> window) {
+        return chatClient.prompt()
+                .messages(toMessages(systemPrompt, window))
+                .stream()
+                .chatResponse();
     }
 
     public LlmReply invoke(ChatClient chatClient, String systemPrompt, List<Message> window) {

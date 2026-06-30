@@ -11,7 +11,11 @@ import com.hify.conversation.entity.Message;
 import com.hify.infra.security.CurrentUser;
 import com.hify.provider.api.ProviderFacade;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -55,6 +59,40 @@ public class ConversationService {
         return new SendMessageResponse(cid, toView(saved));
     }
 
+    public Flux<StreamEvent> sendStream(Long appId, Long conversationId, String content, CurrentUser current) {
+        quotaGuard.check(current.userId(), appId);
+        AppRuntimeView app = appFacade.findRunnableChatApp(appId)
+                .orElseThrow(() -> new BizException(ConversationError.APP_NOT_RUNNABLE));
+        TurnContext turn = store.openTurn(appId, conversationId, current.userId(), content);
+        Long cid = turn.conversationId();
+        ChatClient chatClient = providerFacade.getChatClient(app.modelId());
+
+        StringBuilder buf = new StringBuilder();
+        int[] usage = {0, 0}; // [0]=promptTokens [1]=completionTokens，取流中最后一个非空值
+
+        Flux<StreamEvent> deltas = chatInvoker.invokeStream(chatClient, app.systemPrompt(), turn.window())
+                .doOnNext(cr -> {
+                    Usage u = cr.getMetadata() != null ? cr.getMetadata().getUsage() : null;
+                    if (u != null) {
+                        if (u.getPromptTokens() != null) usage[0] = u.getPromptTokens();
+                        if (u.getCompletionTokens() != null) usage[1] = u.getCompletionTokens();
+                    }
+                    String t = textOf(cr);
+                    if (t != null && !t.isEmpty()) buf.append(t);
+                })
+                .mapNotNull(cr -> {
+                    String t = textOf(cr);
+                    return (t == null || t.isEmpty()) ? null : new StreamEvent.Delta(t);
+                });
+
+        Mono<StreamEvent> done = Mono.fromCallable(() -> {
+            Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1]); // 事务B
+            return new StreamEvent.Done(cid, saved.getId(), usage[0], usage[1]);
+        });
+
+        return deltas.concatWith(done);
+    }
+
     public List<MessageView> history(Long conversationId, CurrentUser current) {
         return store.listMessages(conversationId, current.userId()).stream()
                 .map(ConversationService::toView)
@@ -65,6 +103,10 @@ public class ConversationService {
         return store.listConversations(appId, current.userId()).stream()
                 .map(c -> new ConversationView(c.getId(), c.getTitle(), c.getUpdateTime()))
                 .toList();
+    }
+
+    private static String textOf(ChatResponse cr) {
+        return cr.getResults().isEmpty() ? null : cr.getResult().getOutput().getText();
     }
 
     private static MessageView toView(Message m) {

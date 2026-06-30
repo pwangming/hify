@@ -191,4 +191,59 @@ class ConversationServiceTest {
         assertEquals("会话一", views.get(0).title());
         verify(store).listConversations(7L, 42L);
     }
+
+    // ===== sendStream 辅助 =====
+
+    private org.springframework.ai.chat.model.ChatResponse chunk(String text) {
+        return new org.springframework.ai.chat.model.ChatResponse(java.util.List.of(
+                new org.springframework.ai.chat.model.Generation(
+                        new org.springframework.ai.chat.messages.AssistantMessage(text))));
+    }
+
+    private org.springframework.ai.chat.model.ChatResponse chunkWithUsage(String text, int p, int c) {
+        return org.springframework.ai.chat.model.ChatResponse.builder()
+                .generations(java.util.List.of(new org.springframework.ai.chat.model.Generation(
+                        new org.springframework.ai.chat.messages.AssistantMessage(text))))
+                .metadata(org.springframework.ai.chat.metadata.ChatResponseMetadata.builder()
+                        .usage(new org.springframework.ai.chat.metadata.DefaultUsage(p, c, p + c)).build())
+                .build();
+    }
+
+    @Test
+    void sendStream_增量吐字_结束落全文与usage_发Done() {
+        stubRunnableApp("你是客服");
+        when(store.openTurn(eq(7L), eq(null), eq(42L), eq("你好")))
+                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好"))));
+        when(chatInvoker.invokeStream(eq(chatClient), eq("你是客服"), any()))
+                .thenReturn(reactor.core.publisher.Flux.just(chunk("你好，"), chunkWithUsage("我是助手", 12, 8)));
+        when(store.appendAssistant(eq(100L), eq("你好，我是助手"), eq(12), eq(8)))
+                .thenReturn(savedAssistant());
+
+        reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
+                .expectNext(new StreamEvent.Delta("你好，"))
+                .expectNext(new StreamEvent.Delta("我是助手"))
+                .expectNextMatches(e -> e instanceof StreamEvent.Done d
+                        && d.conversationId() == 100L && d.messageId() == 200L
+                        && d.promptTokens() == 12 && d.completionTokens() == 8)
+                .verifyComplete();
+        verify(store).appendAssistant(100L, "你好，我是助手", 12, 8);
+    }
+
+    @Test
+    void sendStream_流报错_半截不落assistant() {
+        stubRunnableApp(null);
+        when(store.openTurn(any(), any(), any(), any()))
+                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好"))));
+        when(chatInvoker.invokeStream(any(), any(), any()))
+                .thenReturn(reactor.core.publisher.Flux.concat(
+                        reactor.core.publisher.Flux.just(chunk("半")),
+                        reactor.core.publisher.Flux.error(new BizException(ProviderError.PROVIDER_UNAVAILABLE))));
+
+        reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
+                .expectNext(new StreamEvent.Delta("半"))
+                .expectErrorMatches(e -> e instanceof BizException b
+                        && b.errorCode() == ProviderError.PROVIDER_UNAVAILABLE)
+                .verify();
+        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt());
+    }
 }
