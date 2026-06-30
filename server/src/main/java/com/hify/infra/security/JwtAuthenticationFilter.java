@@ -45,6 +45,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.responseWriter = responseWriter;
     }
 
+    /**
+     * 允许在 ASYNC 分派（如 SSE/Flux 回写完成时的异步分派）时重新运行此过滤器。
+     * 默认值为 true（跳过），会导致 AuthorizationFilter 在 ASYNC 分派时找不到安全上下文而 403。
+     * 覆盖为 false 后，ASYNC 分派仍携带原始请求（含 Authorization 头），JWT 可正常二次验证。
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {

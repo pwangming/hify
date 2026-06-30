@@ -3,6 +3,9 @@ package com.hify.conversation.controller;
 import com.hify.conversation.dto.MessageView;
 import com.hify.conversation.dto.SendMessageResponse;
 import com.hify.conversation.service.ConversationService;
+import com.hify.conversation.service.StreamEvent;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 import com.hify.infra.config.JacksonConfig;
 import com.hify.infra.security.CurrentUser;
 import com.hify.infra.security.JwtService;
@@ -21,12 +24,16 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ConversationController.class)
@@ -107,5 +114,40 @@ class ConversationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].id").value("100"))   // Long→string
                 .andExpect(jsonPath("$.data[0].title").value("你好"));
+    }
+
+    @Test
+    void 流式发消息_输出message与done事件() throws Exception {
+        when(conversationService.sendStream(eq(7L), eq(null), eq("你好"), any()))
+                .thenReturn(reactor.core.publisher.Flux.just(
+                        new StreamEvent.Delta("你好，"),
+                        new StreamEvent.Done(100L, 200L, 12, 8)));
+
+        MvcResult res = mockMvc.perform(post("/api/v1/conversation/messages/stream")
+                        .header("Authorization", "Bearer " + memberToken())
+                        .contentType("application/json")
+                        .content("{\"appId\":\"7\",\"content\":\"你好\"}"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        String body = mockMvc.perform(asyncDispatch(res))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(body)
+                .contains("event:message").contains("\"delta\":\"你好，\"")
+                .contains("event:done").contains("\"conversationId\":\"100\"")
+                .contains("\"messageId\":\"200\"").contains("\"promptTokens\":\"12\"");
+    }
+
+    @Test
+    void 流式发消息_content为空_400JSON_不开流() throws Exception {
+        mockMvc.perform(post("/api/v1/conversation/messages/stream")
+                        .header("Authorization", "Bearer " + memberToken())
+                        .contentType("application/json")
+                        .content("{\"appId\":\"7\",\"content\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(10001));
     }
 }
