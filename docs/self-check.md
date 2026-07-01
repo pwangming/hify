@@ -738,3 +738,10 @@ mvn -f server/pom.xml test
 - 怎么自证：`pnpm vitest run src/views/app/__tests__/AppList.spec.ts` → `Tests 15 passed`；`pnpm typecheck` 无错；`pnpm lint` 通过。
 - 反向验证：既有「非 owner 也可见可点」用例——若误把试聊挪进 canModify 门控，chat-5 不存在、该用例点击时找不到元素而红，守住「试聊全员可见」。
 - 下一步 Task8：全量回归（后端 mvn test + 前端 pnpm test/typecheck/build）+ 手验清单。
+
+## conversation ⑦ 会话管理 Task8：全量回归（2026-07-01）
+- 后端全量：`cd server && mvn test` → `Tests run: 287, Failures: 0, Errors: 0`（含 ModularityTests/LayerRulesTest 模块边界）。
+- 前端全量：`cd web && pnpm test` → `25 files / 167 passed`；`pnpm typecheck` 无错；`pnpm build`（vue-tsc + vite）成功（chunk 体积警告为既有，非本轮引入）；`pnpm lint` 通过。
+- 本轮（⑦）7 个功能任务全部完成，分支 `feat/conversation-management`，逐任务提交：Task1 删除会话 / Task2 重命名会话 / Task3 前端 api-store 接线 / Task4 侧边栏操作 / Task5 气泡复制-编辑-免责+接线 / Task6 对话入口 ChatHome+菜单+默认落地 / Task7 试聊按钮样式。
+- 待人工手验（需登录跑真环境）：默认落对话页→选应用进聊天；会话重命名/删除即时生效且刷新持久；用户气泡复制/编辑（编辑回填输入框发新消息）；AI 回答完成后左下角复制；输入框下方免责提示；试聊实心蓝底同排、他人应用可试聊但无编辑删除。
+- 本轮不做（留后）：真编辑重新生成、会话列表分页/查看全部、LLM 自动标题、知识库(RAG)、Agent 工具调用、对外 API。
