@@ -2,7 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
+import { DocumentCopy, EditPen } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useConversationStore } from '@/stores/conversation'
+import type { MessageView } from '@/types/conversation'
 import ConversationSidebar from './ConversationSidebar.vue'
 
 const route = useRoute()
@@ -59,6 +62,31 @@ async function onSend() {
     // 错误已由 store 的 onError 行内展示，此处静默兜底防止未处理 rejection
   }
 }
+
+// 复制可见性：用户气泡恒可复制；AI 气泡「正在流式的最后一条」不可复制（内容未完），done 后自然显现。
+function canCopy(m: MessageView, i: number): boolean {
+  if (m.role === 'user') return true
+  return !(sending.value && i === messages.value.length - 1)
+}
+
+async function copyMsg(m: MessageView) {
+  await navigator.clipboard.writeText(m.content)
+  ElMessage.success('已复制')
+}
+
+// 轻量编辑（B）：把原文回填输入框供修改，历史不动，改完当作新消息发送。
+function editMsg(m: MessageView) {
+  input.value = m.content
+}
+
+function onRenameConv(payload: { id: string; title: string }) {
+  store.renameConversation(payload.id, payload.title)
+}
+
+async function onDeleteConv(id: string) {
+  await store.deleteConversation(id)
+  if (!store.currentId && queryCid.value) router.replace({ query: {} }) // 删的是当前会话 → 清 URL 的 ?c=
+}
 </script>
 
 <template>
@@ -68,16 +96,30 @@ async function onSend() {
       :current-id="currentId"
       @select="selectConversation"
       @new="startNew"
+      @rename="onRenameConv"
+      @delete="onDeleteConv"
     />
     <div class="chat__main">
       <div class="chat__list">
         <div
-          v-for="m in messages"
+          v-for="(m, i) in messages"
           :key="m.id"
           :class="['chat__bubble', `chat__bubble--${m.role}`]"
           data-test="msg"
         >
-          {{ m.content }}
+          <div class="chat__bubble-text">{{ m.content }}</div>
+          <div :class="['chat__bubble-ops', `chat__bubble-ops--${m.role}`]">
+            <el-icon
+              v-if="canCopy(m, i)"
+              class="chat__op"
+              :data-test="`copy-msg-${m.id}`"
+              title="复制"
+              @click="copyMsg(m)"
+            ><DocumentCopy /></el-icon>
+            <el-tooltip v-if="m.role === 'user'" content="重新编辑后发送" placement="top">
+              <el-icon class="chat__op" :data-test="`edit-msg-${m.id}`" @click="editMsg(m)"><EditPen /></el-icon>
+            </el-tooltip>
+          </div>
         </div>
       </div>
       <div class="chat__input">
@@ -95,6 +137,7 @@ async function onSend() {
           发送
         </el-button>
       </div>
+      <p class="chat__disclaimer" data-test="ai-disclaimer">本回答由 AI 生成，请谨慎甄别</p>
     </div>
   </div>
 </template>
@@ -136,6 +179,43 @@ async function onSend() {
       align-self: flex-start;
       background: var(--el-fill-color-light);
     }
+  }
+
+  // 气泡操作区：默认隐藏，气泡 hover 时显现；用户右下角、AI 左下角
+  &__bubble-ops {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    &--user {
+      justify-content: flex-end;
+    }
+
+    &--assistant {
+      justify-content: flex-start;
+    }
+  }
+
+  &__bubble:hover &__bubble-ops {
+    opacity: 1;
+  }
+
+  &__op {
+    cursor: pointer;
+    color: var(--el-text-color-secondary);
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
+  }
+
+  &__disclaimer {
+    margin: 0;
+    text-align: center;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
   }
 
   &__input {

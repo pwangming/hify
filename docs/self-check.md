@@ -713,3 +713,11 @@ mvn -f server/pom.xml test
 - 怎么自证：`pnpm vitest run src/views/conversation/__tests__/ConversationSidebar.spec.ts` → `Tests 11 passed`（原 8 + 新 3）；`pnpm typecheck` 无错。
 - 反向验证：「点操作图标不触发 select」用例——若漏掉 `@click.stop`，点重命名会同时冒泡触发 `emit('select')`，该用例因 select 被 emit 而红，守住 stop 冒泡。
 - 下一步 Task5：ChatView 气泡复制/编辑 + 免责提示 + 接线 sidebar 的 rename/delete 到 store。
+
+## conversation ⑦ 会话管理 Task5：ChatView 气泡复制/编辑 + 免责提示 + 接线（2026-07-01）
+- 对应改动：`ChatView.vue`——气泡改「内容+操作区」结构：用户气泡 hover 出复制(DocumentCopy)+编辑(EditPen，tooltip「重新编辑后发送」)，AI 气泡 hover 出复制；`canCopy(m,i)` 判定 AI 正在流式的最后一条不显示复制（sending && i===last）；`copyMsg` 走 navigator.clipboard + ElMessage 已复制；`editMsg` 轻量B 回填 input.value（不新增消息）；输入框下方加 `data-test="ai-disclaimer"` 免责提示；sidebar 接 `@rename→store.renameConversation`、`@delete→store.deleteConversation`（删当前会话后清 URL 的 ?c=）。
+- TDD：先写 6 失败测试（复制用户/AI流式隐藏done显示/编辑回填不新增/免责文案/delete接线/rename接线）→ 真「红」6 failed → 实现 → 绿。接线测试用 `wrapper.findComponent(ConversationSidebar).vm.$emit(...)` + `vi.spyOn(store, ...)`，直接验证 ChatView 对子组件事件的响应。
+- 踩坑：happy-dom 的 `navigator.clipboard` 是只读 getter，`Object.assign` 设不进，改 `Object.defineProperty(navigator,'clipboard',{value,configurable:true})`——测试自身问题，实现无误。
+- 怎么自证：`pnpm vitest run src/views/conversation/__tests__/ChatView.spec.ts` → `Tests 14 passed`（原 8 + 新 6）；`pnpm typecheck` 无错。
+- 反向验证：「AI 气泡流式中不显示复制、结束后显示」——若 canCopy 漏掉 sending 判定，流式中就会渲染复制图标，该用例因 exists()===true 而红。
+- 下一步 Task6：对话入口（ChatHome 应用选择页 + 菜单 + 默认落地页 /chat）。
