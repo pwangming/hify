@@ -18,7 +18,7 @@ import java.time.Duration;
 public record ResilienceBundle(TimeLimiter timeLimiter, Bulkhead bulkhead,
                                CircuitBreaker circuitBreaker, Retry retry,
                                Duration firstTokenTimeout, Duration tokenGapTimeout,
-                               Duration streamMaxDuration) {
+                               Duration streamMaxDuration, int retryMaxAttempts) {
 
     public static ResilienceBundle build(ModelProvider p) {
         String name = "llm-provider-" + p.getId();
@@ -55,6 +55,6 @@ public record ResilienceBundle(TimeLimiter timeLimiter, Bulkhead bulkhead,
         Duration tokenGapTimeout = Duration.ofSeconds(p.getTokenGapTimeoutSec());
         Duration streamMaxDuration = Duration.ofSeconds(p.getStreamMaxDurationSec());
         return new ResilienceBundle(timeLimiter, bulkhead, circuitBreaker, retry,
-                firstTokenTimeout, tokenGapTimeout, streamMaxDuration);
+                firstTokenTimeout, tokenGapTimeout, streamMaxDuration, p.getRetryMaxAttempts());
     }
 }

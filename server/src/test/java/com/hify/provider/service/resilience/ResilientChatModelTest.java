@@ -16,6 +16,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -95,27 +96,38 @@ class ResilientChatModelTest {
     }
 
     private ModelProvider streamProvider(int firstSec, int gapSec, int totalSec) {
-        ModelProvider p = provider(1, 120);          // 复用现有，已含四件套字段
+        ModelProvider p = provider(3, 120);          // retryMaxAttempts=3
         p.setFirstTokenTimeoutSec(firstSec);
         p.setTokenGapTimeoutSec(gapSec);
         p.setStreamMaxDurationSec(totalSec);
         return p;
     }
 
+    /** 虚拟时间专用：retryMaxAttempts=3，首token/gap/total超大，不触发流式超时 */
+    private ModelProvider streamProviderForRetry() {
+        return streamProvider(90, 120, 600);
+    }
+
     @Test
     void 流式_首token超时_映射503() {
+        AtomicInteger subs = new AtomicInteger();
         ChatModel delegate = new ChatModel() {
             public ChatResponse call(Prompt p) { return new ChatResponse(List.of()); }
             public Flux<ChatResponse> stream(Prompt p) {
+                subs.incrementAndGet();
                 return Flux.never();      // 永不吐第一个 token
             }
         };
-        ResilientChatModel m = wrap(delegate, streamProvider(1, 60, 600)); // 首 token 1s
+        // firstTokenTimeoutSec=1，重试设3次，但超时不可重试 → counter 应为 1
+        ResilientChatModel m = wrap(delegate, streamProvider(1, 60, 600));
 
         StepVerifier.create(m.stream(new Prompt("hi")))
                 .expectErrorSatisfies(e -> assertEquals(ProviderError.PROVIDER_UNAVAILABLE,
                         ((BizException) e).errorCode()))
-                .verify(java.time.Duration.ofSeconds(3));
+                .verify(java.time.Duration.ofSeconds(5));
+
+        // 首token超时不可重试 → 只订阅 1 次
+        assertEquals(1, subs.get());
     }
 
     @Test
@@ -132,5 +144,95 @@ class ResilientChatModelTest {
 
         StepVerifier.create(m.stream(new Prompt("hi")))
                 .expectNext(c1).expectNext(c1).verifyComplete();
+    }
+
+    // =========== 新增：流式重试测试 ===========
+
+    @Test
+    void 流式_首token前503_重试后成功() {
+        ChatResponse chunk = new ChatResponse(List.of(
+                new Generation(new AssistantMessage("hello"))));
+        AtomicInteger subs = new AtomicInteger();
+
+        // 第1、2次订阅抛 503；第3次正常返回 chunk
+        // 注意：delegate.stream() 在 assembly time 只调用一次，retryWhen 是 re-subscribe 同一 Flux；
+        // 必须用 Flux.defer 让每次 subscribe 都重新执行 lambda，才能模拟 cold Flux 重试行为。
+        ChatModel delegate = new ChatModel() {
+            public ChatResponse call(Prompt p) { return new ChatResponse(List.of()); }
+            public Flux<ChatResponse> stream(Prompt p) {
+                return Flux.defer(() -> {
+                    int attempt = subs.incrementAndGet();
+                    if (attempt < 3) {
+                        return Flux.<ChatResponse>error(HttpServerErrorException.create(
+                                HttpStatus.SERVICE_UNAVAILABLE, "503", null, null, null));
+                    }
+                    return Flux.just(chunk);
+                });
+            }
+        };
+        ResilientChatModel m = wrap(delegate, streamProviderForRetry());
+
+        // retryMaxAttempts=3 → 最多 3 次订阅；backoff 1s + jitter，用虚拟时间快进
+        StepVerifier.withVirtualTime(() -> m.stream(new Prompt("hi")))
+                .thenAwait(Duration.ofSeconds(10))
+                .expectNext(chunk)
+                .verifyComplete();
+
+        assertEquals(3, subs.get());
+    }
+
+    @Test
+    void 流式_已吐字后报错_不重试() {
+        ChatResponse chunk = new ChatResponse(List.of(
+                new Generation(new AssistantMessage("part"))));
+        AtomicInteger subs = new AtomicInteger();
+
+        // 吐一个 chunk 后立即报 503
+        ChatModel delegate = new ChatModel() {
+            public ChatResponse call(Prompt p) { return new ChatResponse(List.of()); }
+            public Flux<ChatResponse> stream(Prompt p) {
+                subs.incrementAndGet();
+                return Flux.concat(
+                        Flux.just(chunk),
+                        Flux.error(HttpServerErrorException.create(
+                                HttpStatus.SERVICE_UNAVAILABLE, "503", null, null, null))
+                );
+            }
+        };
+        ResilientChatModel m = wrap(delegate, streamProviderForRetry());
+
+        StepVerifier.withVirtualTime(() -> m.stream(new Prompt("hi")))
+                .thenAwait(Duration.ofSeconds(5))
+                .expectNext(chunk)
+                .expectErrorSatisfies(e -> assertEquals(ProviderError.PROVIDER_UNAVAILABLE,
+                        ((BizException) e).errorCode()))
+                .verify();
+
+        // 吐字后不重试 → 只有 1 次订阅
+        assertEquals(1, subs.get());
+    }
+
+    @Test
+    void 流式_首token前400_不重试() {
+        AtomicInteger subs = new AtomicInteger();
+
+        ChatModel delegate = new ChatModel() {
+            public ChatResponse call(Prompt p) { return new ChatResponse(List.of()); }
+            public Flux<ChatResponse> stream(Prompt p) {
+                subs.incrementAndGet();
+                return Flux.error(HttpClientErrorException.create(
+                        HttpStatus.BAD_REQUEST, "400", null, null, null));
+            }
+        };
+        ResilientChatModel m = wrap(delegate, streamProviderForRetry());
+
+        StepVerifier.withVirtualTime(() -> m.stream(new Prompt("hi")))
+                .thenAwait(Duration.ofSeconds(5))
+                .expectErrorSatisfies(e -> assertEquals(ProviderError.PROVIDER_UNAVAILABLE,
+                        ((BizException) e).errorCode()))
+                .verify();
+
+        // 400 不可重试 → 1 次
+        assertEquals(1, subs.get());
     }
 }
