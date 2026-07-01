@@ -247,6 +247,32 @@ describe('send render-pacing (throttle)', () => {
     expect(cid).toBe('100')
   })
 
+  it('onError 立即冲刷缓冲并追加 ⚠️，之后 timer 不再改变气泡', async () => {
+    vi.useFakeTimers()
+    const { start, getH } = makeControlledStart()
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    const sendPromise = store.send('7', '你好').catch((e) => e)
+    const bubbleIdx = store.messages.length - 1
+
+    getH().onDelta('你好，我是助手')
+    // 仍在缓冲，timer 未触发
+    expect(store.messages[bubbleIdx].content).toBe('')
+
+    // onError 必须先冲刷缓冲，再追加 ⚠️
+    getH().onError({ code: 500, message: '服务器错误' })
+    expect(store.messages[bubbleIdx].content).toBe('你好，我是助手\n⚠️ 服务器错误')
+    expect(store.sending).toBe(false)
+
+    // timer 已清除：继续推进不再改变气泡
+    const contentAfterError = store.messages[bubbleIdx].content
+    vi.advanceTimersByTime(1000)
+    expect(store.messages[bubbleIdx].content).toBe(contentAfterError)
+
+    await sendPromise // 应 settle(reject) 而不挂起
+  })
+
   it('abort() 清除 drain timer，之后 tick 不再改变气泡', () => {
     vi.useFakeTimers()
     const abortFn = vi.fn()

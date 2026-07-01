@@ -119,10 +119,11 @@ export const useConversationStore = defineStore('conversation', () => {
     })
   }
 
-  /** 切会话/卸载时止血：取消在途流，同时清除 drain timer 防止泄漏。 */
+  /** 切会话/卸载时止血：取消在途流，清除 drain timer 防泄漏，并丢弃未渲染的缓冲文本。 */
   function abort() {
     chat.abort()
     clearDrainTimer()
+    pendingText = ''
     sending.value = false
   }
 

@@ -245,6 +245,8 @@ class ConversationServiceTest {
                 .expectErrorMatches(e -> e instanceof BizException b
                         && b.errorCode() == ProviderError.PROVIDER_UNAVAILABLE)
                 .verify();
+        // 半截失败也清理孤儿（本回合新建会话）
+        verify(store).cleanupFailedTurn(100L, 300L, true);
         verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt());
     }
 
@@ -297,5 +299,22 @@ class ConversationServiceTest {
                 .expectNextMatches(e -> e instanceof StreamEvent.Done)
                 .verifyComplete();
         verify(store, never()).cleanupFailedTurn(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void sendStream_取消_不清理孤儿也不落assistant() {
+        // 用户切会话=取消（cancel 信号，非 onError）：不得触发 cleanupFailedTurn，也不落 assistant
+        stubRunnableApp(null);
+        when(store.openTurn(any(), any(), any(), any()))
+                .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好")), 300L, true));
+        when(chatInvoker.invokeStream(any(), any(), any()))
+                .thenReturn(reactor.core.publisher.Flux.never()); // 不吐字、不结束
+
+        reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
+                .expectSubscription()
+                .thenCancel()
+                .verify();
+        verify(store, never()).cleanupFailedTurn(any(), any(), anyBoolean());
+        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt());
     }
 }

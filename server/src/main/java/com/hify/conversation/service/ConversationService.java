@@ -97,6 +97,7 @@ public class ConversationService {
                 .onErrorResume(err -> Mono.fromRunnable(() ->
                                 store.cleanupFailedTurn(turn.conversationId(), turn.userMessageId(), turn.newConversation()))
                         .subscribeOn(Schedulers.boundedElastic())
+                        .onErrorResume(cleanupEx -> Mono.empty())   // 清理失败不可盖住原始 LLM 错误
                         .then(Mono.<StreamEvent>error(err)));
     }
 
