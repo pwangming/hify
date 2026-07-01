@@ -67,7 +67,9 @@ public class ResilientChatModel implements ChatModel {
     @Override
     public Flux<ChatResponse> stream(Prompt prompt) {
         AtomicBoolean emitted = new AtomicBoolean(false); // 每次 stream() 调用独立；跨重试共享
-        return delegate.stream(prompt)
+        // Flux.defer 保证 retryWhen 每次重试都重新调用 delegate.stream() 发起新请求，
+        // 不依赖底层流的「冷」特性（Spring AI WebClient 流虽冷，但 delegate 是 ChatModel 接口，显式 defer 更稳）。
+        return Flux.defer(() -> delegate.stream(prompt))
                 // 首 token 超时 + 逐 token 间隔超时（卡住不吐字快速判死）
                 .timeout(Mono.delay(bundle.firstTokenTimeout()),
                          cr -> Mono.delay(bundle.tokenGapTimeout()))
