@@ -697,3 +697,11 @@ mvn -f server/pom.xml test
 - 怎么自证：`mvn test` 全量 `Tests run: 287, Failures: 0, Errors: 0`（含 ModularityTests/LayerRulesTest；新 DTO 不 import entity，模块边界不破）。
 - 反向验证：`renameConversation_他人会话_404_不更新` 断言 updateById never——若实现漏掉 assertOwned 直接更新，此用例因 updateById 被调而红，守住「仅本人」权限。
 - 无表结构变更、无新 Flyway、无新错误码。后端两端点（删除+重命名）完成，下一步转前端 Task3（api/store 接线）。
+
+## conversation ⑦ 会话管理 Task3：前端 api/store 接线删除与重命名（2026-07-01）
+- 对应改动：`api/conversation.ts`（+renameConversation POST、+deleteConversation DELETE）、`stores/conversation.ts`（+renameConversation 本地回显 title、+deleteConversation 移除列表项且删当前会话回空白态）。
+- 做了什么：store action 与 api 函数同名，import 用别名（`apiRenameConversation`/`apiDeleteConversation`）避免遮蔽。重命名本地回显（找到列表项改 title，不重拉整表）；删除从 conversations 过滤掉，若删的是 currentId 则调 newConversation() 回空白态。
+- TDD：先写失败测试（api 2：断言 request.post/delete 的 url+body；store 2：本地回显/移除+删当前回空白）→ 从 web 目录跑出真「红」= `is not a function`（4 failed）→ 写实现 → 绿。
+- 怎么自证：`pnpm vitest run src/api/__tests__/conversation.spec.ts src/stores/__tests__/conversation.spec.ts` → `Tests 21 passed`；`pnpm typecheck` 无错。
+- 反向验证：`deleteConversation 删当前会话回空白态` 用例断言 currentId=null、messages=[]——若实现漏掉 `if (id === currentId.value) newConversation()`，此用例因 currentId 仍为 '1' 而红。
+- 下一步 Task4：侧边栏会话操作下拉（重命名/删除 UI）。
