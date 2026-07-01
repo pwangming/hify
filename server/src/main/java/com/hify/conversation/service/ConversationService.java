@@ -55,8 +55,9 @@ public class ConversationService {
         // 4) 取 ChatClient（不可用抛 12002）并调用——事务外，喂历史窗口
         ChatClient chatClient = providerFacade.getChatClient(app.modelId());
         LlmReply reply = chatInvoker.invoke(chatClient, app.systemPrompt(), turn.window());
-        // 5) 事务B：落 assistant 消息
-        Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens());
+        // 5) 事务B：落 assistant 消息（同事务内发 TokenUsedEvent 计量）
+        Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
+                current.userId(), appId, app.modelId());
         return new SendMessageResponse(cid, toView(saved));
     }
 
@@ -87,7 +88,8 @@ public class ConversationService {
                 });
 
         Mono<StreamEvent> done = Mono.<StreamEvent>fromCallable(() -> {
-            Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1]); // 事务B
+            Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1], // 事务B（内发 TokenUsedEvent）
+                    current.userId(), appId, app.modelId());
             return new StreamEvent.Done(cid, saved.getId(), usage[0], usage[1]);
         }).subscribeOn(Schedulers.boundedElastic());
 

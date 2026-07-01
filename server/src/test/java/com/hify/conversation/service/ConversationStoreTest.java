@@ -1,5 +1,6 @@
 package com.hify.conversation.service;
 
+import com.hify.common.event.TokenUsedEvent;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.conversation.config.ConversationProperties;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,15 +31,17 @@ class ConversationStoreTest {
 
     private ConversationMapper conversationMapper;
     private MessageMapper messageMapper;
+    private ApplicationEventPublisher publisher;
     private ConversationStore store;
 
     @BeforeEach
     void setUp() {
         conversationMapper = mock(ConversationMapper.class);
         messageMapper = mock(MessageMapper.class);
+        publisher = mock(ApplicationEventPublisher.class);
         store = new ConversationStore(conversationMapper, messageMapper,
                 new ConversationProperties(new ConversationProperties.Memory(10),
-                        new ConversationProperties.ListProps(50)));
+                        new ConversationProperties.ListProps(50)), publisher);
         // 默认窗口读返回空（具体测试再覆盖）；strict-stub 未启用，多余 stub 无碍。
         when(messageMapper.selectList(any())).thenReturn(new ArrayList<>());
     }
@@ -117,9 +121,9 @@ class ConversationStoreTest {
     }
 
     @Test
-    void appendAssistant_落assistant消息含token_并touch会话() {
+    void appendAssistant_落assistant消息含token_并touch会话_发TokenUsedEvent() {
         ArgumentCaptor<Message> mc = ArgumentCaptor.forClass(Message.class);
-        Message saved = store.appendAssistant(100L, "你好，我是助手", 12, 8);
+        Message saved = store.appendAssistant(100L, "你好，我是助手", 12, 8, 42L, 7L, 5L);
 
         verify(messageMapper).insert((Message) mc.capture());
         assertEquals(MessageRole.ASSISTANT.value(), mc.getValue().getRole());
@@ -128,6 +132,16 @@ class ConversationStoreTest {
         assertEquals(8, mc.getValue().getCompletionTokens());
         verify(conversationMapper).updateById(any(Conversation.class)); // touch update_time
         assertEquals(mc.getValue(), saved);
+
+        // 事务内发计量事件：userId/appId/modelId + token 透传
+        ArgumentCaptor<TokenUsedEvent> ec = ArgumentCaptor.forClass(TokenUsedEvent.class);
+        verify(publisher).publishEvent((Object) ec.capture());
+        TokenUsedEvent e = ec.getValue();
+        assertEquals(42L, e.userId());
+        assertEquals(7L, e.appId());
+        assertEquals(5L, e.modelId());
+        assertEquals(12, e.promptTokens());
+        assertEquals(8, e.completionTokens());
     }
 
     @Test

@@ -1,0 +1,158 @@
+{
+  "info": {
+    "name": "Hify · ⑥ usage 配额",
+    "description": "验证 usage 配额闭环：发消息产生用量 → 事件异步落库(daily_usage/llm_call_log) → 入口配额检查(14001/429)。\n\n所有对话接口是成员族 /api/v1/conversation/**，需 JWT（Member 或 Admin）。会话是个人数据，仅本人可见；Long 字段序列化为 string。\n\n【使用前】\n1. Collection Variables 设 baseUrl（默认 http://localhost:8080）、username、password。\n2. 跑「0. 登录」自动写入 token 变量。\n3. appId 默认 14（deepseek对话测试，真供应商）。\n\n【怎么验】\n- 用量落库：跑「1」「2」发消息，响应里 data.message.promptTokens/completionTokens 即本次 token；\n  聚合表 daily_usage / 流水 llm_call_log 需查库确认（本轮无 admin 看板接口）——见本集合末尾『DB 校验 SQL』说明。\n- 429 拦截：默认限额 200 万/天，手动打不满。先跑「1」「2」让今日用量 >0，\n  再用环境变量 HIFY_USAGE_DAILY_TOKEN_LIMIT_PER_USER=1 重启服务，跑「3」应得 HTTP 429 + code 14001。\n\n【DB 校验 SQL】（在 hify-postgres 容器里执行，<UID> 换成登录返回的 userId）\n  docker exec -it hify-postgres psql -U hify -d hify -c \\\n    \"select user_id, app_id, stat_date, total_tokens from daily_usage where user_id=<UID> order by stat_date desc;\"\n  docker exec -it hify-postgres psql -U hify -d hify -c \\\n    \"select id, user_id, app_id, model_id, prompt_tokens, completion_tokens, create_time from llm_call_log where user_id=<UID> order by id desc limit 10;\"\n预期：daily_usage 今天一行，total_tokens = 该用户今日各次(prompt+completion)之和；llm_call_log 每次成功发消息一行。\n（落库是 @Async AFTER_COMMIT，发消息返回后稍等 1~2 秒再查。）",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "appId", "value": "14" },
+    { "key": "cid", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "username", "value": "" },
+    { "key": "password", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "0. 登录（拿 token）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('返回 token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+              "pm.collectionVariables.set('token', json.data.token);",
+              "pm.collectionVariables.set('userId', String(json.data.userId));",
+              "console.log('登录 userId =', json.data.userId, '（查库时用它）');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/identity/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "identity", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "description": "登录拿 JWT，自动写入 token、userId 集合变量。真实路由 /api/v1/identity/login。"
+      }
+    },
+    {
+      "name": "1. 发消息 · 新会话（appId=14，产生用量）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('返回 conversationId(string)', () => pm.expect(json.data.conversationId).to.be.a('string'));",
+              "pm.test('assistant 回复非空', () => pm.expect(json.data.message.content).to.be.a('string').and.not.empty);",
+              "pm.test('role=assistant', () => pm.expect(json.data.message.role).to.eql('assistant'));",
+              "pm.test('promptTokens 非空(用量已抓取)', () => pm.expect(json.data.message.promptTokens).to.not.be.undefined);",
+              "pm.collectionVariables.set('cid', json.data.conversationId);",
+              "console.log('本次用量 prompt/completion =', json.data.message.promptTokens, '/', json.data.message.completionTokens);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/conversation/messages",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "conversation", "messages"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"appId\": \"{{appId}}\",\n  \"content\": \"你好，用一句话介绍你自己\"\n}"
+        },
+        "description": "新会话（不传 conversationId）。成功后：落 user/assistant 消息 + 事务B内发 TokenUsedEvent；usage 异步落 llm_call_log + 累加 daily_usage。响应含 message.promptTokens/completionTokens。"
+      }
+    },
+    {
+      "name": "2. 续聊（同会话，累积用量）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+              "pm.test('assistant 回复非空', () => pm.expect(json.data.message.content).to.be.a('string').and.not.empty);",
+              "console.log('本次用量 prompt/completion =', json.data.message.promptTokens, '/', json.data.message.completionTokens);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/conversation/messages",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "conversation", "messages"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"appId\": \"{{appId}}\",\n  \"conversationId\": \"{{cid}}\",\n  \"content\": \"再补充一句\"\n}"
+        },
+        "description": "续聊同一会话，再产生一次用量。跑完后建议查库确认 daily_usage.total_tokens = 两次(prompt+completion)之和。"
+      }
+    },
+    {
+      "name": "3. 配额超额（需先调小限额并重启）→ 期望 429 / 14001",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 前置：先跑过「1」「2」让今日用量>0，再用 HIFY_USAGE_DAILY_TOKEN_LIMIT_PER_USER=1 重启服务，再跑本请求。",
+              "pm.test('HTTP 429', () => pm.response.to.have.status(429));",
+              "const json = pm.response.json();",
+              "pm.test('code=14001', () => pm.expect(json.code).to.eql(14001));",
+              "pm.test('message 提示配额用尽', () => pm.expect(json.message).to.be.a('string').and.not.empty);",
+              "pm.test('data 为空', () => pm.expect(json.data).to.be.oneOf([null, undefined]));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/conversation/messages",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "conversation", "messages"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"appId\": \"{{appId}}\",\n  \"content\": \"这条应被配额拦截\"\n}"
+        },
+        "description": "验证入口配额拦截。默认限额 200 万/天手动打不满，故用环境变量把限额调到 1（或 0）并重启服务：\n  HIFY_USAGE_DAILY_TOKEN_LIMIT_PER_USER=1\n重启后本用户今日用量已 >1（来自「1」「2」）→ checkQuota 判 used>=limit → 抛 14001，HTTP 429，走普通 JSON 信封（非 SSE）。\n验完记得把环境变量改回或移除、再重启恢复正常限额。"
+      }
+    }
+  ]
+}

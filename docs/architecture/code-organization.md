@@ -126,7 +126,11 @@ com.hify.<module>/
 2. **同步调用走 Facade**：需要对方"做事并拿到结果"时调 Facade 方法。Facade 方法签名只能使用：`api/dto` 类型、`common` 类型、JDK 类型（provider 的 Spring AI 类型例外）。
 3. **通知走事件**：只需要告知"发生了什么"、不关心谁处理时，发布 Spring 事件。规则：
    - 事件 record 定义在**发布方**的 `api/event/`；
-   - 通过 `ApplicationEventPublisher` 发布；
+   - **例外——被 usage 消费的计量事件放 `common`**：如 `TokenUsedEvent`。发布方（conversation/workflow）
+     同时是 usage 的下游（调 `UsageFacade.checkQuota`），若事件放发布方 `api/event/`，usage 监听会反向
+     依赖发布方而成环（违反本节规则 7 的 DAG）。这类"喂给 usage 的计量事件"统一放 `common.event`，
+     两侧都依赖 common、无环。`ToolInvokedEvent` 若也由 usage 消费同理。
+   - 通过 `ApplicationEventPublisher` 发布，并**在发布方的事务方法内**发（否则 `AFTER_COMMIT` 监听不触发）；
    - 监听方用 `@TransactionalEventListener(phase = AFTER_COMMIT)` + `@Async`；
    - Token 计量、调用日志**必须**走事件（`TokenUsedEvent`、`ToolInvokedEvent`），禁止同步调用 usage 写入。
 4. **配额检查**：只在两个运行时入口做——conversation 收到消息时、workflow 触发时，调用 `UsageFacade.checkQuota(...)`。禁止在 provider 内每次模型调用时检查。

@@ -1,6 +1,7 @@
 package com.hify.conversation.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.hify.common.event.TokenUsedEvent;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.conversation.config.ConversationProperties;
@@ -9,6 +10,7 @@ import com.hify.conversation.entity.Conversation;
 import com.hify.conversation.entity.Message;
 import com.hify.conversation.mapper.ConversationMapper;
 import com.hify.conversation.mapper.MessageMapper;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,12 +29,14 @@ public class ConversationStore {
     private final ConversationMapper conversationMapper;
     private final MessageMapper messageMapper;
     private final ConversationProperties props;
+    private final ApplicationEventPublisher publisher;
 
     public ConversationStore(ConversationMapper conversationMapper, MessageMapper messageMapper,
-                             ConversationProperties props) {
+                             ConversationProperties props, ApplicationEventPublisher publisher) {
         this.conversationMapper = conversationMapper;
         this.messageMapper = messageMapper;
         this.props = props;
+        this.publisher = publisher;
     }
 
     /** 事务A：解析/新建会话 + 落 user 消息 + 同事务读最近窗口，返回 (cid, window, userMessageId, newConversation)。 */
@@ -82,9 +86,15 @@ public class ConversationStore {
         return desc;
     }
 
-    /** 事务B：落 assistant 消息 + touch 会话 update_time。 */
+    /**
+     * 事务B：落 assistant 消息 + touch 会话 update_time + 发 TokenUsedEvent 计量。
+     * 事件在**本事务内**发布，使 usage 的 {@code @TransactionalEventListener(AFTER_COMMIT)} 在事务提交后触发
+     * （若在无事务的编排层发布会被丢弃）。失败/取消的轮不走到这里，故天然不计量（决策 E）。
+     * userId/appId/modelId 仅用于计量事件，不落 message 表。
+     */
     @Transactional
-    public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens) {
+    public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
+                                   Long userId, Long appId, Long modelId) {
         Message m = new Message();
         m.setConversationId(conversationId);
         m.setRole(MessageRole.ASSISTANT.value());
@@ -95,6 +105,7 @@ public class ConversationStore {
         Conversation touch = new Conversation();
         touch.setId(conversationId);
         conversationMapper.updateById(touch); // update_time 由 infra MetaObjectHandler 自动填充
+        publisher.publishEvent(new TokenUsedEvent(userId, appId, modelId, promptTokens, completionTokens));
         return m;
     }
 
