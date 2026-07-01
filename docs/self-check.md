@@ -705,3 +705,11 @@ mvn -f server/pom.xml test
 - 怎么自证：`pnpm vitest run src/api/__tests__/conversation.spec.ts src/stores/__tests__/conversation.spec.ts` → `Tests 21 passed`；`pnpm typecheck` 无错。
 - 反向验证：`deleteConversation 删当前会话回空白态` 用例断言 currentId=null、messages=[]——若实现漏掉 `if (id === currentId.value) newConversation()`，此用例因 currentId 仍为 '1' 而红。
 - 下一步 Task4：侧边栏会话操作下拉（重命名/删除 UI）。
+
+## conversation ⑦ 会话管理 Task4：侧边栏会话操作（重命名/删除，2026-07-01）
+- 对应改动：`ConversationSidebar.vue`（会话条目加两个 hover 显现的行内图标 EditPen/Delete；emits +rename/+delete；onRename 用 ElMessageBox.prompt 取新标题、onDelete 用 ElMessageBox.confirm 二次确认，向上 emit）。
+- 设计取舍：原计划 el-dropdown「更多」下拉，改为**行内 hover 图标**——el-dropdown 菜单 teleport 到 body 且需点开才渲染，测试难稳定抓取；只有 2 个操作，行内图标更简洁也更好测。图标默认 opacity:0，条目 hover 或为当前会话时显现。操作图标用 `@click.stop` 防止冒泡触发选中会话。
+- TDD：先写失败测试（点重命名→prompt→emit rename 带新标题；点删除→confirm→emit delete；点图标不触发 select）→ 跑出真「红」= 3 failed（图标不存在）→ 写实现 → 绿。测试用 `vi.spyOn(ElMessageBox, 'prompt'/'confirm')` 桩住弹窗。
+- 怎么自证：`pnpm vitest run src/views/conversation/__tests__/ConversationSidebar.spec.ts` → `Tests 11 passed`（原 8 + 新 3）；`pnpm typecheck` 无错。
+- 反向验证：「点操作图标不触发 select」用例——若漏掉 `@click.stop`，点重命名会同时冒泡触发 `emit('select')`，该用例因 select 被 emit 而红，守住 stop 冒泡。
+- 下一步 Task5：ChatView 气泡复制/编辑 + 免责提示 + 接线 sidebar 的 rename/delete 到 store。

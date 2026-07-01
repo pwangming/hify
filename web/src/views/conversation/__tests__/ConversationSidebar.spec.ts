@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
-import ElementPlus, { ElCollapse } from 'element-plus'
+import { describe, it, expect, vi } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
+import ElementPlus, { ElCollapse, ElMessageBox } from 'element-plus'
 import ConversationSidebar from '@/views/conversation/ConversationSidebar.vue'
 
 // 用相对“今天”的日期构造数据，保证分桶断言与运行日期无关。
@@ -98,5 +98,31 @@ describe('ConversationSidebar', () => {
     const wrapper = mountSidebar({ currentId: '2' })
     const active = wrapper.find('.sidebar__item--active')
     expect(active.text()).toContain('三天前')
+  })
+
+  it('点重命名图标 → prompt 确认后 emit rename 带 id 与新标题', async () => {
+    vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: '新标题', action: 'confirm' } as never)
+    const wrapper = mountSidebar()
+    const item = wrapper.findAll('[data-test="conv-item"]').find((li) => li.text().includes('三天前'))!
+    await item.find('[data-test="conv-rename-2"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.emitted('rename')?.[0]).toEqual([{ id: '2', title: '新标题' }])
+  })
+
+  it('点删除图标 → confirm 后 emit delete 带 id', async () => {
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    const wrapper = mountSidebar()
+    const item = wrapper.findAll('[data-test="conv-item"]').find((li) => li.text().includes('三天前'))!
+    await item.find('[data-test="conv-delete-2"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.emitted('delete')?.[0]).toEqual(['2'])
+  })
+
+  it('点操作图标不触发 select（stop 冒泡）', async () => {
+    vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: 'x', action: 'confirm' } as never)
+    const wrapper = mountSidebar()
+    const item = wrapper.findAll('[data-test="conv-item"]').find((li) => li.text().includes('三天前'))!
+    await item.find('[data-test="conv-rename-2"]').trigger('click')
+    expect(wrapper.emitted('select')).toBeUndefined()
   })
 })
