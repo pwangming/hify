@@ -226,45 +226,46 @@ async function submitForm() {
         </el-table-column>
         <el-table-column label="操作" width="320">
           <template #default="{ row }">
-            <el-button
-              link
-              type="primary"
-              :data-test="`chat-${(row as App).id}`"
-              :disabled="!(row as App).modelUsable || (row as App).status === 'disabled'"
-              @click="openChat(row as App)"
-              >试聊</el-button
-            >
-            <div v-if="canModify(row as App)" class="app-list__ops">
+            <div class="app-list__ops">
               <el-button
-                v-if="(row as App).status === 'enabled'"
-                :data-test="`disable-${(row as App).id}`"
                 size="small"
-                @click="onDisable(row as App)"
-                >停用</el-button
+                type="primary"
+                :data-test="`chat-${(row as App).id}`"
+                :disabled="!(row as App).modelUsable || (row as App).status === 'disabled'"
+                @click="openChat(row as App)"
+                >试聊</el-button
               >
-              <el-button
-                v-else
-                :data-test="`enable-${(row as App).id}`"
-                size="small"
-                type="success"
-                @click="onEnable(row as App)"
-                >启用</el-button
-              >
-              <el-button
-                :data-test="`edit-${(row as App).id}`"
-                size="small"
-                @click="openEdit(row as App)"
-                >编辑</el-button
-              >
-              <el-button
-                :data-test="`delete-${(row as App).id}`"
-                size="small"
-                type="danger"
-                @click="onDelete(row as App)"
-                >删除</el-button
-              >
+              <template v-if="canModify(row as App)">
+                <el-button
+                  v-if="(row as App).status === 'enabled'"
+                  :data-test="`disable-${(row as App).id}`"
+                  size="small"
+                  @click="onDisable(row as App)"
+                  >停用</el-button
+                >
+                <el-button
+                  v-else
+                  :data-test="`enable-${(row as App).id}`"
+                  size="small"
+                  type="success"
+                  @click="onEnable(row as App)"
+                  >启用</el-button
+                >
+                <el-button
+                  :data-test="`edit-${(row as App).id}`"
+                  size="small"
+                  @click="openEdit(row as App)"
+                  >编辑</el-button
+                >
+                <el-button
+                  :data-test="`delete-${(row as App).id}`"
+                  size="small"
+                  type="danger"
+                  @click="onDelete(row as App)"
+                  >删除</el-button
+                >
+              </template>
             </div>
-            <span v-else class="app-list__readonly">—</span>
           </template>
         </el-table-column>
       </el-table>

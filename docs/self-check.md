@@ -730,3 +730,11 @@ mvn -f server/pom.xml test
 - 怎么自证：`pnpm vitest run ChatHome.spec + src/router/__tests__ + src/layouts/__tests__` → `5 files / 24 passed`；`pnpm typecheck` 无错。
 - 反向验证：「模型不可用的卡片点击不跳转」——若 open() 漏掉 `if (!a.modelUsable) return`，push 会被调用，该用例因 `push` 被调而红。
 - 下一步 Task7：AppList 试聊按钮改实心蓝底 small、与其它按钮同排（全员可见）。
+
+## conversation ⑦ 会话管理 Task7：AppList 试聊按钮改样式（2026-07-01）
+- 对应改动：`AppList.vue` 操作列重构——试聊按钮去 `link` → `size="small" type="primary"` 实心蓝底；移入与其它三按钮同一个 `app-list__ops` flex 容器（已 display:flex + gap），试聊恒在最前，其余三（启用停用/编辑/删除）用 `<template v-if="canModify">` 门控；删除原 `<span v-else>—</span>`（无测试依赖、无样式定义）。
+- 语义不变：试聊对全体成员可见（团队共享），编辑/删除仅 owner+admin。data-test 锚点（chat-/edit-/delete- 等）全保留。
+- 无需新测试：既有 AppList.spec 已覆盖试聊三态（chat-4 跳转 /apps/4/chat、chat-3 模型不可用 disabled、chat-5 非 owner 可见可点且无 edit-5）。改样式后这些断言仍绿。
+- 怎么自证：`pnpm vitest run src/views/app/__tests__/AppList.spec.ts` → `Tests 15 passed`；`pnpm typecheck` 无错；`pnpm lint` 通过。
+- 反向验证：既有「非 owner 也可见可点」用例——若误把试聊挪进 canModify 门控，chat-5 不存在、该用例点击时找不到元素而红，守住「试聊全员可见」。
+- 下一步 Task8：全量回归（后端 mvn test + 前端 pnpm test/typecheck/build）+ 手验清单。
