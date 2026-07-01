@@ -27,8 +27,10 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -149,5 +151,21 @@ class ConversationControllerTest {
                         .content("{\"appId\":\"7\",\"content\":\"\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(10001));
+    }
+
+    @Test
+    void 删除会话_成员_200_dataNull() throws Exception {
+        mockMvc.perform(delete("/api/v1/conversation/conversations/100")
+                        .header("Authorization", "Bearer " + memberToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data").doesNotExist());
+        verify(conversationService).deleteConversation(eq(100L), any());
+    }
+
+    @Test
+    void 删除会话_未登录_401() throws Exception {
+        mockMvc.perform(delete("/api/v1/conversation/conversations/100"))
+                .andExpect(status().isUnauthorized());
     }
 }

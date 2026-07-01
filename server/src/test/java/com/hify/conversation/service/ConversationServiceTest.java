@@ -207,6 +207,12 @@ class ConversationServiceTest {
         verify(store).listConversations(7L, 42L);
     }
 
+    @Test
+    void deleteConversation_委托store_传当前用户() {
+        service.deleteConversation(100L, member);
+        verify(store).deleteConversation(100L, 42L);
+    }
+
     // ===== sendStream 辅助 =====
 
     private org.springframework.ai.chat.model.ChatResponse chunk(String text) {

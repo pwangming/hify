@@ -183,4 +183,21 @@ class ConversationStoreTest {
         verify(messageMapper).deleteById(300L);
         verify(conversationMapper, never()).deleteById(any(Long.class));
     }
+
+    // ===== deleteConversation =====
+
+    @Test
+    void deleteConversation_命中_会话软删并级联软删消息() {
+        when(conversationMapper.delete(any())).thenReturn(1); // 1 行命中（本人）
+        store.deleteConversation(100L, 42L);
+        verify(conversationMapper).delete(any());
+        verify(messageMapper).delete(any()); // 级联软删该会话消息
+    }
+
+    @Test
+    void deleteConversation_未命中_不级联_不抛错() {
+        when(conversationMapper.delete(any())).thenReturn(0); // 非本人/已删 → 0 行
+        store.deleteConversation(100L, 42L); // 幂等：不抛错
+        verify(messageMapper, never()).delete(any());
+    }
 }

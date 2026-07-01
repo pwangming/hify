@@ -680,3 +680,11 @@ mvn -f server/pom.xml test
 - 前端：App 类型加 modelUsable；列表模型列在 modelName 后按 !modelUsable 追加灰色「（已停用）」（同一行渲染消除空格间隙，保证连续文本）。
 - 怎么自证：`mvn test` 全量 196/0/0（+4：filterUsableChatModelIds 2 + facade 透传 1 + 分页 modelUsable 1）；`pnpm test` 109 全绿（+2）、build、lint 通过。
 - 反向验证：把列表用例的 WITH_MODEL.modelUsable 改 true，「名字后加（已停用）」用例会因后缀不出现而红。
+
+## conversation ⑦ 会话管理 Task1：删除会话（软删+级联+幂等，2026-07-01）
+- 对应改动：`ConversationStore.deleteConversation`（@Transactional，事务收口）、`ConversationService.deleteConversation`（薄委托、无事务）、`ConversationController` 新增 `DELETE /api/v1/conversation/conversations/{id}`（成员族，返 `Result<Void>` data:null）。分支 `feat/conversation-management`。
+- 做了什么：按 `user_id` 作用域软删会话（`conversationMapper.delete(wrapper.eq(id).eq(userId))`，@TableLogic 转 UPDATE deleted=true），命中(rows>0)才级联软删该会话消息。0 行命中（非本人/已删）静默成功——满足 DELETE 幂等（api-standards §2.2）且不泄露存在性。权限仅本人（会话族口径），与应用的 owner+admin 不同。
+- TDD：先写 3 类失败测试（StoreTest 2：命中级联/未命中不级联；ServiceTest 1：委托传当前用户；ControllerTest 2：200+dataNull/未登录401）→ 跑出「红」= `deleteConversation` 方法未定义（功能缺失，非拼写）→ 写实现 → 转「绿」。
+- 怎么自证：`mvn test -Dtest=ConversationStoreTest,ConversationServiceTest,ConversationControllerTest` → `Tests run: 35, Failures: 0, Errors: 0`（Store 11 + Service 15 + Controller 9）。判定直接读 Tests run/Failures/Errors 行，不 grep BUILD SUCCESS。
+- 反向验证：`deleteConversation_未命中_不级联` 用例 stub delete→0 并断言 `messageMapper.delete` never——若实现漏掉 `if (rows>0)` 无脑级联，此用例立刻红，守住幂等+级联逻辑。
+- 无表结构变更、无新 Flyway、无新错误码（17xxx 不动）。下一步 Task2 重命名会话。
