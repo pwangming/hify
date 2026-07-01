@@ -721,3 +721,12 @@ mvn -f server/pom.xml test
 - 怎么自证：`pnpm vitest run src/views/conversation/__tests__/ChatView.spec.ts` → `Tests 14 passed`（原 8 + 新 6）；`pnpm typecheck` 无错。
 - 反向验证：「AI 气泡流式中不显示复制、结束后显示」——若 canCopy 漏掉 sending 判定，流式中就会渲染复制图标，该用例因 exists()===true 而红。
 - 下一步 Task6：对话入口（ChatHome 应用选择页 + 菜单 + 默认落地页 /chat）。
+
+## conversation ⑦ 会话管理 Task6：对话入口（ChatHome + 菜单 + 默认落地页，2026-07-01）
+- 对应改动：新增 `views/conversation/ChatHome.vue`（应用选择页，复用 `listApps` 拉应用、前端过滤 status==='enabled' 渲染卡片、点卡片 router.push `/apps/{id}/chat`、modelUsable=false 置灰不跳、空态 el-empty 引导去应用管理）；`router/index.ts`（新增 `/chat` 路由 menu+icon ChatDotRound，`/` 重定向由 `/knowledge` 改 `/chat`，对话菜单置于首位）；`DefaultLayout.vue`（iconMap 补 ChatDotRound——字符串名→组件映射，不补则菜单无图标）。
+- 修复目标：原「聊天藏在应用管理→试聊」层级太深；现顶部「对话」为最高频入口，登录默认落此页。试聊按钮保留作快捷入口（Task7），两路同终点 /apps/:appId/chat。
+- TDD：先写 ChatHome.spec 4 失败测试（只渲染已启用/点卡片 push/模型不可用不跳/空态）→ 真「红」= 组件不存在 → 实现 → 绿。
+- 不破坏既有测试：menu.spec/guard.spec/DefaultLayout.spec 均用自造路由 fixture（非真实路由表），改真实重定向不影响；已连跑 router+layout 测试全绿。
+- 怎么自证：`pnpm vitest run ChatHome.spec + src/router/__tests__ + src/layouts/__tests__` → `5 files / 24 passed`；`pnpm typecheck` 无错。
+- 反向验证：「模型不可用的卡片点击不跳转」——若 open() 漏掉 `if (!a.modelUsable) return`，push 会被调用，该用例因 `push` 被调而红。
+- 下一步 Task7：AppList 试聊按钮改实心蓝底 small、与其它按钮同排（全员可见）。

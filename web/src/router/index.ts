@@ -4,7 +4,13 @@ import { authGuard } from './guard'
 // 集中式路由表：页面与权限 meta 一处可览，便于审查（见 frontend-standards.md 第 7 节）。
 // meta 约定：requiresAuth / roles / title / menu / layout（类型见 types/router.d.ts）。
 const routes: RouteRecordRaw[] = [
-  { path: '/', redirect: '/knowledge' },
+  { path: '/', redirect: '/chat' },
+  {
+    path: '/chat',
+    name: 'ChatHome',
+    component: () => import('@/views/conversation/ChatHome.vue'),
+    meta: { requiresAuth: true, title: '对话', menu: true, icon: 'ChatDotRound' },
+  },
   {
     path: '/knowledge',
     name: 'KnowledgeList',
