@@ -168,4 +168,25 @@ class ConversationControllerTest {
         mockMvc.perform(delete("/api/v1/conversation/conversations/100"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void 重命名_成员_200() throws Exception {
+        mockMvc.perform(post("/api/v1/conversation/conversations/100/rename")
+                        .header("Authorization", "Bearer " + memberToken())
+                        .contentType("application/json")
+                        .content("{\"title\":\"新标题\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+        verify(conversationService).renameConversation(eq(100L), eq("新标题"), any());
+    }
+
+    @Test
+    void 重命名_空标题_400() throws Exception {
+        mockMvc.perform(post("/api/v1/conversation/conversations/100/rename")
+                        .header("Authorization", "Bearer " + memberToken())
+                        .contentType("application/json")
+                        .content("{\"title\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(10001));
+    }
 }

@@ -200,4 +200,33 @@ class ConversationStoreTest {
         store.deleteConversation(100L, 42L); // 幂等：不抛错
         verify(messageMapper, never()).delete(any());
     }
+
+    // ===== renameConversation =====
+
+    @Test
+    void renameConversation_owner_改title并strip() {
+        Conversation existing = new Conversation();
+        existing.setId(100L);
+        existing.setUserId(42L);
+        when(conversationMapper.selectById(eq(100L))).thenReturn(existing);
+        ArgumentCaptor<Conversation> cc = ArgumentCaptor.forClass(Conversation.class);
+
+        store.renameConversation(100L, 42L, "  新标题  ");
+
+        verify(conversationMapper).updateById((Conversation) cc.capture());
+        assertEquals(100L, cc.getValue().getId());
+        assertEquals("新标题", cc.getValue().getTitle()); // 已 strip
+    }
+
+    @Test
+    void renameConversation_他人会话_404_不更新() {
+        Conversation other = new Conversation();
+        other.setUserId(999L);
+        when(conversationMapper.selectById(eq(100L))).thenReturn(other);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> store.renameConversation(100L, 42L, "x"));
+        assertEquals(CommonError.NOT_FOUND, ex.errorCode());
+        verify(conversationMapper, never()).updateById(any(Conversation.class));
+    }
 }

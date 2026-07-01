@@ -119,6 +119,10 @@ public class ConversationService {
         store.deleteConversation(conversationId, current.userId());
     }
 
+    public void renameConversation(Long conversationId, String title, CurrentUser current) {
+        store.renameConversation(conversationId, current.userId(), title);
+    }
+
     private static String textOf(ChatResponse cr) {
         return cr.getResults().isEmpty() ? null : cr.getResult().getOutput().getText();
     }

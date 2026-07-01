@@ -6,6 +6,7 @@ import com.hify.common.Result;
 import com.hify.common.exception.BizException;
 import com.hify.conversation.dto.ConversationView;
 import com.hify.conversation.dto.MessageView;
+import com.hify.conversation.dto.RenameConversationRequest;
 import com.hify.conversation.dto.SendMessageRequest;
 import com.hify.conversation.dto.SendMessageResponse;
 import com.hify.conversation.dto.StreamPayloads;
@@ -77,6 +78,13 @@ public class ConversationController {
     @DeleteMapping("/conversations/{id}")
     public Result<Void> deleteConversation(@PathVariable Long id) {
         conversationService.deleteConversation(id, CurrentUserHolder.current());
+        return Result.ok(null);
+    }
+
+    @PostMapping("/conversations/{id}/rename")
+    public Result<Void> renameConversation(@PathVariable Long id,
+                                           @Valid @RequestBody RenameConversationRequest req) {
+        conversationService.renameConversation(id, req.title(), CurrentUserHolder.current());
         return Result.ok(null);
     }
 

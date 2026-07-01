@@ -213,6 +213,12 @@ class ConversationServiceTest {
         verify(store).deleteConversation(100L, 42L);
     }
 
+    @Test
+    void renameConversation_委托store_传当前用户与标题() {
+        service.renameConversation(100L, "新名", member);
+        verify(store).renameConversation(100L, 42L, "新名");
+    }
+
     // ===== sendStream 辅助 =====
 
     private org.springframework.ai.chat.model.ChatResponse chunk(String text) {

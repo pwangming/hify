@@ -142,6 +142,16 @@ public class ConversationStore {
         }
     }
 
+    /** 重命名：assertOwned（非本人/不存在 → 404）后改 title；update_time 由 MetaObjectHandler 自动 touch。 */
+    @Transactional
+    public void renameConversation(Long conversationId, Long userId, String title) {
+        assertOwned(conversationId, userId);
+        Conversation c = new Conversation();
+        c.setId(conversationId);
+        c.setTitle(title.strip());
+        conversationMapper.updateById(c);
+    }
+
     private void assertOwned(Long conversationId, Long userId) {
         Conversation c = conversationMapper.selectById(conversationId);
         if (c == null || !userId.equals(c.getUserId())) {

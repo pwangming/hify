@@ -688,3 +688,12 @@ mvn -f server/pom.xml test
 - 怎么自证：`mvn test -Dtest=ConversationStoreTest,ConversationServiceTest,ConversationControllerTest` → `Tests run: 35, Failures: 0, Errors: 0`（Store 11 + Service 15 + Controller 9）。判定直接读 Tests run/Failures/Errors 行，不 grep BUILD SUCCESS。
 - 反向验证：`deleteConversation_未命中_不级联` 用例 stub delete→0 并断言 `messageMapper.delete` never——若实现漏掉 `if (rows>0)` 无脑级联，此用例立刻红，守住幂等+级联逻辑。
 - 无表结构变更、无新 Flyway、无新错误码（17xxx 不动）。下一步 Task2 重命名会话。
+
+## conversation ⑦ 会话管理 Task2：重命名会话（动作子资源 POST /rename，2026-07-01）
+- 对应改动：`RenameConversationRequest`（新 DTO，`@NotBlank @Size(max=100)`）、`ConversationStore.renameConversation`（@Transactional，assertOwned→改 title.strip）、`ConversationService.renameConversation`（薄委托）、`ConversationController` 新增 `POST /api/v1/conversation/conversations/{id}/rename`。
+- 做了什么：重命名用**动作子资源 POST**（非 PUT 全量——会话唯一可改字段就是标题，PUT「未传置空」语义危险）。权限口径与删除**不同**：改名要给用户明确反馈，改他人/不存在会话经 `assertOwned` 抛 404（复用 CommonError.NOT_FOUND），非幂等静默。空标题经 @NotBlank → 10001/400。
+- TDD：先写失败测试（StoreTest 2：owner改名strip/他人404不更新；ServiceTest 1：委托；ControllerTest 2：200/空标题400）→ 从 server 目录跑出真「红」= `renameConversation` 未定义 → 写实现 → 绿。
+- 踩坑：`verify(...).updateById(any())` 编译歧义（MyBatis-Plus updateById 有 `(T)` 与 `(Collection<T>)` 两重载），改 `any(Conversation.class)` 消歧义——先跑编译才暴露。另注意 mvn 必须在 `server/` 目录下跑，切到仓库根会报「no POM」的假失败。
+- 怎么自证：`mvn test` 全量 `Tests run: 287, Failures: 0, Errors: 0`（含 ModularityTests/LayerRulesTest；新 DTO 不 import entity，模块边界不破）。
+- 反向验证：`renameConversation_他人会话_404_不更新` 断言 updateById never——若实现漏掉 assertOwned 直接更新，此用例因 updateById 被调而红，守住「仅本人」权限。
+- 无表结构变更、无新 Flyway、无新错误码。后端两端点（删除+重命名）完成，下一步转前端 Task3（api/store 接线）。
