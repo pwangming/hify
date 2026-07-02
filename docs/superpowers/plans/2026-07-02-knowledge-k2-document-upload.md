@@ -1072,7 +1072,7 @@ cd /home/wang/playlab/hify && git add server/src/main/java/com/hify/knowledge se
 - Consumes: Task 3 的 `DocumentService` 四方法；`CurrentUserHolder.current()`；`Result.ok`。
 - Produces: HTTP 端点 `POST /api/v1/knowledge/datasets/{datasetId}/documents`（multipart 字段名 `file`）、`GET .../datasets/{datasetId}/documents`、`DELETE /api/v1/knowledge/documents/{id}`、`GET .../documents/{id}/chunks`——前端 Task 5 对接。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `server/src/test/java/com/hify/knowledge/controller/DocumentControllerTest.java`（安全栈 @Import 照 DatasetControllerTest；@WebMvcTest 自动装配 @RestControllerAdvice，缺 file 分支能测到）：
 
@@ -1197,7 +1197,7 @@ class DocumentControllerTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认编译失败（红）**
+- [x] **Step 2: 跑测试确认编译失败（红）**
 
 ```bash
 cd /home/wang/playlab/hify/server && mvn test -Dtest=DocumentControllerTest
@@ -1205,7 +1205,7 @@ cd /home/wang/playlab/hify/server && mvn test -Dtest=DocumentControllerTest
 
 Expected: `COMPILATION ERROR`（DocumentController 不存在）。
 
-- [ ] **Step 3: 写 Controller + 补异常处理器**
+- [x] **Step 3: 写 Controller + 补异常处理器**
 
 `server/src/main/java/com/hify/knowledge/controller/DocumentController.java`：
 
@@ -1296,7 +1296,7 @@ public class DocumentController {
     }
 ```
 
-- [ ] **Step 4: 跑测试确认全绿**
+- [x] **Step 4: 跑测试确认全绿**
 
 ```bash
 cd /home/wang/playlab/hify/server && mvn test -Dtest=DocumentControllerTest
@@ -1304,7 +1304,7 @@ cd /home/wang/playlab/hify/server && mvn test -Dtest=DocumentControllerTest
 
 Expected: `Tests run: 6, Failures: 0, Errors: 0`。
 
-- [ ] **Step 5: 后端全量回归（含 ModularityTests/ArchUnit）**
+- [x] **Step 5: 后端全量回归（含 ModularityTests/ArchUnit）**
 
 ```bash
 cd /home/wang/playlab/hify/server && mvn test
@@ -1312,7 +1312,7 @@ cd /home/wang/playlab/hify/server && mvn test
 
 Expected: `BUILD SUCCESS`，0 failures（基线 309 + 本轮新增 TextChunker 8 + DocumentService 16 + Dataset 级联 1 + Controller 6 = 340）。若 Modulith 红：检查 knowledge 是否误 import 其他模块；GlobalExceptionHandler 属 infra，knowledge 不 import 它（异常经 Spring 分发，无编译依赖）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add server/src/main/java/com/hify/knowledge/controller server/src/test/java/com/hify/knowledge/controller server/src/main/java/com/hify/infra/web/GlobalExceptionHandler.java && git commit -m "feat(knowledge): 文档上传/列表/删除/分段预览接口 + multipart 异常转 10001（TDD）"

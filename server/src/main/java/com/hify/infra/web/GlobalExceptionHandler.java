@@ -11,6 +11,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
@@ -81,6 +83,25 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(CommonError.NOT_FOUND.status())
                 .body(Result.fail(CommonError.NOT_FOUND));
+    }
+
+    /**
+     * 上传超过 spring.servlet.multipart 限制（50MB）。归 10001/400（api-standards §6：超限返回 10001），
+     * 否则会被兜底误判为 500。
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Result<Object>> handleMaxUpload(MaxUploadSizeExceededException ex) {
+        return ResponseEntity
+                .status(CommonError.PARAM_INVALID.status())
+                .body(Result.fail(CommonError.PARAM_INVALID, "文件大小超过限制（单文件最大 50MB）"));
+    }
+
+    /** multipart 请求缺少必需的文件字段（如上传接口缺 'file'）。归 10001/400。 */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<Result<Object>> handleMissingPart(MissingServletRequestPartException ex) {
+        return ResponseEntity
+                .status(CommonError.PARAM_INVALID.status())
+                .body(Result.fail(CommonError.PARAM_INVALID, "缺少文件参数 '" + ex.getRequestPartName() + "'"));
     }
 
     /** 兜底：未预期异常。原始异常只打日志，响应只给「系统繁忙」。 */
