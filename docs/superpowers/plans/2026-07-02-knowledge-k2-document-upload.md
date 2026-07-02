@@ -1459,7 +1459,7 @@ cd /home/wang/playlab/hify && git add web/src/types/knowledge.ts web/src/api/kno
 - Consumes: Task 5 的 API 函数与类型；既有 `getDataset`、`useUserStore`、`PageHeader`/`ContentCard`、`formatDateTime`。
 - Produces: 路由 `/knowledge/:id`（name `DatasetDetail`）；用户可见的文档管理页。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `web/src/views/knowledge/__tests__/DatasetDetail.spec.ts`：
 
@@ -1611,7 +1611,7 @@ vi.mock('vue-router', () => ({ useRouter: () => ({ push: routerPush }) }))
   })
 ```
 
-- [ ] **Step 2: 跑测试确认失败（红）**
+- [x] **Step 2: 跑测试确认失败（红）**
 
 ```bash
 cd /home/wang/playlab/hify/web && pnpm vitest run src/views/knowledge
@@ -1619,7 +1619,7 @@ cd /home/wang/playlab/hify/web && pnpm vitest run src/views/knowledge
 
 Expected: DatasetDetail.spec 全部 FAIL（组件不存在）；KnowledgeList 新用例 FAIL（无 open-1 链接）。
 
-- [ ] **Step 3: 实现——路由、列表入口、详情页**
+- [x] **Step 3: 实现——路由、列表入口、详情页**
 
 3a. `web/src/router/index.ts` 在 KnowledgeList 路由对象之后插入：
 
@@ -1903,7 +1903,7 @@ function formatFileSize(bytes: string): string {
 </style>
 ```
 
-- [ ] **Step 4: 跑测试确认全绿**
+- [x] **Step 4: 跑测试确认全绿**
 
 ```bash
 cd /home/wang/playlab/hify/web && pnpm vitest run src/views/knowledge
@@ -1911,7 +1911,7 @@ cd /home/wang/playlab/hify/web && pnpm vitest run src/views/knowledge
 
 Expected: DatasetDetail 8 passed + KnowledgeList 10 passed（9 + 新增 1）。
 
-- [ ] **Step 5: 前端全量回归 + 类型检查**
+- [x] **Step 5: 前端全量回归 + 类型检查**
 
 ```bash
 cd /home/wang/playlab/hify/web && pnpm test && pnpm typecheck
@@ -1919,7 +1919,7 @@ cd /home/wang/playlab/hify/web && pnpm test && pnpm typecheck
 
 Expected: 全部通过（既有 183 + api 4 + KnowledgeList 1 + DatasetDetail 8 = 196），`vue-tsc` 零错误。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add web/src/router/index.ts web/src/views/knowledge && git commit -m "feat(web): 知识库详情页（上传/文档列表/分段预览抽屉）+ 列表入口（TDD）"

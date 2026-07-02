@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { listDatasets, createDataset, updateDataset, deleteDataset } from '@/api/knowledge'
 import type { Dataset, DatasetForm } from '@/types/knowledge'
@@ -12,6 +13,7 @@ const NAME_MAX = 50
 const DESC_MAX = 200
 
 const userStore = useUserStore()
+const router = useRouter()
 
 const datasets = ref<Dataset[]>([])
 const total = ref(0)
@@ -23,6 +25,10 @@ const loading = ref(false)
 /** 团队共享制：仅 owner 或 Admin 可改/删（与后端 10004 双保险）。 */
 function canModify(dataset: Dataset): boolean {
   return userStore.isAdmin || dataset.ownerId === userStore.user?.id
+}
+
+function openDetail(row: Dataset) {
+  router.push(`/knowledge/${row.id}`)
 }
 
 async function load() {
@@ -133,7 +139,17 @@ async function submitForm() {
 
     <ContentCard>
       <el-table v-loading="loading" :data="datasets" data-test="dataset-table">
-        <el-table-column prop="name" label="名称" />
+        <el-table-column label="名称">
+          <template #default="{ row }">
+            <el-link
+              type="primary"
+              :underline="false"
+              :data-test="`open-${(row as Dataset).id}`"
+              @click="openDetail(row as Dataset)"
+              >{{ (row as Dataset).name }}</el-link
+            >
+          </template>
+        </el-table-column>
         <el-table-column prop="description" label="描述" show-overflow-tooltip />
         <el-table-column label="归属">
           <template #default="{ row }">

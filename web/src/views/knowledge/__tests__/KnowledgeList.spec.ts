@@ -13,6 +13,9 @@ vi.mock('@/api/knowledge', () => ({
   updateDataset: vi.fn(), deleteDataset: vi.fn(),
 }))
 
+const routerPush = vi.fn()
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: routerPush }) }))
+
 globalThis.ResizeObserver = class {
   observe() {} unobserve() {} disconnect() {}
 } as unknown as typeof ResizeObserver
@@ -120,5 +123,12 @@ describe('KnowledgeList', () => {
     expect(listDatasets).toHaveBeenCalledOnce()
     expect(wrapper.find('[data-test="dataset-table"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('客服知识库')
+  })
+
+  it('点名称链接跳转详情页', async () => {
+    const wrapper = mount(KnowledgeList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="open-1"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/knowledge/1')
   })
 })

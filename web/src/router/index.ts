@@ -18,6 +18,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, title: '知识库管理', menu: true, icon: 'Collection' },
   },
   {
+    path: '/knowledge/:id',
+    name: 'DatasetDetail',
+    component: () => import('@/views/knowledge/DatasetDetail.vue'),
+    meta: { requiresAuth: true, title: '知识库详情' },
+  },
+  {
     path: '/app',
     name: 'AppList',
     component: () => import('@/views/app/AppList.vue'),
