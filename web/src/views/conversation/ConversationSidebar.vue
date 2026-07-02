@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Plus, EditPen, Delete } from '@element-plus/icons-vue'
+import { Plus, MoreFilled } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import type { ConversationView } from '@/types/conversation'
 
@@ -41,6 +41,12 @@ async function onDelete(c: ConversationView) {
   } catch {
     /* 用户取消 */
   }
+}
+
+/** 3 点菜单分发。 */
+function onCommand(cmd: string | number | object, c: ConversationView) {
+  if (cmd === 'rename') onRename(c)
+  else if (cmd === 'delete') onDelete(c)
 }
 
 // el-collapse 的展开项（name 列表）：默认四组全展开；用户折叠时 el-collapse 自行增删。仅内存态。
@@ -124,19 +130,16 @@ const groups = computed<Group[]>(() => {
             >
               <span v-if="g.key === 'older'" class="sidebar__date">{{ ymd(c.updateTime) }}</span>
               <span class="sidebar__title">{{ c.title ?? '未命名会话' }}</span>
-              <span class="sidebar__ops">
-                <el-icon
-                  class="sidebar__op"
-                  :data-test="`conv-rename-${c.id}`"
-                  title="重命名"
-                  @click.stop="onRename(c)"
-                ><EditPen /></el-icon>
-                <el-icon
-                  class="sidebar__op"
-                  :data-test="`conv-delete-${c.id}`"
-                  title="删除"
-                  @click.stop="onDelete(c)"
-                ><Delete /></el-icon>
+              <span class="sidebar__ops" @click.stop>
+                <el-dropdown trigger="click" @command="(cmd: string | number | object) => onCommand(cmd, c)">
+                  <el-icon class="sidebar__op" :data-test="`conv-ops-${c.id}`" title="更多"><MoreFilled /></el-icon>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="rename" :data-test="`conv-rename-${c.id}`">重命名</el-dropdown-item>
+                      <el-dropdown-item command="delete" divided :data-test="`conv-delete-${c.id}`">删除</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </span>
             </li>
           </ul>
@@ -202,6 +205,7 @@ const groups = computed<Group[]>(() => {
 
   &__item {
     display: flex;
+    align-items: center; // 3 点图标与标题文字垂直对齐
     gap: 6px;
     padding: 8px 10px;
     border-radius: 6px;

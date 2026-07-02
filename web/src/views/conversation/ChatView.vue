@@ -17,6 +17,10 @@ const { conversations, messages, currentId, sending } = storeToRefs(store)
 
 const input = ref('')
 
+// 行内编辑态：正在编辑的用户消息 id 与其文本。null=无。
+const editingId = ref<string | null>(null)
+const editingText = ref('')
+
 // URL query.c 是当前会话 id 的「真相」：刷新/切换都以它为准载入历史。
 const queryCid = computed(() => (route.query.c as string | undefined) ?? null)
 
@@ -46,10 +50,8 @@ function startNew() {
   if (queryCid.value) router.replace({ query: {} })
 }
 
-async function onSend() {
-  const text = input.value.trim()
-  if (!text || sending.value) return
-  input.value = ''
+// 发送一条文本（新会话首发写回 URL + 刷新侧边栏）。输入框与行内编辑共用。
+async function deliver(text: string) {
   const wasNew = currentId.value === null
   try {
     const cid = await store.send(appId, text)
@@ -63,6 +65,14 @@ async function onSend() {
   }
 }
 
+async function onSend() {
+  if (sending.value) return
+  const text = input.value.trim()
+  if (!text) return
+  input.value = ''
+  await deliver(text)
+}
+
 // 复制可见性：用户气泡恒可复制；AI 气泡「正在流式的最后一条」不可复制（内容未完），done 后自然显现。
 function canCopy(m: MessageView, i: number): boolean {
   if (m.role === 'user') return true
@@ -74,9 +84,22 @@ async function copyMsg(m: MessageView) {
   ElMessage.success('已复制')
 }
 
-// 轻量编辑（B）：把原文回填输入框供修改，历史不动，改完当作新消息发送。
-function editMsg(m: MessageView) {
-  input.value = m.content
+// 轻量编辑（B）：在原消息上行内编辑，历史不动；发送时在底部生成一条新消息。
+function startEdit(m: MessageView) {
+  editingId.value = m.id
+  editingText.value = m.content
+}
+
+function cancelEdit() {
+  editingId.value = null
+}
+
+async function submitEdit() {
+  if (sending.value) return
+  const text = editingText.value.trim()
+  if (!text) return
+  editingId.value = null
+  await deliver(text) // 底部生成新消息，原消息保持不变
 }
 
 function onRenameConv(payload: { id: string; title: string }) {
@@ -104,21 +127,37 @@ async function onDeleteConv(id: string) {
         <div
           v-for="(m, i) in messages"
           :key="m.id"
-          :class="['chat__bubble', `chat__bubble--${m.role}`]"
+          :class="['chat__row', `chat__row--${m.role}`]"
           data-test="msg"
         >
-          <div class="chat__bubble-text">{{ m.content }}</div>
-          <div :class="['chat__bubble-ops', `chat__bubble-ops--${m.role}`]">
+          <div class="chat__bubble">
+            <!-- 行内编辑（仅用户消息）：编辑框预填原文 + 发送/取消 -->
+            <div v-if="editingId === m.id" class="chat__edit">
+              <div :data-test="`edit-input-${m.id}`">
+                <el-input v-model="editingText" type="textarea" :rows="2" />
+              </div>
+              <div class="chat__edit-actions">
+                <el-button size="small" @click="cancelEdit">取消</el-button>
+                <el-button size="small" type="primary" :data-test="`edit-send-${m.id}`" @click="submitEdit">
+                  发送
+                </el-button>
+              </div>
+            </div>
+            <div v-else class="chat__bubble-text">{{ m.content }}</div>
+          </div>
+          <!-- 操作图标：气泡外，hover 显现；用户右下角（复制+编辑）、AI 左下角（复制，回答完成后可用） -->
+          <div v-if="editingId !== m.id" class="chat__ops">
+            <template v-if="m.role === 'user'">
+              <el-icon class="chat__op" :data-test="`copy-msg-${m.id}`" title="复制" @click="copyMsg(m)"><DocumentCopy /></el-icon>
+              <el-icon class="chat__op" :data-test="`edit-msg-${m.id}`" title="重新编辑后发送" @click="startEdit(m)"><EditPen /></el-icon>
+            </template>
             <el-icon
-              v-if="canCopy(m, i)"
+              v-else-if="canCopy(m, i)"
               class="chat__op"
               :data-test="`copy-msg-${m.id}`"
               title="复制"
               @click="copyMsg(m)"
             ><DocumentCopy /></el-icon>
-            <el-tooltip v-if="m.role === 'user'" content="重新编辑后发送" placement="top">
-              <el-icon class="chat__op" :data-test="`edit-msg-${m.id}`" @click="editMsg(m)"><EditPen /></el-icon>
-            </el-tooltip>
           </div>
         </div>
       </div>
@@ -163,43 +202,59 @@ async function onDeleteConv(id: string) {
     gap: 8px;
   }
 
-  &__bubble {
+  // 每条消息一「行」：气泡 +（AI）外部复制按钮，按角色左右对齐
+  &__row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     max-width: 70%;
-    padding: 8px 12px;
-    border-radius: 8px;
-    white-space: pre-wrap;
-    word-break: break-word;
 
     &--user {
       align-self: flex-end;
-      background: var(--el-color-primary-light-8);
+      align-items: flex-end;
     }
 
     &--assistant {
       align-self: flex-start;
-      background: var(--el-fill-color-light);
+      align-items: flex-start;
     }
   }
 
-  // 气泡操作区：默认隐藏，气泡 hover 时显现；用户右下角、AI 左下角
-  &__bubble-ops {
+  &__bubble {
+    padding: 8px 12px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  &__row--user &__bubble {
+    background: var(--el-color-primary-light-8);
+  }
+
+  &__row--assistant &__bubble {
+    background: var(--el-fill-color-light);
+  }
+
+  // 操作图标区：气泡外，默认隐藏，整行 hover 时显现。
+  // 左右对齐由 row 的 align-items 决定（用户右下、AI 左下）。
+  &__ops {
     display: flex;
     gap: 8px;
-    margin-top: 4px;
+    min-height: 16px;
     opacity: 0;
     transition: opacity 0.15s;
-
-    &--user {
-      justify-content: flex-end;
-    }
-
-    &--assistant {
-      justify-content: flex-start;
-    }
   }
 
-  &__bubble:hover &__bubble-ops {
+  &__row:hover &__ops {
     opacity: 1;
+  }
+
+  // 行内编辑框
+  &__edit-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 6px;
   }
 
   &__op {

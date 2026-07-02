@@ -154,6 +154,19 @@ describe('ChatView', () => {
     expect(writeText).toHaveBeenCalledWith('用户说的话')
   })
 
+  it('用户消息的复制/编辑图标在气泡外（不在 .chat__bubble 内）', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({ id: 'u1', role: 'user', content: '问', promptTokens: null, completionTokens: null, createTime: '' })
+    await nextTick()
+    const bubble = wrapper.find('[data-test="msg"] .chat__bubble')
+    expect(bubble.find('[data-test="copy-msg-u1"]').exists()).toBe(false) // 不在气泡内
+    expect(bubble.find('[data-test="edit-msg-u1"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="copy-msg-u1"]').exists()).toBe(true) // 但在行内（气泡外）
+    expect(wrapper.find('[data-test="edit-msg-u1"]').exists()).toBe(true)
+  })
+
   it('AI 气泡流式中不显示复制、结束后显示', async () => {
     wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
@@ -168,7 +181,7 @@ describe('ChatView', () => {
     expect(wrapper.find('[data-test="copy-msg-a1"]').exists()).toBe(true) // 结束后显示
   })
 
-  it('编辑用户消息回填输入框，不新增消息', async () => {
+  it('编辑用户消息：点编辑 → 行内编辑框预填原文', async () => {
     wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
     const store = useConversationStore()
@@ -176,9 +189,23 @@ describe('ChatView', () => {
     await nextTick()
     await wrapper.find('[data-test="edit-msg-u1"]').trigger('click')
     await nextTick()
-    const textarea = wrapper.find('[data-test="chat-input"] textarea').element as HTMLTextAreaElement
-    expect(textarea.value).toBe('原始内容')
-    expect(store.messages).toHaveLength(1) // 未新增消息
+    const editInput = wrapper.find('[data-test="edit-input-u1"] textarea').element as HTMLTextAreaElement
+    expect(editInput.value).toBe('原始内容')
+  })
+
+  it('编辑用户消息：改文本后发送 → 底部新增消息，原消息不变', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({ id: 'u1', role: 'user', content: '原始内容', promptTokens: null, completionTokens: null, createTime: '' })
+    await nextTick()
+    await wrapper.find('[data-test="edit-msg-u1"]').trigger('click')
+    await nextTick()
+    await wrapper.find('[data-test="edit-input-u1"] textarea').setValue('修改后的内容')
+    await wrapper.find('[data-test="edit-send-u1"]').trigger('click')
+    await flushPromises()
+    expect(store.messages[0].content).toBe('原始内容') // 原消息保留不变
+    expect(store.messages.some((m) => m.content === '修改后的内容')).toBe(true) // 底部新增一条
   })
 
   it('输入框下方显示 AI 免责提示', async () => {

@@ -745,3 +745,18 @@ mvn -f server/pom.xml test
 - 本轮（⑦）7 个功能任务全部完成，分支 `feat/conversation-management`，逐任务提交：Task1 删除会话 / Task2 重命名会话 / Task3 前端 api-store 接线 / Task4 侧边栏操作 / Task5 气泡复制-编辑-免责+接线 / Task6 对话入口 ChatHome+菜单+默认落地 / Task7 试聊按钮样式。
 - 待人工手验（需登录跑真环境）：默认落对话页→选应用进聊天；会话重命名/删除即时生效且刷新持久；用户气泡复制/编辑（编辑回填输入框发新消息）；AI 回答完成后左下角复制；输入框下方免责提示；试聊实心蓝底同排、他人应用可试聊但无编辑删除。
 - 本轮不做（留后）：真编辑重新生成、会话列表分页/查看全部、LLM 自动标题、知识库(RAG)、Agent 工具调用、对外 API。
+
+## conversation ⑦ 会话管理 UI 调整（按用户反馈，2026-07-01）
+- 三处调整（TDD 各自先红后绿）：
+  1. **用户消息行内编辑**：`ChatView.vue` 编辑不再回填主输入框，而是在原消息上出现行内编辑框（预填原文）+ 发送/取消；发送走抽出的 `deliver(text)`（与主输入框共用），在底部生成一条新消息，原消息不变。新增 `editingId/editingText` 态 + `startEdit/cancelEdit/submitEdit`。
+  2. **AI 复制移到气泡外**：消息按 `chat__row`（flex 列，按角色 align-self）重构；AI 复制按钮移出气泡、在气泡外左下角（row--assistant 的 align-items:flex-start 靠左），回答完成后显现（canCopy 不变）；用户复制/编辑仍在气泡内 hover。
+  3. **侧边栏 3 点下拉**：`ConversationSidebar.vue` 两个 hover 图标改为单个 MoreFilled（3 点）+ el-dropdown 菜单（重命名/删除），`@command` 分发到 onRename/onDelete；`sidebar__item` 加 `align-items:center` 让 3 点与标题文字对齐；`@click.stop` 防冒泡选中。
+- 踩坑：① el-input 把 `data-test` 透传到内部 `<textarea>`，故行内编辑框需外包一层 `<div :data-test>`（同主输入框写法），否则 `[data-test] textarea` 选择器为空。② el-dropdown 测试用 `findComponent(ElDropdown).vm.$emit('command', ...)` 驱动，绕开 teleport 弹层的不稳定；`@command` 内联箭头参数要显式标类型（`(cmd: string|number|object)`）否则 vue-tsc 报隐式 any。
+- 怎么自证：`pnpm test` 全量 `25 files / 168 passed`；`pnpm typecheck` 无错；`pnpm build` 成功；`pnpm lint` 通过。
+- 反向验证：① 编辑「底部新增、原消息不变」用例断言 messages[0] 仍为原文且存在新内容——若误改成原地修改历史，messages[0] 变化而红。② AI 复制「流式中不显示」仍由 canCopy 守。
+
+## conversation ⑦ 会话管理 UI 调整#2（图标全移气泡外 + hover，2026-07-01）
+- 按反馈再调：用户消息的复制/编辑图标从气泡内移到**气泡外右下角**、hover 才显现；AI 复制图标也从常显改为 **hover 才显现**。两侧对称——图标统一进气泡外的 `.chat__ops`（默认 opacity:0，`.chat__row:hover` 显现），左右对齐沿用 row 的 align-items（用户 flex-end 右、AI flex-start 左）。删除旧的 `.chat__bubble-ops`/`.chat__copy-external`。
+- TDD：新增结构测试「用户操作图标在气泡外」——断言 `.chat__bubble` 内找不到 copy/edit（`bubble.find(...).exists()===false`）、但行内（气泡外）能找到（`wrapper.find(...).exists()===true`）。先红（原在气泡内）→ 移出后绿。
+- 怎么自证：`pnpm test` 全量 `25 files / 169 passed`；`pnpm typecheck`、`pnpm build`、`pnpm lint` 均通过。
+- 反向验证：若把 ops 放回气泡内，「用户操作图标在气泡外」用例因 bubble 内 exists()===true 而红。
