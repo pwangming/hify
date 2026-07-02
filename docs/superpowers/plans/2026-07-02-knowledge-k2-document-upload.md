@@ -436,7 +436,7 @@ cd /home/wang/playlab/hify && git add server/src/main/java/com/hify/knowledge/se
   - `record ChunkResponse(Long id, Integer position, String content)`
   - `KnowledgeError.DOCUMENT_FORMAT_UNSUPPORTED(15004)` / `DOCUMENT_CONTENT_EMPTY(15001)`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `server/src/test/java/com/hify/knowledge/service/DocumentServiceTest.java`：
 
@@ -722,7 +722,7 @@ class DocumentServiceTest {
     }
 ```
 
-- [ ] **Step 2: 跑测试确认编译失败（红）**
+- [x] **Step 2: 跑测试确认编译失败（红）**
 
 ```bash
 cd /home/wang/playlab/hify/server && mvn test -Dtest='DocumentServiceTest,DatasetServiceTest'
@@ -730,7 +730,7 @@ cd /home/wang/playlab/hify/server && mvn test -Dtest='DocumentServiceTest,Datase
 
 Expected: `COMPILATION ERROR`（KnowledgeError/DocumentService/DTO 不存在、DatasetService 构造不匹配）。
 
-- [ ] **Step 3: 写 KnowledgeError**
+- [x] **Step 3: 写 KnowledgeError**
 
 `server/src/main/java/com/hify/knowledge/constant/KnowledgeError.java`：
 
@@ -778,7 +778,7 @@ public enum KnowledgeError implements ErrorCode {
 }
 ```
 
-- [ ] **Step 4: 写 DTO**
+- [x] **Step 4: 写 DTO**
 
 `server/src/main/java/com/hify/knowledge/dto/DocumentResponse.java`：
 
@@ -811,7 +811,7 @@ public record ChunkResponse(Long id, Integer position, String content) {
 }
 ```
 
-- [ ] **Step 5: 写 DocumentService + 改 DatasetService**
+- [x] **Step 5: 写 DocumentService + 改 DatasetService**
 
 `server/src/main/java/com/hify/knowledge/service/DocumentService.java`：
 
@@ -1045,7 +1045,7 @@ public class DocumentService {
     }
 ```
 
-- [ ] **Step 6: 跑测试确认全绿**
+- [x] **Step 6: 跑测试确认全绿**
 
 ```bash
 cd /home/wang/playlab/hify/server && mvn test -Dtest='DocumentServiceTest,DatasetServiceTest,TextChunkerTest'
@@ -1053,7 +1053,7 @@ cd /home/wang/playlab/hify/server && mvn test -Dtest='DocumentServiceTest,Datase
 
 Expected: DocumentServiceTest 16 + DatasetServiceTest 16（15 + 新增级联 1）+ TextChunkerTest 8，全部 0 failures。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add server/src/main/java/com/hify/knowledge server/src/test/java/com/hify/knowledge && git commit -m "feat(knowledge): DocumentService 上传/分段/预览 + 删除级联软删（TDD）"

@@ -8,6 +8,8 @@ import com.hify.knowledge.dto.CreateDatasetRequest;
 import com.hify.knowledge.dto.DatasetResponse;
 import com.hify.knowledge.dto.UpdateDatasetRequest;
 import com.hify.knowledge.entity.Dataset;
+import com.hify.knowledge.mapper.KbChunkMapper;
+import com.hify.knowledge.mapper.KbDocumentMapper;
 import com.hify.knowledge.mapper.DatasetMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,8 @@ import static org.mockito.Mockito.when;
 class DatasetServiceTest {
 
     private DatasetMapper mapper;
+    private KbDocumentMapper documentMapper;
+    private KbChunkMapper chunkMapper;
     private DatasetService service;
 
     private final CurrentUser owner = new CurrentUser(7L, "bob", CurrentUser.ROLE_MEMBER);
@@ -36,7 +40,9 @@ class DatasetServiceTest {
     @BeforeEach
     void setUp() {
         mapper = mock(DatasetMapper.class);
-        service = new DatasetService(mapper);
+        documentMapper = mock(KbDocumentMapper.class);
+        chunkMapper = mock(KbChunkMapper.class);
+        service = new DatasetService(mapper, documentMapper, chunkMapper);
     }
 
     /** bob(7) 拥有的一条知识库记录。 */
@@ -180,5 +186,14 @@ class DatasetServiceTest {
         when(mapper.selectById(10L)).thenReturn(owned());
         service.delete(10L, owner);
         verify(mapper).deleteById(10L); // @TableLogic 使 deleteById = update set deleted=true
+    }
+
+    @Test
+    void 删除_级联软删文档与分段() {
+        when(mapper.selectById(10L)).thenReturn(owned());
+        service.delete(10L, owner);
+        verify(mapper).deleteById(10L);
+        verify(documentMapper).delete(any());
+        verify(chunkMapper).delete(any());
     }
 }

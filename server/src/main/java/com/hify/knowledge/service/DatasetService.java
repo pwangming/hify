@@ -10,7 +10,11 @@ import com.hify.knowledge.dto.CreateDatasetRequest;
 import com.hify.knowledge.dto.DatasetResponse;
 import com.hify.knowledge.dto.UpdateDatasetRequest;
 import com.hify.knowledge.entity.Dataset;
+import com.hify.knowledge.entity.KbChunk;
+import com.hify.knowledge.entity.KbDocument;
 import com.hify.knowledge.mapper.DatasetMapper;
+import com.hify.knowledge.mapper.KbChunkMapper;
+import com.hify.knowledge.mapper.KbDocumentMapper;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +29,15 @@ import org.springframework.util.StringUtils;
 public class DatasetService {
 
     private final DatasetMapper datasetMapper;
+    private final KbDocumentMapper documentMapper;
+    private final KbChunkMapper chunkMapper;
 
-    public DatasetService(DatasetMapper datasetMapper) {
+    public DatasetService(DatasetMapper datasetMapper,
+                          KbDocumentMapper documentMapper,
+                          KbChunkMapper chunkMapper) {
         this.datasetMapper = datasetMapper;
+        this.documentMapper = documentMapper;
+        this.chunkMapper = chunkMapper;
     }
 
     @Transactional
@@ -83,6 +93,9 @@ public class DatasetService {
         }
         assertCanModify(dataset, current);
         datasetMapper.deleteById(id);
+        // 级联软删文档与分段（照 ⑦ 会话级联软删消息先例；@TableLogic 使 delete = update set deleted=true）
+        documentMapper.delete(new LambdaQueryWrapper<KbDocument>().eq(KbDocument::getDatasetId, id));
+        chunkMapper.delete(new LambdaQueryWrapper<KbChunk>().eq(KbChunk::getDatasetId, id));
     }
 
     private Dataset loadOrThrow(Long id) {
@@ -93,8 +106,8 @@ public class DatasetService {
         return dataset;
     }
 
-    /** 团队共享制：仅 owner 或 Admin 可改/删（api-standards 第 6 节），否则 FORBIDDEN。 */
-    private void assertCanModify(Dataset dataset, CurrentUser current) {
+    /** 团队共享制：仅 owner 或 Admin 可改/删（api-standards 第 6 节），否则 FORBIDDEN。包级 static 供同包 DocumentService 复用。 */
+    static void assertCanModify(Dataset dataset, CurrentUser current) {
         if (!current.isAdmin() && !current.userId().equals(dataset.getOwnerId())) {
             throw new BizException(CommonError.FORBIDDEN, "仅创建者或管理员可操作该知识库");
         }
