@@ -197,7 +197,7 @@ async function onDeleteConv(id: string) {
     flex: 1;
     flex-direction: column;
     gap: 12px;
-    padding: 16px;
+    padding: 16px 50px; // 问答区 + 输入框整体左右留白
   }
 
   &__list {
@@ -206,7 +206,7 @@ async function onDeleteConv(id: string) {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding-right: 12px; // 内容与右侧滚动条留距
+    padding-right: 24px; // 内容与右侧滚动条留距
   }
 
   // 每条消息一「行」：气泡 + 气泡外操作图标，按角色左右对齐
