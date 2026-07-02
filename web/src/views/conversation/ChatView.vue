@@ -162,19 +162,25 @@ async function onDeleteConv(id: string) {
         </div>
       </div>
       <div class="chat__input">
-        <div data-test="chat-input">
+        <div class="chat__input-box" data-test="chat-input">
           <el-input
             v-model="input"
             type="textarea"
-            :rows="2"
+            :rows="4"
             :disabled="sending"
             placeholder="输入消息，回车或点发送…"
             @keyup.enter.exact.prevent="onSend"
           />
+          <el-button
+            class="chat__send"
+            type="primary"
+            data-test="chat-send"
+            :loading="sending"
+            @click="onSend"
+          >
+            发送
+          </el-button>
         </div>
-        <el-button type="primary" data-test="chat-send" :loading="sending" @click="onSend">
-          发送
-        </el-button>
       </div>
       <p class="chat__disclaimer" data-test="ai-disclaimer">本回答由 AI 生成，请谨慎甄别</p>
     </div>
@@ -200,13 +206,14 @@ async function onDeleteConv(id: string) {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding-right: 12px; // 内容与右侧滚动条留距
   }
 
-  // 每条消息一「行」：气泡 +（AI）外部复制按钮，按角色左右对齐
+  // 每条消息一「行」：气泡 + 气泡外操作图标，按角色左右对齐
   &__row {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px; // 气泡与操作图标的距离
     max-width: 70%;
 
     &--user {
@@ -239,8 +246,9 @@ async function onDeleteConv(id: string) {
   // 左右对齐由 row 的 align-items 决定（用户右下、AI 左下）。
   &__ops {
     display: flex;
-    gap: 8px;
-    min-height: 16px;
+    gap: 16px; // 图标之间的间距
+    min-height: 18px;
+    padding: 0 2px;
     opacity: 0;
     transition: opacity 0.15s;
   }
@@ -259,6 +267,7 @@ async function onDeleteConv(id: string) {
 
   &__op {
     cursor: pointer;
+    font-size: 18px; // 图标整体放大
     color: var(--el-text-color-secondary);
 
     &:hover {
@@ -275,12 +284,23 @@ async function onDeleteConv(id: string) {
 
   &__input {
     display: flex;
-    gap: 8px;
-    align-items: flex-end;
+  }
 
-    > [data-test="chat-input"] {
-      flex: 1;
+  &__input-box {
+    position: relative;
+    flex: 1;
+
+    // 给内嵌的发送按钮留出底部空间，文字不被遮
+    :deep(.el-textarea__inner) {
+      padding-bottom: 44px;
     }
+  }
+
+  &__send {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 1;
   }
 }
 </style>

@@ -760,3 +760,8 @@ mvn -f server/pom.xml test
 - TDD：新增结构测试「用户操作图标在气泡外」——断言 `.chat__bubble` 内找不到 copy/edit（`bubble.find(...).exists()===false`）、但行内（气泡外）能找到（`wrapper.find(...).exists()===true`）。先红（原在气泡内）→ 移出后绿。
 - 怎么自证：`pnpm test` 全量 `25 files / 169 passed`；`pnpm typecheck`、`pnpm build`、`pnpm lint` 均通过。
 - 反向验证：若把 ops 放回气泡内，「用户操作图标在气泡外」用例因 bubble 内 exists()===true 而红。
+
+## conversation ⑦ 会话管理 UI 调整#3（间距/尺寸 + 发送按钮内嵌，2026-07-01）
+- 纯样式/布局微调（ChatView.vue）：`.chat__ops` 图标间距 8→16px、`.chat__op` font-size 18px（图标放大）；`.chat__row` gap 4→8px（气泡与图标距离，用户与 AI 同）；`.chat__list` 加 `padding-right:12px`（消息离右侧滚动条）；发送按钮移入输入框内——`.chat__input-box` 相对定位、`.chat__send` 绝对定位右下、`:deep(.el-textarea__inner)` padding-bottom:44px 让文字不被按钮遮；输入框 rows 2→4 加高。
+- 无新测试（纯 CSS/布局，行为不变）：`data-test="chat-input"`（容器）/`chat-send`（按钮）锚点保留，`[data-test="chat-input"] textarea` 与 chat-send 选择器仍命中。
+- 怎么自证：`pnpm vitest run ChatView.spec` → 16 passed；`pnpm typecheck`、`pnpm lint` 通过。数值系视觉初值，待登录实测微调。
