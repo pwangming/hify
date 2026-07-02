@@ -183,4 +183,50 @@ class ConversationStoreTest {
         verify(messageMapper).deleteById(300L);
         verify(conversationMapper, never()).deleteById(any(Long.class));
     }
+
+    // ===== deleteConversation =====
+
+    @Test
+    void deleteConversation_命中_会话软删并级联软删消息() {
+        when(conversationMapper.delete(any())).thenReturn(1); // 1 行命中（本人）
+        store.deleteConversation(100L, 42L);
+        verify(conversationMapper).delete(any());
+        verify(messageMapper).delete(any()); // 级联软删该会话消息
+    }
+
+    @Test
+    void deleteConversation_未命中_不级联_不抛错() {
+        when(conversationMapper.delete(any())).thenReturn(0); // 非本人/已删 → 0 行
+        store.deleteConversation(100L, 42L); // 幂等：不抛错
+        verify(messageMapper, never()).delete(any());
+    }
+
+    // ===== renameConversation =====
+
+    @Test
+    void renameConversation_owner_改title并strip() {
+        Conversation existing = new Conversation();
+        existing.setId(100L);
+        existing.setUserId(42L);
+        when(conversationMapper.selectById(eq(100L))).thenReturn(existing);
+        ArgumentCaptor<Conversation> cc = ArgumentCaptor.forClass(Conversation.class);
+
+        store.renameConversation(100L, 42L, "  新标题  ");
+
+        verify(conversationMapper).updateById((Conversation) cc.capture());
+        assertEquals(100L, cc.getValue().getId());
+        assertEquals("新标题", cc.getValue().getTitle()); // 已 strip
+    }
+
+    @Test
+    void renameConversation_他人会话_404_不更新() {
+        Conversation other = new Conversation();
+        other.setUserId(999L);
+        when(conversationMapper.selectById(eq(100L))).thenReturn(other);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> store.renameConversation(100L, 42L, "x"));
+        assertEquals(CommonError.NOT_FOUND, ex.errorCode());
+        verify(conversationMapper, never()).updateById(any(Conversation.class));
+    }
 }

@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getMessages, listConversations } from '@/api/conversation'
+import {
+  getMessages,
+  listConversations,
+  deleteConversation as apiDeleteConversation,
+  renameConversation as apiRenameConversation,
+} from '@/api/conversation'
 import { useChatStream } from '@/composables/useChatStream'
 import type { MessageView, ConversationView } from '@/types/conversation'
 
@@ -50,6 +55,20 @@ export const useConversationStore = defineStore('conversation', () => {
   function newConversation() {
     currentId.value = null
     messages.value = []
+  }
+
+  /** 重命名会话：调后端后本地回显（不重拉整表）。 */
+  async function renameConversation(id: string, title: string) {
+    await apiRenameConversation(id, title)
+    const c = conversations.value.find((x) => x.id === id)
+    if (c) c.title = title
+  }
+
+  /** 删除会话：调后端后从列表移除；删的是当前会话则回到空白新会话态。 */
+  async function deleteConversation(id: string) {
+    await apiDeleteConversation(id)
+    conversations.value = conversations.value.filter((x) => x.id !== id)
+    if (id === currentId.value) newConversation()
   }
 
   /**
@@ -136,6 +155,8 @@ export const useConversationStore = defineStore('conversation', () => {
     loadConversations,
     loadMessages,
     newConversation,
+    renameConversation,
+    deleteConversation,
     send,
     abort,
   }

@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { getMessages, listConversations } from '@/api/conversation'
+import { getMessages, listConversations, deleteConversation, renameConversation } from '@/api/conversation'
 import { useChatStream } from '@/composables/useChatStream'
 import { useConversationStore } from '@/stores/conversation'
 
 vi.mock('@/api/conversation', () => ({
   getMessages: vi.fn(),
   listConversations: vi.fn(),
+  deleteConversation: vi.fn(),
+  renameConversation: vi.fn(),
 }))
 
 vi.mock('@/composables/useChatStream', () => ({ useChatStream: vi.fn() }))
@@ -58,6 +60,28 @@ describe('useConversationStore', () => {
     store.currentId = '100'
     store.messages = [assistant]
     store.newConversation()
+    expect(store.currentId).toBeNull()
+    expect(store.messages).toEqual([])
+  })
+
+  it('renameConversation 调后端并本地回显标题', async () => {
+    vi.mocked(renameConversation).mockResolvedValue(undefined)
+    const store = useConversationStore()
+    store.conversations = [{ id: '1', title: '旧', updateTime: 'x' }]
+    await store.renameConversation('1', '新')
+    expect(renameConversation).toHaveBeenCalledWith('1', '新')
+    expect(store.conversations[0].title).toBe('新')
+  })
+
+  it('deleteConversation 移除列表项；删当前会话回到空白态', async () => {
+    vi.mocked(deleteConversation).mockResolvedValue(undefined)
+    const store = useConversationStore()
+    store.conversations = [{ id: '1', title: 'a', updateTime: 'x' }]
+    store.currentId = '1'
+    store.messages = [assistant]
+    await store.deleteConversation('1')
+    expect(deleteConversation).toHaveBeenCalledWith('1')
+    expect(store.conversations).toHaveLength(0)
     expect(store.currentId).toBeNull()
     expect(store.messages).toEqual([])
   })

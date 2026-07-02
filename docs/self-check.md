@@ -680,3 +680,88 @@ mvn -f server/pom.xml test
 - 前端：App 类型加 modelUsable；列表模型列在 modelName 后按 !modelUsable 追加灰色「（已停用）」（同一行渲染消除空格间隙，保证连续文本）。
 - 怎么自证：`mvn test` 全量 196/0/0（+4：filterUsableChatModelIds 2 + facade 透传 1 + 分页 modelUsable 1）；`pnpm test` 109 全绿（+2）、build、lint 通过。
 - 反向验证：把列表用例的 WITH_MODEL.modelUsable 改 true，「名字后加（已停用）」用例会因后缀不出现而红。
+
+## conversation ⑦ 会话管理 Task1：删除会话（软删+级联+幂等，2026-07-01）
+- 对应改动：`ConversationStore.deleteConversation`（@Transactional，事务收口）、`ConversationService.deleteConversation`（薄委托、无事务）、`ConversationController` 新增 `DELETE /api/v1/conversation/conversations/{id}`（成员族，返 `Result<Void>` data:null）。分支 `feat/conversation-management`。
+- 做了什么：按 `user_id` 作用域软删会话（`conversationMapper.delete(wrapper.eq(id).eq(userId))`，@TableLogic 转 UPDATE deleted=true），命中(rows>0)才级联软删该会话消息。0 行命中（非本人/已删）静默成功——满足 DELETE 幂等（api-standards §2.2）且不泄露存在性。权限仅本人（会话族口径），与应用的 owner+admin 不同。
+- TDD：先写 3 类失败测试（StoreTest 2：命中级联/未命中不级联；ServiceTest 1：委托传当前用户；ControllerTest 2：200+dataNull/未登录401）→ 跑出「红」= `deleteConversation` 方法未定义（功能缺失，非拼写）→ 写实现 → 转「绿」。
+- 怎么自证：`mvn test -Dtest=ConversationStoreTest,ConversationServiceTest,ConversationControllerTest` → `Tests run: 35, Failures: 0, Errors: 0`（Store 11 + Service 15 + Controller 9）。判定直接读 Tests run/Failures/Errors 行，不 grep BUILD SUCCESS。
+- 反向验证：`deleteConversation_未命中_不级联` 用例 stub delete→0 并断言 `messageMapper.delete` never——若实现漏掉 `if (rows>0)` 无脑级联，此用例立刻红，守住幂等+级联逻辑。
+- 无表结构变更、无新 Flyway、无新错误码（17xxx 不动）。下一步 Task2 重命名会话。
+
+## conversation ⑦ 会话管理 Task2：重命名会话（动作子资源 POST /rename，2026-07-01）
+- 对应改动：`RenameConversationRequest`（新 DTO，`@NotBlank @Size(max=100)`）、`ConversationStore.renameConversation`（@Transactional，assertOwned→改 title.strip）、`ConversationService.renameConversation`（薄委托）、`ConversationController` 新增 `POST /api/v1/conversation/conversations/{id}/rename`。
+- 做了什么：重命名用**动作子资源 POST**（非 PUT 全量——会话唯一可改字段就是标题，PUT「未传置空」语义危险）。权限口径与删除**不同**：改名要给用户明确反馈，改他人/不存在会话经 `assertOwned` 抛 404（复用 CommonError.NOT_FOUND），非幂等静默。空标题经 @NotBlank → 10001/400。
+- TDD：先写失败测试（StoreTest 2：owner改名strip/他人404不更新；ServiceTest 1：委托；ControllerTest 2：200/空标题400）→ 从 server 目录跑出真「红」= `renameConversation` 未定义 → 写实现 → 绿。
+- 踩坑：`verify(...).updateById(any())` 编译歧义（MyBatis-Plus updateById 有 `(T)` 与 `(Collection<T>)` 两重载），改 `any(Conversation.class)` 消歧义——先跑编译才暴露。另注意 mvn 必须在 `server/` 目录下跑，切到仓库根会报「no POM」的假失败。
+- 怎么自证：`mvn test` 全量 `Tests run: 287, Failures: 0, Errors: 0`（含 ModularityTests/LayerRulesTest；新 DTO 不 import entity，模块边界不破）。
+- 反向验证：`renameConversation_他人会话_404_不更新` 断言 updateById never——若实现漏掉 assertOwned 直接更新，此用例因 updateById 被调而红，守住「仅本人」权限。
+- 无表结构变更、无新 Flyway、无新错误码。后端两端点（删除+重命名）完成，下一步转前端 Task3（api/store 接线）。
+
+## conversation ⑦ 会话管理 Task3：前端 api/store 接线删除与重命名（2026-07-01）
+- 对应改动：`api/conversation.ts`（+renameConversation POST、+deleteConversation DELETE）、`stores/conversation.ts`（+renameConversation 本地回显 title、+deleteConversation 移除列表项且删当前会话回空白态）。
+- 做了什么：store action 与 api 函数同名，import 用别名（`apiRenameConversation`/`apiDeleteConversation`）避免遮蔽。重命名本地回显（找到列表项改 title，不重拉整表）；删除从 conversations 过滤掉，若删的是 currentId 则调 newConversation() 回空白态。
+- TDD：先写失败测试（api 2：断言 request.post/delete 的 url+body；store 2：本地回显/移除+删当前回空白）→ 从 web 目录跑出真「红」= `is not a function`（4 failed）→ 写实现 → 绿。
+- 怎么自证：`pnpm vitest run src/api/__tests__/conversation.spec.ts src/stores/__tests__/conversation.spec.ts` → `Tests 21 passed`；`pnpm typecheck` 无错。
+- 反向验证：`deleteConversation 删当前会话回空白态` 用例断言 currentId=null、messages=[]——若实现漏掉 `if (id === currentId.value) newConversation()`，此用例因 currentId 仍为 '1' 而红。
+- 下一步 Task4：侧边栏会话操作下拉（重命名/删除 UI）。
+
+## conversation ⑦ 会话管理 Task4：侧边栏会话操作（重命名/删除，2026-07-01）
+- 对应改动：`ConversationSidebar.vue`（会话条目加两个 hover 显现的行内图标 EditPen/Delete；emits +rename/+delete；onRename 用 ElMessageBox.prompt 取新标题、onDelete 用 ElMessageBox.confirm 二次确认，向上 emit）。
+- 设计取舍：原计划 el-dropdown「更多」下拉，改为**行内 hover 图标**——el-dropdown 菜单 teleport 到 body 且需点开才渲染，测试难稳定抓取；只有 2 个操作，行内图标更简洁也更好测。图标默认 opacity:0，条目 hover 或为当前会话时显现。操作图标用 `@click.stop` 防止冒泡触发选中会话。
+- TDD：先写失败测试（点重命名→prompt→emit rename 带新标题；点删除→confirm→emit delete；点图标不触发 select）→ 跑出真「红」= 3 failed（图标不存在）→ 写实现 → 绿。测试用 `vi.spyOn(ElMessageBox, 'prompt'/'confirm')` 桩住弹窗。
+- 怎么自证：`pnpm vitest run src/views/conversation/__tests__/ConversationSidebar.spec.ts` → `Tests 11 passed`（原 8 + 新 3）；`pnpm typecheck` 无错。
+- 反向验证：「点操作图标不触发 select」用例——若漏掉 `@click.stop`，点重命名会同时冒泡触发 `emit('select')`，该用例因 select 被 emit 而红，守住 stop 冒泡。
+- 下一步 Task5：ChatView 气泡复制/编辑 + 免责提示 + 接线 sidebar 的 rename/delete 到 store。
+
+## conversation ⑦ 会话管理 Task5：ChatView 气泡复制/编辑 + 免责提示 + 接线（2026-07-01）
+- 对应改动：`ChatView.vue`——气泡改「内容+操作区」结构：用户气泡 hover 出复制(DocumentCopy)+编辑(EditPen，tooltip「重新编辑后发送」)，AI 气泡 hover 出复制；`canCopy(m,i)` 判定 AI 正在流式的最后一条不显示复制（sending && i===last）；`copyMsg` 走 navigator.clipboard + ElMessage 已复制；`editMsg` 轻量B 回填 input.value（不新增消息）；输入框下方加 `data-test="ai-disclaimer"` 免责提示；sidebar 接 `@rename→store.renameConversation`、`@delete→store.deleteConversation`（删当前会话后清 URL 的 ?c=）。
+- TDD：先写 6 失败测试（复制用户/AI流式隐藏done显示/编辑回填不新增/免责文案/delete接线/rename接线）→ 真「红」6 failed → 实现 → 绿。接线测试用 `wrapper.findComponent(ConversationSidebar).vm.$emit(...)` + `vi.spyOn(store, ...)`，直接验证 ChatView 对子组件事件的响应。
+- 踩坑：happy-dom 的 `navigator.clipboard` 是只读 getter，`Object.assign` 设不进，改 `Object.defineProperty(navigator,'clipboard',{value,configurable:true})`——测试自身问题，实现无误。
+- 怎么自证：`pnpm vitest run src/views/conversation/__tests__/ChatView.spec.ts` → `Tests 14 passed`（原 8 + 新 6）；`pnpm typecheck` 无错。
+- 反向验证：「AI 气泡流式中不显示复制、结束后显示」——若 canCopy 漏掉 sending 判定，流式中就会渲染复制图标，该用例因 exists()===true 而红。
+- 下一步 Task6：对话入口（ChatHome 应用选择页 + 菜单 + 默认落地页 /chat）。
+
+## conversation ⑦ 会话管理 Task6：对话入口（ChatHome + 菜单 + 默认落地页，2026-07-01）
+- 对应改动：新增 `views/conversation/ChatHome.vue`（应用选择页，复用 `listApps` 拉应用、前端过滤 status==='enabled' 渲染卡片、点卡片 router.push `/apps/{id}/chat`、modelUsable=false 置灰不跳、空态 el-empty 引导去应用管理）；`router/index.ts`（新增 `/chat` 路由 menu+icon ChatDotRound，`/` 重定向由 `/knowledge` 改 `/chat`，对话菜单置于首位）；`DefaultLayout.vue`（iconMap 补 ChatDotRound——字符串名→组件映射，不补则菜单无图标）。
+- 修复目标：原「聊天藏在应用管理→试聊」层级太深；现顶部「对话」为最高频入口，登录默认落此页。试聊按钮保留作快捷入口（Task7），两路同终点 /apps/:appId/chat。
+- TDD：先写 ChatHome.spec 4 失败测试（只渲染已启用/点卡片 push/模型不可用不跳/空态）→ 真「红」= 组件不存在 → 实现 → 绿。
+- 不破坏既有测试：menu.spec/guard.spec/DefaultLayout.spec 均用自造路由 fixture（非真实路由表），改真实重定向不影响；已连跑 router+layout 测试全绿。
+- 怎么自证：`pnpm vitest run ChatHome.spec + src/router/__tests__ + src/layouts/__tests__` → `5 files / 24 passed`；`pnpm typecheck` 无错。
+- 反向验证：「模型不可用的卡片点击不跳转」——若 open() 漏掉 `if (!a.modelUsable) return`，push 会被调用，该用例因 `push` 被调而红。
+- 下一步 Task7：AppList 试聊按钮改实心蓝底 small、与其它按钮同排（全员可见）。
+
+## conversation ⑦ 会话管理 Task7：AppList 试聊按钮改样式（2026-07-01）
+- 对应改动：`AppList.vue` 操作列重构——试聊按钮去 `link` → `size="small" type="primary"` 实心蓝底；移入与其它三按钮同一个 `app-list__ops` flex 容器（已 display:flex + gap），试聊恒在最前，其余三（启用停用/编辑/删除）用 `<template v-if="canModify">` 门控；删除原 `<span v-else>—</span>`（无测试依赖、无样式定义）。
+- 语义不变：试聊对全体成员可见（团队共享），编辑/删除仅 owner+admin。data-test 锚点（chat-/edit-/delete- 等）全保留。
+- 无需新测试：既有 AppList.spec 已覆盖试聊三态（chat-4 跳转 /apps/4/chat、chat-3 模型不可用 disabled、chat-5 非 owner 可见可点且无 edit-5）。改样式后这些断言仍绿。
+- 怎么自证：`pnpm vitest run src/views/app/__tests__/AppList.spec.ts` → `Tests 15 passed`；`pnpm typecheck` 无错；`pnpm lint` 通过。
+- 反向验证：既有「非 owner 也可见可点」用例——若误把试聊挪进 canModify 门控，chat-5 不存在、该用例点击时找不到元素而红，守住「试聊全员可见」。
+- 下一步 Task8：全量回归（后端 mvn test + 前端 pnpm test/typecheck/build）+ 手验清单。
+
+## conversation ⑦ 会话管理 Task8：全量回归（2026-07-01）
+- 后端全量：`cd server && mvn test` → `Tests run: 287, Failures: 0, Errors: 0`（含 ModularityTests/LayerRulesTest 模块边界）。
+- 前端全量：`cd web && pnpm test` → `25 files / 167 passed`；`pnpm typecheck` 无错；`pnpm build`（vue-tsc + vite）成功（chunk 体积警告为既有，非本轮引入）；`pnpm lint` 通过。
+- 本轮（⑦）7 个功能任务全部完成，分支 `feat/conversation-management`，逐任务提交：Task1 删除会话 / Task2 重命名会话 / Task3 前端 api-store 接线 / Task4 侧边栏操作 / Task5 气泡复制-编辑-免责+接线 / Task6 对话入口 ChatHome+菜单+默认落地 / Task7 试聊按钮样式。
+- 待人工手验（需登录跑真环境）：默认落对话页→选应用进聊天；会话重命名/删除即时生效且刷新持久；用户气泡复制/编辑（编辑回填输入框发新消息）；AI 回答完成后左下角复制；输入框下方免责提示；试聊实心蓝底同排、他人应用可试聊但无编辑删除。
+- 本轮不做（留后）：真编辑重新生成、会话列表分页/查看全部、LLM 自动标题、知识库(RAG)、Agent 工具调用、对外 API。
+
+## conversation ⑦ 会话管理 UI 调整（按用户反馈，2026-07-01）
+- 三处调整（TDD 各自先红后绿）：
+  1. **用户消息行内编辑**：`ChatView.vue` 编辑不再回填主输入框，而是在原消息上出现行内编辑框（预填原文）+ 发送/取消；发送走抽出的 `deliver(text)`（与主输入框共用），在底部生成一条新消息，原消息不变。新增 `editingId/editingText` 态 + `startEdit/cancelEdit/submitEdit`。
+  2. **AI 复制移到气泡外**：消息按 `chat__row`（flex 列，按角色 align-self）重构；AI 复制按钮移出气泡、在气泡外左下角（row--assistant 的 align-items:flex-start 靠左），回答完成后显现（canCopy 不变）；用户复制/编辑仍在气泡内 hover。
+  3. **侧边栏 3 点下拉**：`ConversationSidebar.vue` 两个 hover 图标改为单个 MoreFilled（3 点）+ el-dropdown 菜单（重命名/删除），`@command` 分发到 onRename/onDelete；`sidebar__item` 加 `align-items:center` 让 3 点与标题文字对齐；`@click.stop` 防冒泡选中。
+- 踩坑：① el-input 把 `data-test` 透传到内部 `<textarea>`，故行内编辑框需外包一层 `<div :data-test>`（同主输入框写法），否则 `[data-test] textarea` 选择器为空。② el-dropdown 测试用 `findComponent(ElDropdown).vm.$emit('command', ...)` 驱动，绕开 teleport 弹层的不稳定；`@command` 内联箭头参数要显式标类型（`(cmd: string|number|object)`）否则 vue-tsc 报隐式 any。
+- 怎么自证：`pnpm test` 全量 `25 files / 168 passed`；`pnpm typecheck` 无错；`pnpm build` 成功；`pnpm lint` 通过。
+- 反向验证：① 编辑「底部新增、原消息不变」用例断言 messages[0] 仍为原文且存在新内容——若误改成原地修改历史，messages[0] 变化而红。② AI 复制「流式中不显示」仍由 canCopy 守。
+
+## conversation ⑦ 会话管理 UI 调整#2（图标全移气泡外 + hover，2026-07-01）
+- 按反馈再调：用户消息的复制/编辑图标从气泡内移到**气泡外右下角**、hover 才显现；AI 复制图标也从常显改为 **hover 才显现**。两侧对称——图标统一进气泡外的 `.chat__ops`（默认 opacity:0，`.chat__row:hover` 显现），左右对齐沿用 row 的 align-items（用户 flex-end 右、AI flex-start 左）。删除旧的 `.chat__bubble-ops`/`.chat__copy-external`。
+- TDD：新增结构测试「用户操作图标在气泡外」——断言 `.chat__bubble` 内找不到 copy/edit（`bubble.find(...).exists()===false`）、但行内（气泡外）能找到（`wrapper.find(...).exists()===true`）。先红（原在气泡内）→ 移出后绿。
+- 怎么自证：`pnpm test` 全量 `25 files / 169 passed`；`pnpm typecheck`、`pnpm build`、`pnpm lint` 均通过。
+- 反向验证：若把 ops 放回气泡内，「用户操作图标在气泡外」用例因 bubble 内 exists()===true 而红。
+
+## conversation ⑦ 会话管理 UI 调整#3（间距/尺寸 + 发送按钮内嵌，2026-07-01）
+- 纯样式/布局微调（ChatView.vue）：`.chat__ops` 图标间距 8→16px、`.chat__op` font-size 18px（图标放大）；`.chat__row` gap 4→8px（气泡与图标距离，用户与 AI 同）；`.chat__list` 加 `padding-right:12px`（消息离右侧滚动条）；发送按钮移入输入框内——`.chat__input-box` 相对定位、`.chat__send` 绝对定位右下、`:deep(.el-textarea__inner)` padding-bottom:44px 让文字不被按钮遮；输入框 rows 2→4 加高。
+- 无新测试（纯 CSS/布局，行为不变）：`data-test="chat-input"`（容器）/`chat-send`（按钮）锚点保留，`[data-test="chat-input"] textarea` 与 chat-send 选择器仍命中。
+- 怎么自证：`pnpm vitest run ChatView.spec` → 16 passed；`pnpm typecheck`、`pnpm lint` 通过。数值系视觉初值，待登录实测微调。

@@ -13,3 +13,13 @@ export function getMessages(conversationId: string) {
 export function listConversations(appId: string) {
   return request.get<ConversationView[]>('/conversation/conversations', { params: { appId } })
 }
+
+/** 重命名会话。后端：POST /api/v1/conversation/conversations/{id}/rename */
+export function renameConversation(id: string, title: string) {
+  return request.post<void>(`/conversation/conversations/${id}/rename`, { title })
+}
+
+/** 删除会话（软删，幂等）。后端：DELETE /api/v1/conversation/conversations/{id} */
+export function deleteConversation(id: string) {
+  return request.delete<void>(`/conversation/conversations/${id}`)
+}

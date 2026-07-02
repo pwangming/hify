@@ -126,6 +126,32 @@ public class ConversationStore {
                 .orderByAsc(Message::getId));
     }
 
+    /**
+     * 软删会话（按 user_id 作用域，幂等）+ 级联软删其全部消息。
+     * 0 行命中（非本人/已删）不报错、不级联——满足 DELETE 幂等（api-standards §2.2）且不泄露存在性。
+     * @TableLogic 使 mapper.delete 实为 UPDATE deleted=true WHERE ... AND deleted=false。
+     */
+    @Transactional
+    public void deleteConversation(Long conversationId, Long userId) {
+        int rows = conversationMapper.delete(new LambdaQueryWrapper<Conversation>()
+                .eq(Conversation::getId, conversationId)
+                .eq(Conversation::getUserId, userId));
+        if (rows > 0) {
+            messageMapper.delete(new LambdaQueryWrapper<Message>()
+                    .eq(Message::getConversationId, conversationId));
+        }
+    }
+
+    /** 重命名：assertOwned（非本人/不存在 → 404）后改 title；update_time 由 MetaObjectHandler 自动 touch。 */
+    @Transactional
+    public void renameConversation(Long conversationId, Long userId, String title) {
+        assertOwned(conversationId, userId);
+        Conversation c = new Conversation();
+        c.setId(conversationId);
+        c.setTitle(title.strip());
+        conversationMapper.updateById(c);
+    }
+
     private void assertOwned(Long conversationId, Long userId) {
         Conversation c = conversationMapper.selectById(conversationId);
         if (c == null || !userId.equals(c.getUserId())) {

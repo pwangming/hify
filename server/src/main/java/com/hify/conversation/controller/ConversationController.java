@@ -6,6 +6,7 @@ import com.hify.common.Result;
 import com.hify.common.exception.BizException;
 import com.hify.conversation.dto.ConversationView;
 import com.hify.conversation.dto.MessageView;
+import com.hify.conversation.dto.RenameConversationRequest;
 import com.hify.conversation.dto.SendMessageRequest;
 import com.hify.conversation.dto.SendMessageResponse;
 import com.hify.conversation.dto.StreamPayloads;
@@ -15,7 +16,9 @@ import com.hify.infra.security.CurrentUserHolder;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -70,6 +73,19 @@ public class ConversationController {
     @GetMapping("/conversations")
     public Result<List<ConversationView>> listConversations(@RequestParam Long appId) {
         return Result.ok(conversationService.listConversations(appId, CurrentUserHolder.current()));
+    }
+
+    @DeleteMapping("/conversations/{id}")
+    public Result<Void> deleteConversation(@PathVariable Long id) {
+        conversationService.deleteConversation(id, CurrentUserHolder.current());
+        return Result.ok(null);
+    }
+
+    @PostMapping("/conversations/{id}/rename")
+    public Result<Void> renameConversation(@PathVariable Long id,
+                                           @Valid @RequestBody RenameConversationRequest req) {
+        conversationService.renameConversation(id, req.title(), CurrentUserHolder.current());
+        return Result.ok(null);
     }
 
     private ServerSentEvent<String> toSse(StreamEvent e) {
