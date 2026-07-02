@@ -49,7 +49,7 @@ public class DatasetService {
     }
 
     public PageResult<DatasetResponse> page(String keyword, int page, int size) {
-        if (page < 1 || size < 1 || (long) page * size > 10_000) {
+        if (page < 1 || size < 1 || size > 100 || (long) page * size > 10_000) {
             throw new BizException(CommonError.PARAM_INVALID, "分页参数非法或过深，请用筛选条件缩小范围");
         }
         Page<Dataset> result = datasetMapper.selectPage(

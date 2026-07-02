@@ -87,6 +87,22 @@ class DatasetServiceTest {
     }
 
     @Test
+    void 分页_size超100_PARAM_INVALID() {
+        BizException ex = assertThrows(BizException.class, () -> service.page(null, 1, 101));
+        assertEquals(CommonError.PARAM_INVALID, ex.errorCode());
+    }
+
+    @Test
+    void 分页_page乘size等于10000_放行() {
+        Page<Dataset> page = Page.of(100, 100);
+        page.setRecords(List.of());
+        page.setTotal(0);
+        when(mapper.selectPage(any(), any())).thenReturn(page);
+        var result = service.page(null, 100, 100); // 100*100=10000 恰好在上限内
+        assertEquals(0, result.total());
+    }
+
+    @Test
     void 分页_返回PageResult() {
         Page<Dataset> page = Page.of(1, 20);
         page.setRecords(List.of(owned()));

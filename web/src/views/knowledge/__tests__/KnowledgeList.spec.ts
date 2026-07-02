@@ -112,4 +112,13 @@ describe('KnowledgeList', () => {
     await flushPromises()
     expect(deleteDataset).toHaveBeenCalledWith('1')
   })
+
+  it('空列表：表格空态渲染，不报错', async () => {
+    vi.mocked(listDatasets).mockResolvedValue(page([]))
+    const wrapper = mount(KnowledgeList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(listDatasets).toHaveBeenCalledOnce()
+    expect(wrapper.find('[data-test="dataset-table"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('客服知识库')
+  })
 })
