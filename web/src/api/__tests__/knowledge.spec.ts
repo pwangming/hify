@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { request } from '@/api/request'
 import {
   listDatasets, getDataset, createDataset, updateDataset, deleteDataset,
+  uploadDocument, listDocuments, deleteDocument, listChunks,
 } from '@/api/knowledge'
 import type { DatasetForm } from '@/types/knowledge'
 
@@ -35,5 +36,31 @@ describe('knowledge api', () => {
   it('deleteDataset → DELETE /knowledge/datasets/{id}', () => {
     deleteDataset('10')
     expect(request.delete).toHaveBeenCalledWith('/knowledge/datasets/10')
+  })
+  it('uploadDocument → POST /knowledge/datasets/{id}/documents + FormData(file)', () => {
+    const file = new File(['hello'], 'a.txt', { type: 'text/plain' })
+    uploadDocument('10', file)
+    expect(request.post).toHaveBeenCalledWith(
+      '/knowledge/datasets/10/documents',
+      expect.any(FormData),
+    )
+    const fd = vi.mocked(request.post).mock.calls[0][1] as FormData
+    expect(fd.get('file')).toBe(file)
+  })
+  it('listDocuments → GET /knowledge/datasets/{id}/documents + 分页 params', () => {
+    listDocuments('10', { page: 1, size: 20 })
+    expect(request.get).toHaveBeenCalledWith('/knowledge/datasets/10/documents', {
+      params: { page: 1, size: 20 },
+    })
+  })
+  it('deleteDocument → DELETE /knowledge/documents/{id}', () => {
+    deleteDocument('20')
+    expect(request.delete).toHaveBeenCalledWith('/knowledge/documents/20')
+  })
+  it('listChunks → GET /knowledge/documents/{id}/chunks + 分页 params', () => {
+    listChunks('20', { page: 1, size: 10 })
+    expect(request.get).toHaveBeenCalledWith('/knowledge/documents/20/chunks', {
+      params: { page: 1, size: 10 },
+    })
   })
 })

@@ -13,3 +13,27 @@ export interface DatasetForm {
   name: string
   description: string
 }
+
+/** 文档处理状态（对齐后端 kb_document.status 四态）。K2 同步流程一步到 ready。 */
+export type DocumentStatus = 'pending' | 'processing' | 'ready' | 'failed'
+
+/** 文档视图（对齐后端 DocumentResponse）。命名 KbDocument 避免与 DOM 内置 Document 撞名。
+ *  id/datasetId/fileSize 为 string（Long 序列化）；chunkCount 是 Integer → number。 */
+export interface KbDocument {
+  id: string
+  datasetId: string
+  name: string
+  fileType: 'txt' | 'md'
+  fileSize: string
+  status: DocumentStatus
+  chunkCount: number
+  createTime: string
+  updateTime: string
+}
+
+/** 分段预览（对齐后端 ChunkResponse）。position 从 1 起。 */
+export interface Chunk {
+  id: string
+  position: number
+  content: string
+}

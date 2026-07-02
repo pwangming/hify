@@ -1331,7 +1331,7 @@ cd /home/wang/playlab/hify && git add server/src/main/java/com/hify/knowledge/co
 - Consumes: 既有 `request`、`PageResult`（'@/types/app'）。
 - Produces（Task 6 页面依赖）: 类型 `KbDocument`（**不能命名为 `Document`**，与 DOM 内置类型撞名）、`Chunk`、`DocumentStatus`；函数 `uploadDocument(datasetId: string, file: File)` / `listDocuments(datasetId: string, params: {page: number; size: number})` / `deleteDocument(id: string)` / `listChunks(documentId: string, params: {page: number; size: number})`。
 
-- [ ] **Step 1: 追加失败测试**
+- [x] **Step 1: 追加失败测试**
 
 在 `web/src/api/__tests__/knowledge.spec.ts` 的 describe 内追加（并把顶部 import 补上四个新函数）：
 
@@ -1364,7 +1364,7 @@ cd /home/wang/playlab/hify && git add server/src/main/java/com/hify/knowledge/co
   })
 ```
 
-- [ ] **Step 2: 跑测试确认失败（红）**
+- [x] **Step 2: 跑测试确认失败（红）**
 
 ```bash
 cd /home/wang/playlab/hify/web && pnpm vitest run src/api/__tests__/knowledge.spec.ts
@@ -1372,7 +1372,7 @@ cd /home/wang/playlab/hify/web && pnpm vitest run src/api/__tests__/knowledge.sp
 
 Expected: FAIL（新函数未导出）。
 
-- [ ] **Step 3: 追加类型与 API 函数**
+- [x] **Step 3: 追加类型与 API 函数**
 
 `web/src/types/knowledge.ts` 文末追加：
 
@@ -1430,7 +1430,7 @@ export function listChunks(documentId: string, params: { page: number; size: num
 }
 ```
 
-- [ ] **Step 4: 跑测试确认全绿**
+- [x] **Step 4: 跑测试确认全绿**
 
 ```bash
 cd /home/wang/playlab/hify/web && pnpm vitest run src/api/__tests__/knowledge.spec.ts
@@ -1438,7 +1438,7 @@ cd /home/wang/playlab/hify/web && pnpm vitest run src/api/__tests__/knowledge.sp
 
 Expected: `9 passed`（K1 的 5 + 新增 4）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add web/src/types/knowledge.ts web/src/api/knowledge.ts web/src/api/__tests__/knowledge.spec.ts && git commit -m "feat(web): 文档上传/列表/删除/分段 API 层 + 类型（TDD）"
