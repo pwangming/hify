@@ -284,15 +284,18 @@ async function onDeleteConv(id: string) {
 
   &__input {
     display: flex;
+    justify-content: center; // 输入框居中，不占满宽度
   }
 
   &__input-box {
     position: relative;
     flex: 1;
+    max-width: 720px; // 输入框宽度收窄
 
-    // 给内嵌的发送按钮留出底部空间，文字不被遮
+    // 给内嵌发送按钮留底部空间 + 圆角更圆润
     :deep(.el-textarea__inner) {
       padding-bottom: 44px;
+      border-radius: 12px;
     }
   }
 
