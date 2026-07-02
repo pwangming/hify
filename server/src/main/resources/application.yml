@@ -10,7 +10,8 @@ spring:
 
   # 数据库连接。本地默认连 docker-compose 起的 Postgres；生产用环境变量覆盖（密码走 .env）。
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/hify}
+    # reWriteBatchedInserts：批量插入重写为多值 insert，chunk 批量写入快一个量级（database-standards §2.1）
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/hify?reWriteBatchedInserts=true}
     username: ${SPRING_DATASOURCE_USERNAME:hify}
     password: ${SPRING_DATASOURCE_PASSWORD:hify}
 
@@ -32,6 +33,13 @@ spring:
   # Flyway 管理数据库迁移。当前还没有迁移脚本（db/migration 为空），启动时建好历史表即可。
   flyway:
     enabled: true
+
+  # 文件上传限制（api-standards §6：单文件 ≤50MB，与 nginx client_max_body_size 对齐）。
+  # 超限由 GlobalExceptionHandler 转 10001。
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
   # 临时排除「还没用到」的自动装配，让骨架现在就能干净启动：
   #   - Spring AI（OpenAI/Anthropic/pgvector）：需要模型 API Key 与向量库初始化，等做 provider/RAG 再开；
@@ -99,6 +107,11 @@ hify:
       # 首个 admin 账号引导：值走 .env，不配则启动时告警跳过（不创建空密码账号）。
       username: ${HIFY_ADMIN_USERNAME:}
       password: ${HIFY_ADMIN_PASSWORD:}
+  knowledge:
+    # 固定长度分段参数：每段字符数 / 相邻段重叠字符数（K2 spec 决策 4：全局默认，不做前端可调）。
+    # 实际使用的参数会记录在 kb_document 行上，为将来重分段留底。改分段口径只动这里。
+    chunk-size: ${HIFY_KNOWLEDGE_CHUNK_SIZE:500}
+    chunk-overlap: ${HIFY_KNOWLEDGE_CHUNK_OVERLAP:50}
   provider:
     crypto:
       # 供应商 API Key 加密主密钥（AES-256-GCM，经 SHA-256 派生 32 字节密钥）。

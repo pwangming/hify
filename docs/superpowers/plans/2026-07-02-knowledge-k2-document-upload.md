@@ -39,7 +39,7 @@
 - Consumes: `com.hify.common.BaseEntity`。
 - Produces: `KbDocument`（getDatasetId/getName/getFileType/getFileSize/getContent/getStatus/getChunkCount/getChunkSize/getChunkOverlap + setter + 基类）、`KbChunk`（getDocumentId/getDatasetId/getPosition/getContent + setter）、`KbDocumentMapper extends BaseMapper<KbDocument>`、`KbChunkMapper extends BaseMapper<KbChunk>`；配置键 `hify.knowledge.chunk-size` / `hify.knowledge.chunk-overlap`。
 
-- [ ] **Step 1: 写迁移脚本**
+- [x] **Step 1: 写迁移脚本**
 
 `server/src/main/resources/db/migration/V14__create_kb_document_chunk.sql`：
 
@@ -83,7 +83,7 @@ create index kb_chunk_document_idx on kb_chunk (document_id);
 create index kb_chunk_dataset_idx on kb_chunk (dataset_id);
 ```
 
-- [ ] **Step 2: 写实体**
+- [x] **Step 2: 写实体**
 
 `server/src/main/java/com/hify/knowledge/entity/KbDocument.java`：
 
@@ -172,7 +172,7 @@ public class KbChunk extends BaseEntity {
 }
 ```
 
-- [ ] **Step 3: 写两个 Mapper**
+- [x] **Step 3: 写两个 Mapper**
 
 `server/src/main/java/com/hify/knowledge/mapper/KbDocumentMapper.java`：
 
@@ -204,7 +204,7 @@ public interface KbChunkMapper extends BaseMapper<KbChunk> {
 }
 ```
 
-- [ ] **Step 4: 改 application.yml 三处**
+- [x] **Step 4: 改 application.yml 三处**
 
 4a. datasource url 补 `reWriteBatchedInserts=true`（database-standards §2.1，让 JDBC 批量插入重写成多值 insert）。原：
 
@@ -240,7 +240,7 @@ public interface KbChunkMapper extends BaseMapper<KbChunk> {
     chunk-overlap: ${HIFY_KNOWLEDGE_CHUNK_OVERLAP:50}
 ```
 
-- [ ] **Step 5: 编译 + 既有测试回归**
+- [x] **Step 5: 编译 + 既有测试回归**
 
 ```bash
 cd /home/wang/playlab/hify/server && mvn test
@@ -248,7 +248,7 @@ cd /home/wang/playlab/hify/server && mvn test
 
 Expected: `BUILD SUCCESS`，`Tests run: 309, Failures: 0, Errors: 0`（与 main 基线一致）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add server/src/main/resources/db/migration/V14__create_kb_document_chunk.sql server/src/main/java/com/hify/knowledge/entity server/src/main/java/com/hify/knowledge/mapper server/src/main/resources/application.yml && git commit -m "feat(knowledge): V14 kb_document/kb_chunk 表 + 实体 + Mapper + 上传/分段配置（K2）"
