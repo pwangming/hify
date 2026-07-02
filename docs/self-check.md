@@ -765,3 +765,11 @@ mvn -f server/pom.xml test
 - 纯样式/布局微调（ChatView.vue）：`.chat__ops` 图标间距 8→16px、`.chat__op` font-size 18px（图标放大）；`.chat__row` gap 4→8px（气泡与图标距离，用户与 AI 同）；`.chat__list` 加 `padding-right:12px`（消息离右侧滚动条）；发送按钮移入输入框内——`.chat__input-box` 相对定位、`.chat__send` 绝对定位右下、`:deep(.el-textarea__inner)` padding-bottom:44px 让文字不被按钮遮；输入框 rows 2→4 加高。
 - 无新测试（纯 CSS/布局，行为不变）：`data-test="chat-input"`（容器）/`chat-send`（按钮）锚点保留，`[data-test="chat-input"] textarea` 与 chat-send 选择器仍命中。
 - 怎么自证：`pnpm vitest run ChatView.spec` → 16 passed；`pnpm typecheck`、`pnpm lint` 通过。数值系视觉初值，待登录实测微调。
+
+## 2026-07-02 knowledge K1 知识库管理（dataset CRUD）
+
+- [x] V13 迁移照 V7 约定（identity 主键 / text+check / 软删 / timestamptz / 部分唯一索引）
+- [x] 路由 /api/v1/knowledge/datasets 逐条核对 api-standards（成员族带模块段、复数资源、PUT 全量、无 PATCH、软删幂等）
+- [x] 错误码零新增，全部复用 CommonError；DTO 不 import entity（ArchUnit 绿）
+- [x] 后端 mvn test 全绿（无 -q）；前端 pnpm test + typecheck 全绿
+- [x] 手动验收：建库 → 重名 409 → 改名 → 他人账号禁用态 → 删除 → 同名重建
