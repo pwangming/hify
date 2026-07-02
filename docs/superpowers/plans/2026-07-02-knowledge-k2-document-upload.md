@@ -266,7 +266,7 @@ cd /home/wang/playlab/hify && git add server/src/main/resources/db/migration/V14
 - Consumes: 无（纯函数，零依赖）。
 - Produces: `static List<String> TextChunker.split(String text, int chunkSize, int overlap)`——Task 3 的 DocumentService 调用。语义：滑动窗口切分（步长 = chunkSize − overlap），每段 trim，空段跳过；`chunkSize <= 0 || overlap < 0 || overlap >= chunkSize` 抛 IllegalArgumentException；text 为 null/空白返回空列表。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `server/src/test/java/com/hify/knowledge/service/TextChunkerTest.java`：
 
@@ -346,7 +346,7 @@ class TextChunkerTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认编译失败（红）**
+- [x] **Step 2: 跑测试确认编译失败（红）**
 
 ```bash
 cd /home/wang/playlab/hify/server && mvn test -Dtest=TextChunkerTest
@@ -354,7 +354,7 @@ cd /home/wang/playlab/hify/server && mvn test -Dtest=TextChunkerTest
 
 Expected: `COMPILATION ERROR`（TextChunker 不存在）。
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 `server/src/main/java/com/hify/knowledge/service/TextChunker.java`：
 
@@ -398,7 +398,7 @@ public final class TextChunker {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认全绿**
+- [x] **Step 4: 跑测试确认全绿**
 
 ```bash
 cd /home/wang/playlab/hify/server && mvn test -Dtest=TextChunkerTest
@@ -406,7 +406,7 @@ cd /home/wang/playlab/hify/server && mvn test -Dtest=TextChunkerTest
 
 Expected: `Tests run: 8, Failures: 0, Errors: 0`。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add server/src/main/java/com/hify/knowledge/service/TextChunker.java server/src/test/java/com/hify/knowledge/service/TextChunkerTest.java && git commit -m "feat(knowledge): TextChunker 固定长度分段器（TDD）"
