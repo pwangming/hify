@@ -1,0 +1,297 @@
+{
+  "info": {
+    "name": "Hify knowledge K1 验收（dataset CRUD）",
+    "description": "按顺序执行 01→12。01 登录后 token 自动保存；03 建库后 datasetId 自动保存。变量 username/password 先在 Collection Variables 里填你的 admin 账号。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "username", "value": "admin" },
+    { "key": "password", "value": "在这里填密码" },
+    { "key": "token", "value": "" },
+    { "key": "datasetId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 登录（自动存 token）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200 且拿到 token', () => {",
+              "  pm.response.to.have.status(200);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.code).to.eql(200);",
+              "  pm.collectionVariables.set('token', body.data.token);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/identity/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "02 未带 token 访问列表 → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('401', () => pm.response.to.have.status(401));"],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets?page=1&size=20"
+      }
+    },
+    {
+      "name": "03 新建知识库（自动存 datasetId）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200，id/ownerId 为字符串', () => {",
+              "  pm.response.to.have.status(200);",
+              "  const d = pm.response.json().data;",
+              "  pm.expect(d.name).to.eql('K1验收知识库');",
+              "  pm.expect(d.id).to.be.a('string');      // Long→string 规范",
+              "  pm.expect(d.ownerId).to.be.a('string');",
+              "  pm.collectionVariables.set('datasetId', d.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"K1验收知识库\",\n  \"description\": \"售后答疑资料\"\n}"
+        }
+      }
+    },
+    {
+      "name": "04 重名再建 → 409 / 10006",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('409 且业务码 10006', () => {",
+              "  pm.response.to.have.status(409);",
+              "  pm.expect(pm.response.json().code).to.eql(10006);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets",
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"K1验收知识库\"\n}" }
+      }
+    },
+    {
+      "name": "05 名称为空 → 400 / 10001 + 字段错误数组",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('400 / 10001，data 带 name 字段错误', () => {",
+              "  pm.response.to.have.status(400);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.code).to.eql(10001);",
+              "  pm.expect(body.data[0].field).to.eql('name');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets",
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"\"\n}" }
+      }
+    },
+    {
+      "name": "06 列表（keyword 搜索）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200，PageResult 结构，能搜到', () => {",
+              "  pm.response.to.have.status(200);",
+              "  const d = pm.response.json().data;",
+              "  pm.expect(d.list.map(x => x.name)).to.include('K1验收知识库');",
+              "  pm.expect(d.total).to.be.a('string'); // long→string",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets?keyword=K1&page=1&size=20"
+      }
+    },
+    {
+      "name": "07 size 超上限 101 → 400 / 10001（终审修复点）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('400 / 10001', () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().code).to.eql(10001);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets?page=1&size=101"
+      }
+    },
+    {
+      "name": "08 详情",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200 且回显创建内容', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().data.name).to.eql('K1验收知识库');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets/{{datasetId}}"
+      }
+    },
+    {
+      "name": "09 详情不存在 → 404 / 10005",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('404 / 10005', () => {",
+              "  pm.response.to.have.status(404);",
+              "  pm.expect(pm.response.json().code).to.eql(10005);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets/999999"
+      }
+    },
+    {
+      "name": "10 全量更新（不传 description 验证置空）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200，改名成功且 description 被置空（PUT 全量语义）', () => {",
+              "  pm.response.to.have.status(200);",
+              "  const d = pm.response.json().data;",
+              "  pm.expect(d.name).to.eql('K1验收知识库-改名');",
+              "  pm.expect(d.description).to.eql(null);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets/{{datasetId}}",
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"K1验收知识库-改名\"\n}" }
+      }
+    },
+    {
+      "name": "11 删除",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200，data 为 null', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().data).to.eql(null);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets/{{datasetId}}"
+      }
+    },
+    {
+      "name": "12 再删同一个 → 仍 200（幂等）+ 同名可重建",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('幂等：删不存在的也 200', () => {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "// 同名重建验证：把 03 再跑一次应能 200（部分唯一索引只约束未删除的）"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/v1/knowledge/datasets/{{datasetId}}"
+      }
+    }
+  ]
+}
