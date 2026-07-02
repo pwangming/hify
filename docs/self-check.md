@@ -773,3 +773,13 @@ mvn -f server/pom.xml test
 - [x] 错误码零新增，全部复用 CommonError；DTO 不 import entity（ArchUnit 绿）
 - [x] 后端 mvn test 全绿（无 -q）；前端 pnpm test + typecheck 全绿
 - [x] 手动验收：建库 → 重名 409 → 改名 → 他人账号禁用态 → 删除 → 同名重建
+
+## 2026-07-02 knowledge K2 文档上传与分段
+
+- [x] V14 只新增两表；kb_chunk 无 embedding 列（K3 迁移补 vector(1024)）；FK 无 cascade（软删体系）
+- [x] 路由核对 api-standards：嵌套一级 /datasets/{id}/documents；documents 升顶级 /documents/{id}/chunks
+- [x] 错误码仅新增 15001/15004（15004 为 api-standards 预定义号）；multipart 超限/缺文件转 10001
+- [x] 分段参数走 yml（500/50）并记录在 kb_document 行；Db.saveBatch ≤1000 + reWriteBatchedInserts
+- [x] 文档列表排除 content 大列；删除级联软删（库→文档→分段）
+- [x] 后端 mvn test 全绿（无 -q）；前端 pnpm test + typecheck 全绿
+- [x] 手动验收：传 txt/md → 看分段数与状态 → 传 pdf 报 15004 → 空文件报 15001 → 分段预览翻页 → member 门控 → 删文档/删库级联

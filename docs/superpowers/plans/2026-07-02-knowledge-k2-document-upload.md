@@ -1932,7 +1932,7 @@ cd /home/wang/playlab/hify && git add web/src/router/index.ts web/src/views/know
 **Files:**
 - Modify: `docs/self-check.md`（文末追加）
 
-- [ ] **Step 1: 追加自检**
+- [x] **Step 1: 追加自检**
 
 在 `docs/self-check.md` 文末追加：
 
@@ -1948,11 +1948,11 @@ cd /home/wang/playlab/hify && git add web/src/router/index.ts web/src/views/know
 - [x] 手动验收：传 txt/md → 看分段数与状态 → 传 pdf 报 15004 → 空文件报 15001 → 分段预览翻页 → member 门控 → 删文档/删库级联
 ```
 
-- [ ] **Step 2: 手动验收（用户执行）**
+- [ ] **Step 2: 手动验收（用户执行）**（按用户指令跳过）
 
 启动后端（V14 自动迁移）与前端 dev，按上面清单走。Postman 可在 `docs/verify/knowledge-k1.postman_collection.json` 基础上加上传请求（form-data，key=file 选文件）验证后端侧。
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add docs/self-check.md && git commit -m "docs: knowledge K2 自检"
