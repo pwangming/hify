@@ -197,7 +197,7 @@ async function onDeleteConv(id: string) {
     flex: 1;
     flex-direction: column;
     gap: 12px;
-    padding: 16px 50px; // 问答区 + 输入框整体左右留白
+    padding: 16px 0; // 左右留白下放到 list/input 内部，好让滚动条贴最右
   }
 
   &__list {
@@ -206,7 +206,9 @@ async function onDeleteConv(id: string) {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding-right: 24px; // 内容与右侧滚动条留距
+    // 滚动容器铺满到最右（滚动条贴窗口右边）；消息两侧靠内部 padding 留白，
+    // 右侧 50px 即消息与滚动条的间距。
+    padding: 0 50px;
   }
 
   // 每条消息一「行」：气泡 + 气泡外操作图标，按角色左右对齐
@@ -284,13 +286,12 @@ async function onDeleteConv(id: string) {
 
   &__input {
     display: flex;
-    justify-content: center; // 输入框居中，不占满宽度
+    padding: 0 50px; // 与消息两侧留白对齐（恢复输入框原宽）
   }
 
   &__input-box {
     position: relative;
     flex: 1;
-    max-width: 720px; // 输入框宽度收窄
 
     // 给内嵌发送按钮留底部空间 + 圆角更圆润
     :deep(.el-textarea__inner) {
