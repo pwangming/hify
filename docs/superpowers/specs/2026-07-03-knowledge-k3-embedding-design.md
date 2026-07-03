@@ -77,7 +77,7 @@ create unique index system_setting_key_uq on system_setting (setting_key) where 
 ### 2.2 设置服务（EmbeddingSettingService，新建）
 
 - `get()`：读 `system_setting['embedding_model_id']`，返回 `{modelId, modelName}`（未配置时 modelId=null——空设置是成功不是错误）。
-- `save(modelId)`：校验链 **模型存在（10005）→ type=embedding 且模型/供应商 enabled（复用「可用」口径）→ 事务外探测**：构建 EmbeddingModel 嵌一个短文本常量，返回维度 ≠1024 → 拒绝（提示实际维度）；网络失败 → 复用 `12002`。全过才 UPSERT 落库。
+- `save(modelId)`：校验链 **模型存在（10005）→ type=embedding 且模型/供应商 enabled（复用「可用」口径，违反 → 现有 `12002 MODEL_NOT_USABLE`）→ 事务外探测**：构建 EmbeddingModel 嵌一个短文本常量，返回维度 ≠1024 → 拒绝（提示实际维度）；网络失败 → 复用现有 `12003 PROVIDER_UNAVAILABLE`（503）。全过才 UPSERT 落库。
 - 探测调用走批量池韧性装饰器（超时/熔断同享），不占 Web 事务。
 
 ### 2.3 ProviderFacade 增量（兑现 Javadoc 预留席位）
@@ -94,14 +94,15 @@ EmbeddingModel getEmbeddingModel();
 | 方法 | 路径 | 语义 | 失败码 |
 |---|---|---|---|
 | GET | `/api/v1/admin/provider/settings/embedding-model` | 回显 `{modelId, modelName}`（Long→string；未配置 modelId=null） | — |
-| PUT | `/api/v1/admin/provider/settings/embedding-model` | 全量更新 `{modelId}`（@NotNull），走 2.2 校验链 | 10005、12xxx 维度不匹配（400）、12002（503 探测失败）、模型不可用（复用现有 12xxx） |
+| PUT | `/api/v1/admin/provider/settings/embedding-model` | 全量更新 `{modelId}`（@NotNull），走 2.2 校验链 | 10005、12005 维度不匹配（400）、12003 探测网络失败（503）、12002 模型不可用（400） |
 
 不用 PATCH（规范禁）；设置是单例资源，`settings` 集合 + 键名作标识，PUT 全量语义成立。
 
-### 2.5 错误码（12xxx 段新增，编号 plan 阶段查现有枚举顺延）
+### 2.5 错误码（现有枚举已到 12004，新码顺延）
 
-- `EMBEDDING_DIMENSION_MISMATCH`（400）：探测维度 ≠1024，message 含实际维度。
-- `EMBEDDING_MODEL_NOT_CONFIGURED`（409）：`getEmbeddingModel()` 时无设置或模型已不可用。主要在异步流水线内抛（表现为文档 failed），HTTP 面上见于全量重嵌入口的前置校验。
+- `EMBEDDING_DIMENSION_MISMATCH`（**12005**/400）：探测维度 ≠1024，message 含实际维度。
+- `EMBEDDING_MODEL_NOT_CONFIGURED`（**12006**/409）：`getEmbeddingModel()` 时系统未配置 embedding 模型。主要在异步流水线内抛（表现为文档 failed），HTTP 面上见于全量重嵌入口的前置校验。
+- 复用现有：`12001` anthropic 建 embedding 已拦、`12002 MODEL_NOT_USABLE`（设置指向的模型停用/非 embedding）、`12003 PROVIDER_UNAVAILABLE`（探测/嵌入网络失败、熔断）、`12004 PROVIDER_BUSY`（批量池满）。
 
 ## 3. knowledge 模块：异步流水线
 
@@ -206,5 +207,5 @@ hify:
 - K1/K2 既有端点签名、错误码不动；契约变化仅决策 12 两条（status=pending 返回、15001 移出上传响应），前端同轮适配。
 - 只新增 V15/V16，不改旧迁移；HNSW 建法照 database-standards §2.1 原文；`@Transactional` 内零外部 IO（嵌入先调后写）。
 - 不引新依赖（Spring AI 的 OpenAiEmbeddingModel 在既有 starter 内）；不改 SecurityConfig 语义（admin 路由既有前缀规则覆盖）。
-- 错误码新增：15002、15003、12xxx 两枚（编号 plan 查现枚举顺延）；发布后只增不改。
+- 错误码新增：15002、15003、12005、12006 共四枚；发布后只增不改。
 - 检索、Rerank、用量计量一律不碰（K4/后续轮）。
