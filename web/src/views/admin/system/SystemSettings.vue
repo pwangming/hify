@@ -35,6 +35,8 @@ async function onSave() {
     savedModelId.value = saved.modelId
     savedModelName.value = saved.modelName
     ElMessage.success('已保存（模型探测通过，输出 1024 维）')
+  } catch {
+    /* 失败（12002/12003/12005）由 request 拦截器统一 toast */
   } finally {
     saving.value = false
   }
@@ -54,6 +56,8 @@ async function onReembed() {
   try {
     await reembedAll()
     ElMessage.success('已开始重嵌入，可到各知识库详情页查看文档状态')
+  } catch {
+    /* 15003（已在进行中）等由 request 拦截器统一 toast */
   } finally {
     reembedding.value = false
   }

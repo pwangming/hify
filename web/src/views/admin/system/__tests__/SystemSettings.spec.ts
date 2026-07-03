@@ -58,6 +58,17 @@ describe('SystemSettings', () => {
     expect(saveEmbeddingSetting).toHaveBeenCalledWith('6')
   })
 
+  it('保存失败：无成功提示且不产生未处理 rejection（拦截器已 toast）', async () => {
+    vi.mocked(saveEmbeddingSetting).mockRejectedValue(new Error('12005'))
+    const { ElMessage } = await import('element-plus')
+    const success = vi.spyOn(ElMessage, 'success')
+    const wrapper = await mountPage()
+    await wrapper.find('[data-test="save-embedding"]').trigger('click')
+    await flushPromises()
+    expect(saveEmbeddingSetting).toHaveBeenCalledWith('6')
+    expect(success).not.toHaveBeenCalled()
+  })
+
   it('未配置且未选择：保存按钮禁用、重嵌按钮禁用', async () => {
     vi.mocked(getEmbeddingSetting).mockResolvedValue(EMPTY)
     const wrapper = await mountPage()
@@ -73,6 +84,18 @@ describe('SystemSettings', () => {
     await wrapper.find('[data-test="reembed-all"]').trigger('click')
     await flushPromises()
     expect(reembedAll).toHaveBeenCalled()
+  })
+
+  it('全量重嵌失败：无成功提示且不产生未处理 rejection（拦截器已 toast）', async () => {
+    vi.mocked(reembedAll).mockRejectedValue(new Error('15003'))
+    const { ElMessageBox, ElMessage } = await import('element-plus')
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
+    const success = vi.spyOn(ElMessage, 'success')
+    const wrapper = await mountPage()
+    await wrapper.find('[data-test="reembed-all"]').trigger('click')
+    await flushPromises()
+    expect(reembedAll).toHaveBeenCalled()
+    expect(success).not.toHaveBeenCalled()
   })
 
   it('全量重嵌：取消确认则不调用', async () => {
