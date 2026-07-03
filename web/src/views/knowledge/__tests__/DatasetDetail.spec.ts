@@ -3,7 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import {
-  getDataset, listDocuments, uploadDocument, deleteDocument, listChunks,
+  getDataset, listDocuments, uploadDocument, deleteDocument, listChunks, retryDocument,
 } from '@/api/knowledge'
 import type { Dataset, KbDocument, Chunk } from '@/types/knowledge'
 import type { PageResult } from '@/types/app'
@@ -14,6 +14,7 @@ vi.mock('@/api/knowledge', () => ({
   getDataset: vi.fn(), listDatasets: vi.fn(), createDataset: vi.fn(),
   updateDataset: vi.fn(), deleteDataset: vi.fn(),
   uploadDocument: vi.fn(), listDocuments: vi.fn(), deleteDocument: vi.fn(), listChunks: vi.fn(),
+  retryDocument: vi.fn(),
 }))
 
 const routerPush = vi.fn()
@@ -35,9 +36,14 @@ const DATASET: Dataset = {
 }
 const DOC: KbDocument = {
   id: '20', datasetId: '10', name: 'faq.txt', fileType: 'txt', fileSize: '1024',
-  status: 'ready', chunkCount: 3,
+  status: 'ready', chunkCount: 3, errorMessage: null,
   createTime: '2026-07-02T10:00:00+08:00', updateTime: '2026-07-02T10:00:00+08:00',
 }
+const FAILED_DOC: KbDocument = {
+  ...DOC, id: '21', name: 'bad.txt', status: 'failed', chunkCount: 0,
+  errorMessage: '系统未配置 embedding 模型，请联系管理员在系统设置中配置',
+}
+const PROCESSING_DOC: KbDocument = { ...DOC, id: '22', name: 'wip.txt', status: 'processing' }
 const CHUNK: Chunk = { id: '30', position: 1, content: '第一段内容' }
 
 async function mountPage() {
@@ -95,6 +101,12 @@ describe('DatasetDetail', () => {
     expect(listDocuments).toHaveBeenCalledTimes(2) // 挂载 1 次 + 上传成功后刷新 1 次
   })
 
+  it('文件名超 200 字符：前端拦截不调上传', async () => {
+    const wrapper = await mountPage()
+    await selectFile(wrapper, 'n'.repeat(201) + '.txt')
+    expect(uploadDocument).not.toHaveBeenCalled()
+  })
+
   it('选择不支持的扩展名：前端拦截不调上传', async () => {
     const wrapper = await mountPage()
     await selectFile(wrapper, 'report.pdf')
@@ -109,6 +121,66 @@ describe('DatasetDetail', () => {
     await wrapper.find('[data-test="doc-delete-20"]').trigger('click')
     await flushPromises()
     expect(deleteDocument).toHaveBeenCalledWith('20')
+  })
+
+  it('failed 文档：owner 可见重试按钮，点击后调用并刷新', async () => {
+    vi.mocked(listDocuments).mockResolvedValue(page([FAILED_DOC]))
+    vi.mocked(retryDocument).mockResolvedValue(undefined)
+    const wrapper = await mountPage()
+    await wrapper.find('[data-test="doc-retry-21"]').trigger('click')
+    await flushPromises()
+    expect(retryDocument).toHaveBeenCalledWith('21')
+    expect(listDocuments).toHaveBeenCalledTimes(2)
+  })
+
+  it('ready 文档：无重试按钮', async () => {
+    const wrapper = await mountPage()
+    expect(wrapper.find('[data-test="doc-retry-20"]').exists()).toBe(false)
+  })
+
+  it('非 owner 非 admin：failed 文档也无重试按钮', async () => {
+    vi.mocked(listDocuments).mockResolvedValue(page([FAILED_DOC]))
+    const store = useUserStore()
+    store.user = { id: '999', username: 'carol', role: 'member' }
+    const wrapper = await mountPage()
+    expect(wrapper.find('[data-test="doc-retry-21"]').exists()).toBe(false)
+  })
+
+  it('存在 processing 文档：启动轮询定时刷新，全部终态后停止', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(listDocuments)
+        .mockResolvedValueOnce(page([PROCESSING_DOC]))
+        .mockResolvedValueOnce(page([DOC]))
+      const wrapper = mount(DatasetDetail, { global: { plugins: [ElementPlus] } })
+      await flushPromises()
+      expect(listDocuments).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(3000)
+      await flushPromises()
+      expect(listDocuments).toHaveBeenCalledTimes(2)
+
+      await vi.advanceTimersByTimeAsync(3000)
+      await flushPromises()
+      expect(listDocuments).toHaveBeenCalledTimes(2)
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('全部终态：不启动轮询', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(DatasetDetail, { global: { plugins: [ElementPlus] } })
+      await flushPromises()
+      await vi.advanceTimersByTimeAsync(3000)
+      await flushPromises()
+      expect(listDocuments).toHaveBeenCalledTimes(1)
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('查看分段：打开抽屉并分页拉取', async () => {

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus'
 import {
-  getDataset, listDocuments, uploadDocument, deleteDocument, listChunks,
+  getDataset, listDocuments, uploadDocument, deleteDocument, listChunks, retryDocument,
 } from '@/api/knowledge'
 import type { Dataset, KbDocument, Chunk, DocumentStatus } from '@/types/knowledge'
 import { useUserStore } from '@/stores/user'
@@ -13,6 +13,8 @@ import ContentCard from '@/components/ContentCard.vue'
 
 const MAX_SIZE = 50 * 1024 * 1024
 const CHUNK_PAGE_SIZE = 10
+const POLL_INTERVAL_MS = 3000
+const NAME_MAX = 200
 
 const route = useRoute()
 const router = useRouter()
@@ -26,6 +28,7 @@ const page = ref(1)
 const size = ref(20)
 const loading = ref(false)
 const uploading = ref(false)
+let pollTimer: number | null = null
 
 /** 团队共享制：仅 owner 或 Admin 可上传/删除（与后端 10004 双保险）。 */
 const canModify = computed(
@@ -35,20 +38,38 @@ const canModify = computed(
 async function loadDataset() {
   dataset.value = await getDataset(datasetId)
 }
-async function loadDocs() {
-  loading.value = true
+async function loadDocs(background = false) {
+  if (!background) loading.value = true
   try {
     const res = await listDocuments(datasetId, { page: page.value, size: size.value })
     docs.value = res.list
     total.value = Number(res.total)
   } finally {
-    loading.value = false
+    if (!background) loading.value = false
   }
+  syncPolling()
 }
 onMounted(() => {
   loadDataset()
   loadDocs()
 })
+onUnmounted(stopPolling)
+
+function syncPolling() {
+  const active = docs.value.some((d) => d.status === 'pending' || d.status === 'processing')
+  if (active && pollTimer === null) {
+    pollTimer = window.setInterval(() => loadDocs(true), POLL_INTERVAL_MS)
+  } else if (!active && pollTimer !== null) {
+    stopPolling()
+  }
+}
+
+function stopPolling() {
+  if (pollTimer !== null) {
+    window.clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
 
 function onPageChange(p: number) {
   page.value = p
@@ -57,6 +78,10 @@ function onPageChange(p: number) {
 
 // —— 上传（el-upload 自定义 http-request；前端先拦截扩展名/大小，双保险）——
 function beforeUpload(file: File): boolean {
+  if (file.name.length > NAME_MAX) {
+    ElMessage.error(`文件名不能超过 ${NAME_MAX} 个字符`)
+    return false
+  }
   if (!/\.(txt|md)$/i.test(file.name)) {
     ElMessage.error('仅支持 txt / md 文件')
     return false
@@ -71,12 +96,22 @@ async function doUpload(options: UploadRequestOptions) {
   uploading.value = true
   try {
     await uploadDocument(datasetId, options.file as unknown as File)
-    ElMessage.success('上传成功')
+    ElMessage.success('已上传，正在处理')
     await loadDocs()
   } catch {
     /* 失败（15004/15001 等）由 request 拦截器统一 toast */
   } finally {
     uploading.value = false
+  }
+}
+
+async function onRetry(row: KbDocument) {
+  try {
+    await retryDocument(row.id)
+    ElMessage.success('已重新开始处理')
+    await loadDocs()
+  } catch {
+    /* 15002 等由 request 拦截器统一 toast */
   }
 }
 
@@ -164,7 +199,13 @@ function formatFileSize(bytes: string): string {
         <el-table-column prop="chunkCount" label="分段数" width="90" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="STATUS_TAG[(row as KbDocument).status]">
+            <el-tooltip
+              v-if="(row as KbDocument).status === 'failed' && (row as KbDocument).errorMessage"
+              :content="(row as KbDocument).errorMessage ?? ''"
+            >
+              <el-tag type="danger">{{ STATUS_LABEL.failed }}</el-tag>
+            </el-tooltip>
+            <el-tag v-else :type="STATUS_TAG[(row as KbDocument).status]">
               {{ STATUS_LABEL[(row as KbDocument).status] }}
             </el-tag>
           </template>
@@ -172,13 +213,21 @@ function formatFileSize(bytes: string): string {
         <el-table-column label="上传时间">
           <template #default="{ row }">{{ formatDateTime((row as KbDocument).createTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="200">
+        <el-table-column label="操作" width="260">
           <template #default="{ row }">
             <el-button
               size="small"
               :data-test="`doc-chunks-${(row as KbDocument).id}`"
               @click="openChunks(row as KbDocument)"
               >查看分段</el-button
+            >
+            <el-button
+              v-if="canModify && (row as KbDocument).status === 'failed'"
+              size="small"
+              type="warning"
+              :data-test="`doc-retry-${(row as KbDocument).id}`"
+              @click="onRetry(row as KbDocument)"
+              >重试</el-button
             >
             <el-button
               v-if="canModify"
@@ -208,7 +257,7 @@ function formatFileSize(bytes: string): string {
         <div class="dataset-detail__chunk-content">{{ c.content }}</div>
       </div>
       <el-pagination
-        small
+        size="small"
         layout="prev, pager, next, total"
         :total="chunkTotal"
         :current-page="chunkPage"
