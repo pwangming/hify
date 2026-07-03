@@ -497,7 +497,7 @@ git commit -m "feat(provider): EmbeddingModel 工厂+批量池韧性装饰+Regis
 - Consumes: Task 2 的 `ResilienceRegistry.getEmbeddingModel(Long)`、`ChatClientFactory.EMBEDDING_DIMENSION`、Task 1 的 `SystemSettingMapper`。
 - Produces: `ProviderFacade.getEmbeddingModel()`（无参，未配置抛 12006）、`EmbeddingSettingService.get()/save(Long)/currentModelId()`、`GET/PUT /api/v1/admin/provider/settings/embedding-model`。knowledge（Task 4/5）只消费 `ProviderFacade.getEmbeddingModel()`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `server/src/test/java/com/hify/provider/service/EmbeddingSettingServiceTest.java`（新建）：
 
@@ -799,12 +799,12 @@ class AdminSettingControllerTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='EmbeddingSettingServiceTest,AdminSettingControllerTest,ProviderFacadeImplTest'`
 Expected: 编译失败（类不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `server/src/main/java/com/hify/provider/dto/EmbeddingSettingResponse.java`：
 
@@ -1007,12 +1007,12 @@ public class AdminSettingController {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='EmbeddingSettingServiceTest,AdminSettingControllerTest,ProviderFacadeImplTest'`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/provider/ server/src/test/java/com/hify/provider/

@@ -2,6 +2,7 @@ package com.hify.provider.api;
 
 import com.hify.provider.api.dto.ModelView;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.embedding.EmbeddingModel;
 
 import java.util.Collection;
 import java.util.Map;
@@ -13,7 +14,7 @@ import java.util.Set;
  * 其他模块只能经本接口与 provider 同步交互；签名只用 api/dto + JDK 类型
  * （provider 例外允许 Spring AI 类型，留待 C2 的 getChatClient）。
  *
- * <p>C1 只暴露读侧校验；C2 将新增 {@code getChatClient(modelId)} / {@code getEmbeddingModel(modelId)}。
+ * <p>C1 只暴露读侧校验；C2 落地 {@code getChatClient(modelId)}，K3 落地 {@code getEmbeddingModel()}。
  */
 public interface ProviderFacade {
 
@@ -40,4 +41,11 @@ public interface ProviderFacade {
      * 不可用抛 {@code BizException(ProviderError.MODEL_NOT_USABLE)}。供 conversation / admin 测试调用。
      */
     ChatClient getChatClient(Long modelId);
+
+    /**
+     * 取系统设置的 embedding 模型（批量池韧性装饰）。未配置抛
+     * {@code BizException(EMBEDDING_MODEL_NOT_CONFIGURED)}；设置指向的模型已停用/被删抛
+     * {@code BizException(MODEL_NOT_USABLE)}。
+     */
+    EmbeddingModel getEmbeddingModel();
 }

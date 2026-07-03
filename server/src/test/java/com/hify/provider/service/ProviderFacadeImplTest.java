@@ -1,15 +1,19 @@
 package com.hify.provider.service;
 
+import com.hify.common.exception.BizException;
+import com.hify.provider.constant.ProviderError;
 import com.hify.provider.api.dto.ModelView;
 import com.hify.provider.service.resilience.ResilienceRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.embedding.EmbeddingModel;
 
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -22,13 +26,15 @@ class ProviderFacadeImplTest {
 
     private ModelQueryService modelQueryService;
     private ResilienceRegistry resilienceRegistry;
+    private EmbeddingSettingService embeddingSettingService;
     private ProviderFacadeImpl facade;
 
     @BeforeEach
     void setUp() {
         modelQueryService = mock(ModelQueryService.class);
         resilienceRegistry = mock(ResilienceRegistry.class);
-        facade = new ProviderFacadeImpl(modelQueryService, resilienceRegistry);
+        embeddingSettingService = mock(EmbeddingSettingService.class);
+        facade = new ProviderFacadeImpl(modelQueryService, resilienceRegistry, embeddingSettingService);
     }
 
     @Test
@@ -69,5 +75,20 @@ class ProviderFacadeImplTest {
 
         assertSame(client, facade.getChatClient(9L));
         verify(resilienceRegistry).getChatClient(9L);
+    }
+
+    @Test
+    void getEmbeddingModel_未配置_抛12006() {
+        when(embeddingSettingService.currentModelId()).thenReturn(null);
+        BizException ex = assertThrows(BizException.class, () -> facade.getEmbeddingModel());
+        assertEquals(ProviderError.EMBEDDING_MODEL_NOT_CONFIGURED, ex.errorCode());
+    }
+
+    @Test
+    void getEmbeddingModel_已配置_委托Registry() {
+        EmbeddingModel model = mock(EmbeddingModel.class);
+        when(embeddingSettingService.currentModelId()).thenReturn(6L);
+        when(resilienceRegistry.getEmbeddingModel(6L)).thenReturn(model);
+        assertSame(model, facade.getEmbeddingModel());
     }
 }

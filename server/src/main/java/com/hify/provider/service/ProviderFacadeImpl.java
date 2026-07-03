@@ -1,9 +1,12 @@
 package com.hify.provider.service;
 
+import com.hify.common.exception.BizException;
+import com.hify.provider.constant.ProviderError;
 import com.hify.provider.api.ProviderFacade;
 import com.hify.provider.api.dto.ModelView;
 import com.hify.provider.service.resilience.ResilienceRegistry;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
@@ -20,10 +23,13 @@ public class ProviderFacadeImpl implements ProviderFacade {
 
     private final ModelQueryService modelQueryService;
     private final ResilienceRegistry resilienceRegistry;
+    private final EmbeddingSettingService embeddingSettingService;
 
-    public ProviderFacadeImpl(ModelQueryService modelQueryService, ResilienceRegistry resilienceRegistry) {
+    public ProviderFacadeImpl(ModelQueryService modelQueryService, ResilienceRegistry resilienceRegistry,
+                              EmbeddingSettingService embeddingSettingService) {
         this.modelQueryService = modelQueryService;
         this.resilienceRegistry = resilienceRegistry;
+        this.embeddingSettingService = embeddingSettingService;
     }
 
     @Override
@@ -44,5 +50,14 @@ public class ProviderFacadeImpl implements ProviderFacade {
     @Override
     public ChatClient getChatClient(Long modelId) {
         return resilienceRegistry.getChatClient(modelId);
+    }
+
+    @Override
+    public EmbeddingModel getEmbeddingModel() {
+        Long modelId = embeddingSettingService.currentModelId();
+        if (modelId == null) {
+            throw new BizException(ProviderError.EMBEDDING_MODEL_NOT_CONFIGURED);
+        }
+        return resilienceRegistry.getEmbeddingModel(modelId);
     }
 }
