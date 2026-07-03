@@ -11,7 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 流水线的事务写库操作；外部 IO 在调用方事务外完成。 */
+/**
+ * 流水线的事务写库操作。独立成类是因为 Spring 事务基于代理，DocumentProcessJob 内部自调用
+ * 不过代理、@Transactional 会失效；拆出来经 bean 边界调用才生效。
+ * 两个方法都只做本地写库——外部 IO（嵌入 API）在调用方事务外完成。
+ */
 @Service
 public class DocumentProcessStore {
 
