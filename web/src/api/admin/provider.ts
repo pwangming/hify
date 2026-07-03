@@ -1,4 +1,5 @@
 import { request } from '@/api/request'
+import type { EmbeddingSetting } from '@/types/model'
 import type { Provider, ProviderForm } from '@/types/provider'
 
 // baseURL 已含 /api/v1（见 api/request.ts），此处只拼模块内路径。
@@ -32,4 +33,14 @@ export function disableProvider(id: string) {
 /** 删除提供商（逻辑删除）。后端：DELETE .../{id} */
 export function deleteProvider(id: string) {
   return request.delete<void>(`${BASE}/${id}`)
+}
+
+/** 查系统 embedding 模型设置。后端：GET /api/v1/admin/provider/settings/embedding-model */
+export function getEmbeddingSetting() {
+  return request.get<EmbeddingSetting>('/admin/provider/settings/embedding-model')
+}
+
+/** 设系统 embedding 模型。后端保存时真实探测验 1024 维。 */
+export function saveEmbeddingSetting(modelId: string) {
+  return request.put<EmbeddingSetting>('/admin/provider/settings/embedding-model', { modelId })
 }

@@ -1,4 +1,5 @@
 import { request } from '@/api/request'
+import { config } from '@/config'
 import type { Dataset, DatasetForm, KbDocument, Chunk } from '@/types/knowledge'
 import type { PageResult } from '@/types/app'
 
@@ -36,7 +37,7 @@ const DOC_BASE = '/knowledge/documents'
 export function uploadDocument(datasetId: string, file: File) {
   const fd = new FormData()
   fd.append('file', file)
-  return request.post<KbDocument>(`${BASE}/${datasetId}/documents`, fd)
+  return request.post<KbDocument>(`${BASE}/${datasetId}/documents`, fd, { timeout: config.uploadTimeoutMs })
 }
 
 /** 文档分页列表。后端：GET .../datasets/{id}/documents */
@@ -47,6 +48,11 @@ export function listDocuments(datasetId: string, params: { page: number; size: n
 /** 删除文档（级联软删分段）。后端：DELETE /api/v1/knowledge/documents/{id} */
 export function deleteDocument(id: string) {
   return request.delete<void>(`${DOC_BASE}/${id}`)
+}
+
+/** 重试 failed 文档（断点续嵌）。后端：POST /api/v1/knowledge/documents/{id}/retry */
+export function retryDocument(id: string) {
+  return request.post<void>(`${DOC_BASE}/${id}/retry`)
 }
 
 /** 分段分页列表（预览）。后端：GET .../documents/{id}/chunks */

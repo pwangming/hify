@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { request } from '@/api/request'
 import {
   listDatasets, getDataset, createDataset, updateDataset, deleteDataset,
-  uploadDocument, listDocuments, deleteDocument, listChunks,
+  uploadDocument, listDocuments, deleteDocument, listChunks, retryDocument,
 } from '@/api/knowledge'
 import type { DatasetForm } from '@/types/knowledge'
 
@@ -43,6 +43,7 @@ describe('knowledge api', () => {
     expect(request.post).toHaveBeenCalledWith(
       '/knowledge/datasets/10/documents',
       expect.any(FormData),
+      { timeout: 120_000 },
     )
     const fd = vi.mocked(request.post).mock.calls[0][1] as FormData
     expect(fd.get('file')).toBe(file)
@@ -62,5 +63,9 @@ describe('knowledge api', () => {
     expect(request.get).toHaveBeenCalledWith('/knowledge/documents/20/chunks', {
       params: { page: 1, size: 10 },
     })
+  })
+  it('retryDocument → POST /knowledge/documents/{id}/retry', () => {
+    retryDocument('20')
+    expect(request.post).toHaveBeenCalledWith('/knowledge/documents/20/retry')
   })
 })

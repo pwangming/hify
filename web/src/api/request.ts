@@ -112,7 +112,10 @@ instance.interceptors.response.use(
         redirectToLogin()
         break
       case ERR_PARAM_INVALID:
-        // 字段错误交表单逐项标红，不弹全局 toast
+        // 有字段错误数组交表单逐项标红；无字段错误时兜底 toast。
+        if (!apiError.fieldErrors?.length && !silent) {
+          ElMessage.error(apiError.message)
+        }
         break
       default:
         if (!silent) {

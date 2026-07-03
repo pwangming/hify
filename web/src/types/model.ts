@@ -29,3 +29,9 @@ export interface ModelOption {
   type: string
   providerName: string
 }
+
+/** 系统 embedding 模型设置（对齐后端 EmbeddingSettingResponse）；未配置时两字段均为 null。 */
+export interface EmbeddingSetting {
+  modelId: string | null
+  modelName: string | null
+}

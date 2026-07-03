@@ -14,7 +14,7 @@ export interface DatasetForm {
   description: string
 }
 
-/** 文档处理状态（对齐后端 kb_document.status 四态）。K2 同步流程一步到 ready。 */
+/** 文档处理状态（对齐后端 kb_document.status 四态）。K3 上传后异步流转 pending→processing→ready/failed。 */
 export type DocumentStatus = 'pending' | 'processing' | 'ready' | 'failed'
 
 /** 文档视图（对齐后端 DocumentResponse）。命名 KbDocument 避免与 DOM 内置 Document 撞名。
@@ -27,6 +27,8 @@ export interface KbDocument {
   fileSize: string
   status: DocumentStatus
   chunkCount: number
+  /** status=failed 时的用户可读原因；其余状态为 null */
+  errorMessage: string | null
   createTime: string
   updateTime: string
 }
