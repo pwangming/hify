@@ -782,4 +782,4 @@ mvn -f server/pom.xml test
 - [x] 分段参数走 yml（500/50）并记录在 kb_document 行；Db.saveBatch ≤1000 + reWriteBatchedInserts
 - [x] 文档列表排除 content 大列；删除级联软删（库→文档→分段）
 - [x] 后端 mvn test 全绿（无 -q）；前端 pnpm test + typecheck 全绿
-- [ ] 手动验收：传 txt/md → 看分段数与状态 → 传 pdf 报 15004 → 空文件报 15001 → 分段预览翻页 → member 门控 → 删文档/删库级联
+- [x] 手动验收：传 txt/md → 看分段数与状态 → 传 pdf 报 15004 → 空文件报 15001 → 分段预览翻页 → member 门控 → 删文档/删库级联
