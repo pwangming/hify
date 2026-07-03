@@ -57,4 +57,46 @@ public record ResilienceBundle(TimeLimiter timeLimiter, Bulkhead bulkhead,
         return new ResilienceBundle(timeLimiter, bulkhead, circuitBreaker, retry,
                 firstTokenTimeout, tokenGapTimeout, streamMaxDuration, p.getRetryMaxAttempts());
     }
+
+    /**
+     * 批量池（embedding/后台任务）：并发用 batch_concurrency，与交互池实例分离。
+     * 信号量等待放宽到 300s：批量任务可排队。
+     */
+    public static ResilienceBundle buildBatch(ModelProvider p) {
+        String name = "llm-provider-batch-" + p.getId();
+
+        TimeLimiter timeLimiter = TimeLimiter.of(name, TimeLimiterConfig.custom()
+                .timeoutDuration(Duration.ofSeconds(p.getResponseTimeoutSec()))
+                .cancelRunningFuture(true)
+                .build());
+
+        Bulkhead bulkhead = Bulkhead.of(name, BulkheadConfig.custom()
+                .maxConcurrentCalls(p.getBatchConcurrency())
+                .maxWaitDuration(Duration.ofSeconds(300))
+                .build());
+
+        CircuitBreaker circuitBreaker = CircuitBreaker.of(name, CircuitBreakerConfig.custom()
+                .slidingWindowType(SlidingWindowType.COUNT_BASED)
+                .slidingWindowSize(20)
+                .failureRateThreshold(p.getCbFailureRate())
+                .slowCallRateThreshold(80)
+                .slowCallDurationThreshold(Duration.ofSeconds(30))
+                .waitDurationInOpenState(Duration.ofSeconds(p.getCbWaitOpenSec()))
+                .permittedNumberOfCallsInHalfOpenState(5)
+                .recordException(ResilienceExceptions::isProviderFault)
+                .build());
+
+        Retry retry = Retry.of(name, RetryConfig.custom()
+                .maxAttempts(p.getRetryMaxAttempts())
+                .intervalFunction(IntervalFunction.ofExponentialRandomBackoff(
+                        Duration.ofSeconds(1), 2.0, 0.5))
+                .retryOnException(ResilienceExceptions::isRetryable)
+                .build());
+
+        return new ResilienceBundle(timeLimiter, bulkhead, circuitBreaker, retry,
+                Duration.ofSeconds(p.getFirstTokenTimeoutSec()),
+                Duration.ofSeconds(p.getTokenGapTimeoutSec()),
+                Duration.ofSeconds(p.getStreamMaxDurationSec()),
+                p.getRetryMaxAttempts());
+    }
 }

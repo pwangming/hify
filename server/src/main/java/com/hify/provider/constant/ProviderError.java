@@ -17,7 +17,11 @@ public enum ProviderError implements ErrorCode {
     /** 熔断打开 / 超时 / 重试耗尽后的 5xx/连接失败。 */
     PROVIDER_UNAVAILABLE(12003, HttpStatus.SERVICE_UNAVAILABLE, "模型供应商暂时不可用，请稍后重试"),
     /** 信号量满（并发已达上限）。 */
-    PROVIDER_BUSY(12004, HttpStatus.TOO_MANY_REQUESTS, "当前使用人数较多，请稍后重试");
+    PROVIDER_BUSY(12004, HttpStatus.TOO_MANY_REQUESTS, "当前使用人数较多，请稍后重试"),
+    /** admin 保存 embedding 设置时探测返回维度 ≠ 1024。 */
+    EMBEDDING_DIMENSION_MISMATCH(12005, HttpStatus.BAD_REQUEST, "该模型输出维度不符，需 1024 维"),
+    /** 系统未配置 embedding 模型（getEmbeddingModel 无参入口 / 全量重嵌前置校验）。 */
+    EMBEDDING_MODEL_NOT_CONFIGURED(12006, HttpStatus.CONFLICT, "系统未配置 embedding 模型，请联系管理员在系统设置中配置");
 
     private final int code;
     private final HttpStatus status;

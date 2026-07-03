@@ -171,7 +171,7 @@ git commit -m "feat(knowledge,provider): V15 向量列+HNSW / V16 system_setting
 - Consumes: `ApiKeyCipher.decrypt(String)`、`ResilienceExceptions.toBizException/sneaky/isRetryable/isProviderFault`（Task 前已有）、`ModelType.EMBEDDING.value()`（constant/ModelType.java 已有 CHAT/EMBEDDING 两值）。
 - Produces: `ChatClientFactory.EMBEDDING_DIMENSION`（public static final int = 1024）、`ChatClientFactory.buildEmbeddingModel(ModelProvider, AiModel)` → `org.springframework.ai.embedding.EmbeddingModel`、`ResilienceBundle.buildBatch(ModelProvider)`、`ResilienceRegistry.getEmbeddingModel(Long modelId)`（不可用抛 `BizException(MODEL_NOT_USABLE)`）。
 
-- [ ] **Step 1: 写失败测试（工厂 + Registry 增量）**
+- [x] **Step 1: 写失败测试（工厂 + Registry 增量）**
 
 `ChatClientFactoryTest.java` 追加（照文件既有风格，构造 factory 的方式复用文件里已有的 setup；若既有测试用 `new ChatClientFactory(cipher, retryTemplate)` 直接沿用）：
 
@@ -261,12 +261,12 @@ git commit -m "feat(knowledge,provider): V15 向量列+HNSW / V16 system_setting
 
 注意：`enabledProvider()` helper 构造的 ModelProvider 必须给韧性字段赋值（`setBatchConcurrency(3)`、`setMaxConcurrency(10)`、`setResponseTimeoutSec(120)`、`setRetryMaxAttempts(3)`、`setCbFailureRate(50)`、`setCbWaitOpenSec(30)`、`setFirstTokenTimeoutSec(30)`、`setTokenGapTimeoutSec(60)`、`setStreamMaxDurationSec(600)`），否则 `ResilienceBundle.buildBatch` 拆箱 NPE。若文件已有 helper 但缺 batchConcurrency，补上。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='ChatClientFactoryTest,ResilienceRegistryTest'`
 Expected: 编译失败（`buildEmbeddingModel`/`getEmbeddingModel`/`ResilientEmbeddingModel` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `ProviderError.java`：在 `PROVIDER_BUSY` 条目后追加两枚（注意前一条末尾改逗号）：
 
@@ -466,12 +466,12 @@ public class ResilientEmbeddingModel implements EmbeddingModel {
 
 新 import：`org.springframework.ai.embedding.EmbeddingModel`。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='ChatClientFactoryTest,ResilienceRegistryTest,ProviderErrorTest,ResilienceBundleTest'`
 Expected: PASS（若 ProviderErrorTest 枚举计数断言失败，把预期数量 +2 并补 12005/12006 断言行——照文件既有断言风格）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/provider/ server/src/test/java/com/hify/provider/

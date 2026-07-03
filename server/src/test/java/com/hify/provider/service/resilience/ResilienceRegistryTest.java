@@ -13,11 +13,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.embedding.EmbeddingModel;
 
 import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -52,6 +55,7 @@ class ResilienceRegistryTest {
     private ModelProvider provider(String status) {
         ModelProvider p = new ModelProvider();
         p.setId(1L); p.setProtocol("openai"); p.setStatus(status);
+        p.setBatchConcurrency(3);
         p.setMaxConcurrency(2); p.setRetryMaxAttempts(3); p.setCbFailureRate(50);
         p.setCbWaitOpenSec(30); p.setResponseTimeoutSec(120);
         p.setFirstTokenTimeoutSec(30);
@@ -122,5 +126,56 @@ class ResilienceRegistryTest {
         registry.invalidate(1L);
         registry.getChatClient(9L);
         verify(factory, times(2)).buildChatModel(any(), any());
+    }
+
+    @Test
+    void getEmbeddingModel_type非embedding_抛MODEL_NOT_USABLE() {
+        AiModel chat = new AiModel();
+        chat.setId(5L);
+        chat.setType("chat");
+        chat.setStatus("enabled");
+        when(modelMapper.selectById(5L)).thenReturn(chat);
+
+        BizException ex = assertThrows(BizException.class, () -> registry.getEmbeddingModel(5L));
+        assertEquals(ProviderError.MODEL_NOT_USABLE, ex.errorCode());
+    }
+
+    @Test
+    void getEmbeddingModel_可用_返回装饰实例且二次调用命中缓存() {
+        AiModel emb = new AiModel();
+        emb.setId(6L);
+        emb.setProviderId(1L);
+        emb.setType("embedding");
+        emb.setStatus("enabled");
+        ModelProvider p = provider(ProviderStatus.ENABLED.value());
+        when(modelMapper.selectById(6L)).thenReturn(emb);
+        when(providerMapper.selectById(1L)).thenReturn(p);
+        when(factory.buildEmbeddingModel(p, emb)).thenReturn(mock(EmbeddingModel.class));
+
+        EmbeddingModel first = registry.getEmbeddingModel(6L);
+        EmbeddingModel second = registry.getEmbeddingModel(6L);
+
+        assertInstanceOf(ResilientEmbeddingModel.class, first);
+        assertSame(first, second);
+        verify(factory, times(1)).buildEmbeddingModel(p, emb);
+    }
+
+    @Test
+    void invalidateModel_清embedding缓存() {
+        AiModel emb = new AiModel();
+        emb.setId(6L);
+        emb.setProviderId(1L);
+        emb.setType("embedding");
+        emb.setStatus("enabled");
+        ModelProvider p = provider(ProviderStatus.ENABLED.value());
+        when(modelMapper.selectById(6L)).thenReturn(emb);
+        when(providerMapper.selectById(1L)).thenReturn(p);
+        when(factory.buildEmbeddingModel(p, emb)).thenReturn(mock(EmbeddingModel.class));
+
+        registry.getEmbeddingModel(6L);
+        registry.invalidateModel(6L);
+        registry.getEmbeddingModel(6L);
+
+        verify(factory, times(2)).buildEmbeddingModel(p, emb);
     }
 }
