@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -54,6 +55,7 @@ class DocumentControllerTest {
 
     private DocumentResponse sampleDoc() {
         return new DocumentResponse(20L, 10L, "faq.txt", "txt", 1024L, "ready", 3,
+                null,
                 OffsetDateTime.parse("2026-07-02T10:00:00+08:00"),
                 OffsetDateTime.parse("2026-07-02T10:00:00+08:00"));
     }
@@ -103,6 +105,20 @@ class DocumentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isEmpty());
         verify(documentService).deleteDocument(eq(20L), any());
+    }
+
+    @Test
+    void 重试文档_登录用户_200() throws Exception {
+        mockMvc.perform(post("/api/v1/knowledge/documents/20/retry")
+                        .header("Authorization", "Bearer " + memberToken()))
+                .andExpect(status().isOk());
+        verify(documentService).retryDocument(eq(20L), any());
+    }
+
+    @Test
+    void 重试文档_未登录_401() throws Exception {
+        mockMvc.perform(post("/api/v1/knowledge/documents/20/retry"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

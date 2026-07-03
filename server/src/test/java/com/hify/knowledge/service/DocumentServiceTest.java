@@ -1,8 +1,7 @@
 package com.hify.knowledge.service;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.infra.security.CurrentUser;
@@ -14,13 +13,12 @@ import com.hify.knowledge.entity.KbDocument;
 import com.hify.knowledge.mapper.DatasetMapper;
 import com.hify.knowledge.mapper.KbChunkMapper;
 import com.hify.knowledge.mapper.KbDocumentMapper;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.session.Configuration;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.MockedStatic;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.charset.StandardCharsets;
@@ -29,11 +27,9 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,8 +39,9 @@ class DocumentServiceTest {
     private DatasetMapper datasetMapper;
     private KbDocumentMapper documentMapper;
     private KbChunkMapper chunkMapper;
+    private ApplicationEventPublisher publisher;
+    private DocumentProcessJob processJob;
     private DocumentService service;
-    private MockedStatic<Db> dbMock;
 
     private final CurrentUser owner = new CurrentUser(7L, "bob", CurrentUser.ROLE_MEMBER);
     private final CurrentUser other = new CurrentUser(8L, "carol", CurrentUser.ROLE_MEMBER);
@@ -56,10 +53,9 @@ class DocumentServiceTest {
         datasetMapper = mock(DatasetMapper.class);
         documentMapper = mock(KbDocumentMapper.class);
         chunkMapper = mock(KbChunkMapper.class);
-        // chunkSize=100 / overlap=10：测试用小参数，切分结果好断言
-        service = new DocumentService(datasetMapper, documentMapper, chunkMapper, 100, 10);
-        dbMock = mockStatic(Db.class);
-        dbMock.when(() -> Db.saveBatch(anyList(), anyInt())).thenReturn(true);
+        publisher = mock(ApplicationEventPublisher.class);
+        processJob = mock(DocumentProcessJob.class);
+        service = new DocumentService(datasetMapper, documentMapper, chunkMapper, publisher, processJob, 100, 10);
     }
 
     private void initTableInfo(Class<?> entityClass) {
@@ -68,12 +64,6 @@ class DocumentServiceTest {
         }
     }
 
-    @AfterEach
-    void tearDown() {
-        dbMock.close();
-    }
-
-    /** bob(7) 拥有的知识库。 */
     private Dataset ownedDataset() {
         Dataset d = new Dataset();
         d.setId(10L);
@@ -99,53 +89,34 @@ class DocumentServiceTest {
     }
 
     @Test
-    void 上传_成功_文档字段落库且分段批量写入() {
+    void 上传_成功_落库pending并发布事件() {
         when(datasetMapper.selectById(10L)).thenReturn(ownedDataset());
-        String content = "x".repeat(250); // size=100 overlap=10 步长90 → 0/90/180 → 3 段
+        when(documentMapper.insert(any(KbDocument.class))).thenAnswer(inv -> {
+            inv.getArgument(0, KbDocument.class).setId(20L);
+            return 1;
+        });
         ArgumentCaptor<KbDocument> docCaptor = ArgumentCaptor.forClass(KbDocument.class);
 
-        DocumentResponse resp = service.upload(10L, txt("faq.txt", content), owner);
+        DocumentResponse resp = service.upload(10L, txt("faq.txt", "x".repeat(250)), owner);
 
         verify(documentMapper).insert(docCaptor.capture());
         KbDocument saved = docCaptor.getValue();
         assertEquals(10L, saved.getDatasetId());
         assertEquals("faq.txt", saved.getName());
         assertEquals("txt", saved.getFileType());
-        assertEquals("ready", saved.getStatus());
-        assertEquals(3, saved.getChunkCount());
-        assertEquals(100, saved.getChunkSize());   // 实际参数记录在行上
+        assertEquals("pending", saved.getStatus());
+        assertEquals(0, saved.getChunkCount());
+        assertEquals(100, saved.getChunkSize());
         assertEquals(10, saved.getChunkOverlap());
-        assertEquals(3, resp.chunkCount());
-        dbMock.verify(() -> Db.saveBatch(anyList(), eq(1000)));
-    }
-
-    @Test
-    void 上传_分段带document和dataset冗余id_position从1起() {
-        when(datasetMapper.selectById(10L)).thenReturn(ownedDataset());
-        // insert 后回填 id=20（模拟 MyBatis-Plus 主键回填）
-        when(documentMapper.insert(any(KbDocument.class))).thenAnswer(inv -> {
-            inv.getArgument(0, KbDocument.class).setId(20L);
-            return 1;
-        });
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<KbChunk>> chunksCaptor = ArgumentCaptor.forClass(List.class);
-
-        service.upload(10L, txt("faq.txt", "y".repeat(150)), owner); // → 2 段
-
-        dbMock.verify(() -> Db.saveBatch(chunksCaptor.capture(), eq(1000)));
-        List<KbChunk> chunks = chunksCaptor.getValue();
-        assertEquals(2, chunks.size());
-        assertEquals(20L, chunks.get(0).getDocumentId());
-        assertEquals(10L, chunks.get(0).getDatasetId());
-        assertEquals(1, chunks.get(0).getPosition());
-        assertEquals(2, chunks.get(1).getPosition());
+        assertEquals("pending", resp.status());
+        verify(publisher).publishEvent(new DocumentUploadedEvent(20L));
     }
 
     @Test
     void 上传_md扩展名_放行且fileType为md() {
         when(datasetMapper.selectById(10L)).thenReturn(ownedDataset());
         ArgumentCaptor<KbDocument> captor = ArgumentCaptor.forClass(KbDocument.class);
-        service.upload(10L, txt("README.MD", "hello markdown"), owner); // 大小写不敏感
+        service.upload(10L, txt("README.MD", "hello markdown"), owner);
         verify(documentMapper).insert(captor.capture());
         assertEquals("md", captor.getValue().getFileType());
     }
@@ -176,21 +147,46 @@ class DocumentServiceTest {
     }
 
     @Test
-    void 上传_内容全空白_15001() {
-        when(datasetMapper.selectById(10L)).thenReturn(ownedDataset());
-        BizException ex = assertThrows(BizException.class,
-                () -> service.upload(10L, txt("blank.txt", "   \n\t "), owner));
-        assertEquals(KnowledgeError.DOCUMENT_CONTENT_EMPTY, ex.errorCode());
-        verify(documentMapper, never()).insert(any(KbDocument.class));
-    }
-
-    @Test
     void 上传_文件名超200字符_PARAM_INVALID() {
         when(datasetMapper.selectById(10L)).thenReturn(ownedDataset());
         String longName = "n".repeat(201) + ".txt";
         BizException ex = assertThrows(BizException.class,
                 () -> service.upload(10L, txt(longName, "hi"), owner));
         assertEquals(CommonError.PARAM_INVALID, ex.errorCode());
+    }
+
+    @Test
+    void 重试_failed文档_闸门通过并派发异步() {
+        KbDocument failed = doc10();
+        failed.setStatus("failed");
+        when(documentMapper.selectById(20L)).thenReturn(failed);
+        when(datasetMapper.selectById(10L)).thenReturn(ownedDataset());
+        when(documentMapper.claimStatus(20L, "failed")).thenReturn(1);
+
+        service.retryDocument(20L, owner);
+
+        verify(processJob).processRetry(20L);
+    }
+
+    @Test
+    void 重试_状态不是failed_15002且不派发() {
+        when(documentMapper.selectById(20L)).thenReturn(doc10());
+        when(datasetMapper.selectById(10L)).thenReturn(ownedDataset());
+        when(documentMapper.claimStatus(20L, "failed")).thenReturn(0);
+
+        BizException ex = assertThrows(BizException.class, () -> service.retryDocument(20L, owner));
+
+        assertEquals(KnowledgeError.DOCUMENT_STATE_CONFLICT, ex.errorCode());
+        verify(processJob, never()).processRetry(anyLong());
+    }
+
+    @Test
+    void 重试_非owner非admin_FORBIDDEN() {
+        when(documentMapper.selectById(20L)).thenReturn(doc10());
+        when(datasetMapper.selectById(10L)).thenReturn(ownedDataset());
+        BizException ex = assertThrows(BizException.class, () -> service.retryDocument(20L, other));
+        assertEquals(CommonError.FORBIDDEN, ex.errorCode());
+        verify(documentMapper, never()).claimStatus(anyLong(), anyString());
     }
 
     @Test
@@ -235,7 +231,7 @@ class DocumentServiceTest {
         when(datasetMapper.selectById(10L)).thenReturn(ownedDataset());
         service.deleteDocument(20L, owner);
         verify(documentMapper).deleteById(20L);
-        verify(chunkMapper).delete(any()); // @TableLogic 使 delete = update set deleted=true
+        verify(chunkMapper).delete(any());
     }
 
     @Test

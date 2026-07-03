@@ -51,6 +51,12 @@ public class DocumentController {
         return Result.ok(null);
     }
 
+    @PostMapping("/documents/{id}/retry")
+    public Result<Void> retryDocument(@PathVariable Long id) {
+        documentService.retryDocument(id, CurrentUserHolder.current());
+        return Result.ok(null);
+    }
+
     @GetMapping("/documents/{id}/chunks")
     public Result<PageResult<ChunkResponse>> listChunks(
             @PathVariable Long id,

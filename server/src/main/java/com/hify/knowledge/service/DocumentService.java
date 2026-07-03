@@ -2,7 +2,6 @@ package com.hify.knowledge.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.common.page.PageResult;
@@ -17,41 +16,43 @@ import com.hify.knowledge.mapper.DatasetMapper;
 import com.hify.knowledge.mapper.KbChunkMapper;
 import com.hify.knowledge.mapper.KbDocumentMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 /**
- * 文档业务逻辑：上传（同步提取+分段+落库）、列表、删除（级联软删分段）、分段预览。
+ * 文档业务逻辑：上传落库 pending，处理全在 DocumentProcessJob 异步流水线；列表、删除、分段预览。
  * 权限随所属 dataset 判（owner/Admin，复用 DatasetService.assertCanModify）。
- * upload 的提取与分段是纯内存操作（本地字节，无外部 IO），放在事务内不违反「事务内禁外部 IO」。
  */
 @Service
 public class DocumentService {
 
     private static final int NAME_MAX = 200;
-    private static final int BATCH_SIZE = 1000;
 
     private final DatasetMapper datasetMapper;
     private final KbDocumentMapper documentMapper;
     private final KbChunkMapper chunkMapper;
+    private final ApplicationEventPublisher eventPublisher;
+    private final DocumentProcessJob processJob;
     private final int chunkSize;
     private final int chunkOverlap;
 
     public DocumentService(DatasetMapper datasetMapper,
                            KbDocumentMapper documentMapper,
                            KbChunkMapper chunkMapper,
+                           ApplicationEventPublisher eventPublisher,
+                           DocumentProcessJob processJob,
                            @Value("${hify.knowledge.chunk-size}") int chunkSize,
                            @Value("${hify.knowledge.chunk-overlap}") int chunkOverlap) {
         this.datasetMapper = datasetMapper;
         this.documentMapper = documentMapper;
         this.chunkMapper = chunkMapper;
+        this.eventPublisher = eventPublisher;
+        this.processJob = processJob;
         this.chunkSize = chunkSize;
         this.chunkOverlap = chunkOverlap;
     }
@@ -73,11 +74,6 @@ public class DocumentService {
         } catch (IOException e) {
             throw new BizException(KnowledgeError.DOCUMENT_CONTENT_EMPTY, "文档读取失败", e);
         }
-        String text = new String(bytes, StandardCharsets.UTF_8); // md 按原文处理，不渲染
-        List<String> pieces = TextChunker.split(text, chunkSize, chunkOverlap);
-        if (pieces.isEmpty()) {
-            throw new BizException(KnowledgeError.DOCUMENT_CONTENT_EMPTY);
-        }
 
         KbDocument doc = new KbDocument();
         doc.setDatasetId(datasetId);
@@ -85,23 +81,30 @@ public class DocumentService {
         doc.setFileType(fileType);
         doc.setFileSize((long) bytes.length);
         doc.setContent(bytes);
-        doc.setStatus("ready"); // K2 同步流程一步到 ready；K3 异步化后改写状态机
-        doc.setChunkCount(pieces.size());
+        doc.setStatus("pending");
+        doc.setChunkCount(0);
         doc.setChunkSize(chunkSize);
         doc.setChunkOverlap(chunkOverlap);
         documentMapper.insert(doc);
 
-        List<KbChunk> chunks = new ArrayList<>(pieces.size());
-        for (int i = 0; i < pieces.size(); i++) {
-            KbChunk chunk = new KbChunk();
-            chunk.setDocumentId(doc.getId());
-            chunk.setDatasetId(datasetId);
-            chunk.setPosition(i + 1);
-            chunk.setContent(pieces.get(i));
-            chunks.add(chunk);
-        }
-        Db.saveBatch(chunks, BATCH_SIZE); // database-standards §2.1：每批 ≤1000
+        eventPublisher.publishEvent(new DocumentUploadedEvent(doc.getId()));
         return toResponse(doc);
+    }
+
+    public void retryDocument(Long id, CurrentUser current) {
+        KbDocument doc = documentMapper.selectById(id);
+        if (doc == null) {
+            throw new BizException(CommonError.NOT_FOUND, "文档不存在");
+        }
+        Dataset dataset = datasetMapper.selectById(doc.getDatasetId());
+        if (dataset == null) {
+            throw new BizException(CommonError.NOT_FOUND, "知识库不存在");
+        }
+        DatasetService.assertCanModify(dataset, current);
+        if (documentMapper.claimStatus(id, "failed") == 0) {
+            throw new BizException(KnowledgeError.DOCUMENT_STATE_CONFLICT);
+        }
+        processJob.processRetry(id);
     }
 
     public PageResult<DocumentResponse> pageDocuments(Long datasetId, int page, int size) {
@@ -176,6 +179,7 @@ public class DocumentService {
 
     private DocumentResponse toResponse(KbDocument d) {
         return new DocumentResponse(d.getId(), d.getDatasetId(), d.getName(), d.getFileType(),
-                d.getFileSize(), d.getStatus(), d.getChunkCount(), d.getCreateTime(), d.getUpdateTime());
+                d.getFileSize(), d.getStatus(), d.getChunkCount(), d.getErrorMessage(),
+                d.getCreateTime(), d.getUpdateTime());
     }
 }

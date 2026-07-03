@@ -1042,7 +1042,7 @@ git commit -m "feat(provider): embedding 系统设置（保存探测验维度）
 - Consumes: Task 3 的 `ProviderFacade.getEmbeddingModel()`；K2 已有 `TextChunker.split(String,int,int)`、`DatasetService.assertCanModify(Dataset, CurrentUser)`。
 - Produces: `DocumentProcessJob.runOnce(Long)`（同步流水线，Task 5 重嵌复用）、`DocumentProcessJob.processRetry(Long)`（@Async）、`KbDocumentMapper.claimStatus/claimForReembed/markReady/markFailed/failZombies/selectReembedTargetIds`、`KbChunkMapper.selectUnembedded/updateEmbedding/clearAllEmbeddings`、`DocumentService.retryDocument(Long, CurrentUser)`、`POST /api/v1/knowledge/documents/{id}/retry`、`DocumentResponse` 新签名（末位加 `String errorMessage`）。
 
-- [ ] **Step 1: 写失败测试（DocumentProcessJobTest 新建）**
+- [x] **Step 1: 写失败测试（DocumentProcessJobTest 新建）**
 
 `server/src/test/java/com/hify/knowledge/service/DocumentProcessJobTest.java`：
 
@@ -1283,12 +1283,12 @@ class DocumentProcessJobTest {
 
 注：`IntStream` import 如未用到删除；`ReembedGate` 在本 Task 一并创建（Task 5 的 ReembedService 才消费其闸语义，但 job.reembedAll 的 finally 需要它）。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='DocumentProcessJobTest'`
 Expected: 编译失败（DocumentProcessJob/DocumentProcessStore/DocumentUploadedEvent/ReembedGate 不存在）
 
-- [ ] **Step 3: 实现（错误码 / mapper / 事件 / store / job / healer）**
+- [x] **Step 3: 实现（错误码 / mapper / 事件 / store / job / healer）**
 
 `KnowledgeError.java`：现有两枚后追加（前一条末尾改逗号）：
 
@@ -1678,12 +1678,12 @@ public class DocumentStartupHealer {
 }
 ```
 
-- [ ] **Step 4: 跑 DocumentProcessJobTest 确认通过**
+- [x] **Step 4: 跑 DocumentProcessJobTest 确认通过**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='DocumentProcessJobTest'`
 Expected: PASS（10 个测试）
 
-- [ ] **Step 5: 改造 DocumentService / DocumentResponse / Controller（先改测试再改实现）**
+- [x] **Step 5: 改造 DocumentService / DocumentResponse / Controller（先改测试再改实现）**
 
 `DocumentResponse.java` 记录末位加 `String errorMessage`：
 
@@ -1843,12 +1843,12 @@ public record DocumentResponse(
 
 （memberToken/verify/eq/any 等按文件既有 import；若文件用别的 token helper 名，照抄现名。）
 
-- [ ] **Step 6: 全量回归**
+- [x] **Step 6: 全量回归**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test`
 Expected: `BUILD SUCCESS`，0 Failures 0 Errors（总数 ≈ 340 + 新增；ModularityTests/LayerRulesTest 必须在列且过——knowledge→provider 走 Facade 白名单本就允许）
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/knowledge/ server/src/test/java/com/hify/knowledge/

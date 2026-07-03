@@ -11,6 +11,10 @@ public enum KnowledgeError implements ErrorCode {
 
     /** 文档内容为空或无法按文本解析。 */
     DOCUMENT_CONTENT_EMPTY(15001, HttpStatus.BAD_REQUEST, "文档内容为空或无法解析"),
+    /** 文档当前状态不允许该操作（如对非 failed 文档点重试）。 */
+    DOCUMENT_STATE_CONFLICT(15002, HttpStatus.CONFLICT, "文档当前状态不允许该操作"),
+    /** 全量重嵌入任务已在进行中（进程内互斥闸）。 */
+    REEMBED_IN_PROGRESS(15003, HttpStatus.CONFLICT, "重嵌入任务已在进行中，请稍后再试"),
     /** 文档格式不支持。15004 的号是 api-standards §5.3 预定义示例，必须用它。 */
     DOCUMENT_FORMAT_UNSUPPORTED(15004, HttpStatus.BAD_REQUEST, "文档格式不支持，当前仅支持 txt/md");
 

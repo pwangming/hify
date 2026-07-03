@@ -11,6 +11,7 @@ public record DocumentResponse(
         Long fileSize,
         String status,
         Integer chunkCount,
+        String errorMessage,
         OffsetDateTime createTime,
         OffsetDateTime updateTime) {
 }
