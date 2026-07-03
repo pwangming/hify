@@ -19,6 +19,7 @@ public class KbDocument extends BaseEntity {
     private Integer chunkCount;
     private Integer chunkSize;
     private Integer chunkOverlap;
+    private String errorMessage; // status=failed 时的用户可读原因；其余状态为 null
 
     public Long getDatasetId() { return datasetId; }
     public void setDatasetId(Long datasetId) { this.datasetId = datasetId; }
@@ -46,4 +47,7 @@ public class KbDocument extends BaseEntity {
 
     public Integer getChunkOverlap() { return chunkOverlap; }
     public void setChunkOverlap(Integer chunkOverlap) { this.chunkOverlap = chunkOverlap; }
+
+    public String getErrorMessage() { return errorMessage; }
+    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
 }

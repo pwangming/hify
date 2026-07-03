@@ -112,6 +112,8 @@ hify:
     # 实际使用的参数会记录在 kb_document 行上，为将来重分段留底。改分段口径只动这里。
     chunk-size: ${HIFY_KNOWLEDGE_CHUNK_SIZE:500}
     chunk-overlap: ${HIFY_KNOWLEDGE_CHUNK_OVERLAP:50}
+    # 每次 embedding API 调用打包的分段数（千问 v4 单次上限 10；OpenAI 可更大但统一按最小公倍走）。
+    embedding-batch-size: ${HIFY_KNOWLEDGE_EMBEDDING_BATCH_SIZE:10}
   provider:
     crypto:
       # 供应商 API Key 加密主密钥（AES-256-GCM，经 SHA-256 派生 32 字节密钥）。
