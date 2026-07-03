@@ -1869,7 +1869,7 @@ git commit -m "feat(knowledge): 上传流水线异步化+分批嵌入+重试+启
 - Consumes: Task 4 的 `ReembedGate.tryStart()/finish()`、`DocumentProcessJob.reembedAll()`；Task 3 的 `ProviderFacade.getEmbeddingModel()`。
 - Produces: `ReembedService.start()`、`POST /api/v1/admin/knowledge/documents/reembed`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `server/src/test/java/com/hify/knowledge/service/ReembedServiceTest.java`：
 
@@ -1990,12 +1990,12 @@ class AdminKnowledgeControllerTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='ReembedServiceTest,AdminKnowledgeControllerTest'`
 Expected: 编译失败（ReembedService/AdminKnowledgeController 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `server/src/main/java/com/hify/knowledge/service/ReembedService.java`：
 
@@ -2067,12 +2067,12 @@ public class AdminKnowledgeController {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过 + 全量回归**
+- [x] **Step 4: 跑测试确认通过 + 全量回归**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test`
 Expected: `BUILD SUCCESS`，0 Failures 0 Errors
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/knowledge/ server/src/test/java/com/hify/knowledge/
