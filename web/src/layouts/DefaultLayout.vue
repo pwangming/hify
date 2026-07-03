@@ -9,6 +9,7 @@ import {
   Setting,
   User,
   Brush,
+  Tools,
   Fold,
   Expand,
   SwitchButton,
@@ -28,7 +29,7 @@ const { user } = storeToRefs(userStore)
 const collapsed = ref(false)
 
 // meta.icon 字符串 → 图标组件。路由表保持纯元数据，组件名解析集中在此。
-const iconMap: Record<string, Component> = { ChatDotRound, Collection, Grid, Setting, User, Brush }
+const iconMap: Record<string, Component> = { ChatDotRound, Collection, Grid, Setting, User, Brush, Tools }
 
 const menuItems = computed(() => buildMenu(router.options.routes, user.value?.role))
 const breadcrumb = computed(() => buildBreadcrumb(route))

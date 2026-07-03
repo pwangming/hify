@@ -71,6 +71,19 @@ const routes: RouteRecordRaw[] = [
       group: '管理控制台',
     },
   },
+  {
+    path: '/admin/settings',
+    name: 'SystemSettings',
+    component: () => import('@/views/admin/system/SystemSettings.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: ['admin'],
+      title: '系统设置',
+      menu: true,
+      icon: 'Tools',
+      group: '管理控制台',
+    },
+  },
   // —— 样式预览（开发期视觉验收用，免登录、默认布局、进侧边菜单；定稿后可删）——
   {
     path: '/styleguide',
