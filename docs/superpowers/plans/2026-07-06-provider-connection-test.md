@@ -643,7 +643,7 @@ git commit -m "feat(web): 试连接 API 层+类型+LLM 专用超时（TDD）"
 **Interfaces:**
 - Consumes: `testProvider`、`Provider.lastTestStatus/lastTestAt/lastTestError`（Task 4）。
 
-- [ ] **Step 1: 写失败测试**——`ProviderList.spec.ts`：把 SAMPLE 第 1 条改为 `lastTestStatus: 'ok', lastTestAt: '2026-07-06T10:00:00+08:00', lastTestError: null`，第 2 条保持三 null，另加第 3 条 `status: 'disabled'` 且 `lastTestStatus: 'fail', lastTestError: '401 Unauthorized'` 的供应商（id: '9'）。追加用例：
+- [x] **Step 1: 写失败测试**——`ProviderList.spec.ts`：把 SAMPLE 第 1 条改为 `lastTestStatus: 'ok', lastTestAt: '2026-07-06T10:00:00+08:00', lastTestError: null`，第 2 条保持三 null，另加第 3 条 `status: 'disabled'` 且 `lastTestStatus: 'fail', lastTestError: '401 Unauthorized'` 的供应商（id: '9'）。追加用例：
 
 ```ts
 it('连接列渲染三态标签', async () => {
@@ -674,12 +674,12 @@ it('禁用供应商的试连接按钮置灰', async () => {
 
 （`vi.mock('@/api/admin/provider', ...)` 工厂里补 `testProvider: vi.fn()` 并 import。）
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test src/views/admin/provider/__tests__/ProviderList.spec.ts`
 Expected: FAIL（无连接列/按钮）
 
-- [ ] **Step 3: 实现 `ProviderList.vue`**
+- [x] **Step 3: 实现 `ProviderList.vue`**
 
 script 部分：import 补 `testProvider`；新增：
 
@@ -738,7 +738,7 @@ template：「状态」列后加「连接」列：
 >
 ```
 
-- [ ] **Step 4: 跑测试通过**
+- [x] **Step 4: 跑测试通过**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test src/views/admin/provider/__tests__/ProviderList.spec.ts && pnpm typecheck`
 Expected: 全部通过

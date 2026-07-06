@@ -9,6 +9,7 @@ import {
   enableProvider,
   disableProvider,
   deleteProvider,
+  testProvider,
 } from '@/api/admin/provider'
 import type { Provider } from '@/types/provider'
 import ProviderList from '@/views/admin/provider/ProviderList.vue'
@@ -20,6 +21,7 @@ vi.mock('@/api/admin/provider', () => ({
   enableProvider: vi.fn(),
   disableProvider: vi.fn(),
   deleteProvider: vi.fn(),
+  testProvider: vi.fn(),
 }))
 
 // el-table 依赖 ResizeObserver，happy-dom 未实现，补桩
@@ -38,8 +40,8 @@ const SAMPLE: Provider[] = [
     status: 'enabled',
     apiKeyTail: '7890',
     createTime: '2026-06-20T10:00:00+08:00',
-    lastTestStatus: null,
-    lastTestAt: null,
+    lastTestStatus: 'ok',
+    lastTestAt: '2026-07-06T10:00:00+08:00',
     lastTestError: null,
   },
   {
@@ -53,6 +55,18 @@ const SAMPLE: Provider[] = [
     lastTestStatus: null,
     lastTestAt: null,
     lastTestError: null,
+  },
+  {
+    id: '9',
+    name: '失效供应商',
+    protocol: 'openai',
+    baseUrl: 'https://invalid.example.com/v1',
+    status: 'disabled',
+    apiKeyTail: '0000',
+    createTime: '2026-06-23T09:00:00+08:00',
+    lastTestStatus: 'fail',
+    lastTestAt: '2026-07-06T11:00:00+08:00',
+    lastTestError: '401 Unauthorized',
   },
 ]
 
@@ -71,6 +85,31 @@ describe('ProviderList', () => {
     expect(wrapper.text()).toContain('OpenAI 兼容') // 协议标签
     expect(wrapper.text()).toContain('Anthropic')
     expect(wrapper.text()).toContain('••••7890') // API Key 掩码列
+  })
+
+  it('连接列渲染三态标签', async () => {
+    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const text = wrapper.find('[data-test="provider-table"]').text()
+    expect(text).toContain('通过')
+    expect(text).toContain('未测试')
+    expect(text).toContain('失败')
+  })
+
+  it('点击试连接调用 API 并刷新列表', async () => {
+    vi.mocked(testProvider).mockResolvedValue({ modelName: '通义-chat', sample: 'pong' })
+    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="test-1"]').trigger('click')
+    await flushPromises()
+    expect(testProvider).toHaveBeenCalledWith('1')
+    expect(listProviders).toHaveBeenCalledTimes(2) // 挂载 1 次 + 测试后刷新 1 次
+  })
+
+  it('禁用供应商的试连接按钮置灰', async () => {
+    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="test-9"]').attributes('disabled')).toBeDefined()
   })
 
   it('点新增弹出对话框', async () => {

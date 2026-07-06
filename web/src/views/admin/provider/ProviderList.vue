@@ -9,6 +9,7 @@ import {
   enableProvider,
   disableProvider,
   deleteProvider,
+  testProvider,
 } from '@/api/admin/provider'
 import type { Provider, ProviderForm, ProviderProtocol } from '@/types/provider'
 import { formatDateTime } from '@/utils/datetime'
@@ -31,6 +32,7 @@ const router = useRouter()
 
 const providers = ref<Provider[]>([])
 const loading = ref(false)
+const testingId = ref<string | null>(null)
 
 async function load() {
   loading.value = true
@@ -81,6 +83,25 @@ async function onDelete(row: Provider) {
     await load()
   } catch {
     /* 已由 request 拦截器统一 toast */
+  }
+}
+
+/** tooltip 文案：时间 + 失败原因（成功只有时间）。 */
+function connTooltip(row: Provider): string {
+  const time = row.lastTestAt ? `测试时间：${formatDateTime(row.lastTestAt)}` : ''
+  return row.lastTestStatus === 'fail' ? `${time}　${row.lastTestError ?? ''}` : time
+}
+
+async function onTest(row: Provider) {
+  testingId.value = row.id
+  try {
+    const result = await testProvider(row.id)
+    ElMessage.success(`连接正常（${result.modelName}）`)
+  } catch {
+    /* 失败原因已由 request 拦截器统一 toast */
+  } finally {
+    testingId.value = null
+    await load() // 成败都已落库，刷新「连接」列
   }
 }
 
@@ -187,10 +208,24 @@ async function submitForm() {
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="连接">
+          <template #default="{ row }">
+            <el-tooltip
+              v-if="(row as Provider).lastTestStatus !== null"
+              :content="connTooltip(row as Provider)"
+              placement="top"
+            >
+              <el-tag :type="(row as Provider).lastTestStatus === 'ok' ? 'success' : 'danger'">
+                {{ (row as Provider).lastTestStatus === 'ok' ? '通过' : '失败' }}
+              </el-tag>
+            </el-tooltip>
+            <el-tag v-else type="info">未测试</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="创建时间">
           <template #default="{ row }">{{ formatDateTime((row as Provider).createTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="320">
+        <el-table-column label="操作" width="400">
           <template #default="{ row }">
             <div class="provider-list__ops">
               <el-button
@@ -199,6 +234,14 @@ async function submitForm() {
                 type="primary"
                 @click="router.push('/admin/provider/' + (row as Provider).id)"
                 >管理模型</el-button
+              >
+              <el-button
+                :data-test="`test-${(row as Provider).id}`"
+                size="small"
+                :loading="testingId === (row as Provider).id"
+                :disabled="(row as Provider).status !== 'enabled'"
+                @click="onTest(row as Provider)"
+                >试连接</el-button
               >
               <el-button
                 v-if="(row as Provider).status === 'enabled'"
