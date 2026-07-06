@@ -10,10 +10,13 @@ import com.hify.conversation.dto.SendMessageResponse;
 import com.hify.conversation.entity.Conversation;
 import com.hify.conversation.entity.Message;
 import com.hify.infra.security.CurrentUser;
+import com.hify.knowledge.api.KnowledgeFacade;
+import com.hify.knowledge.api.RetrievedChunk;
 import com.hify.provider.api.ProviderFacade;
 import com.hify.provider.constant.ProviderError;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.ai.chat.client.ChatClient;
 
@@ -23,6 +26,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -32,6 +36,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class ConversationServiceTest {
@@ -41,6 +46,7 @@ class ConversationServiceTest {
     private ChatInvoker chatInvoker;
     private ConversationStore store;
     private QuotaGuard quotaGuard;
+    private KnowledgeFacade knowledgeFacade;
     private ConversationService service;
 
     private final CurrentUser member = new CurrentUser(42L, "alice", CurrentUser.ROLE_MEMBER);
@@ -53,12 +59,17 @@ class ConversationServiceTest {
         chatInvoker = mock(ChatInvoker.class);
         store = mock(ConversationStore.class);
         quotaGuard = mock(QuotaGuard.class);
-        service = new ConversationService(appFacade, providerFacade, chatInvoker, store, quotaGuard);
+        knowledgeFacade = mock(KnowledgeFacade.class);
+        service = new ConversationService(appFacade, providerFacade, chatInvoker, store, quotaGuard, knowledgeFacade);
     }
 
     private void stubRunnableApp(String systemPrompt) {
+        stubRunnableApp(systemPrompt, List.of());
+    }
+
+    private void stubRunnableApp(String systemPrompt, List<Long> datasetIds) {
         when(appFacade.findRunnableChatApp(eq(7L)))
-                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, List.of())));
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, datasetIds)));
         when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
     }
 
@@ -85,6 +96,14 @@ class ConversationServiceTest {
         m.setPromptTokens(12);
         m.setCompletionTokens(8);
         return m;
+    }
+
+    private void stubTurnAndReply() {
+        when(store.openTurn(eq(7L), eq(null), eq(42L), eq("退货政策")))
+                .thenReturn(new TurnContext(100L, List.of(userMsg("退货政策")), 300L, true));
+        when(chatInvoker.invoke(any(), any(), any())).thenReturn(new LlmReply("答案", 12, 8));
+        when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong()))
+                .thenReturn(savedAssistant());
     }
 
     @Test
@@ -177,6 +196,58 @@ class ConversationServiceTest {
         BizException ex = assertThrows(BizException.class, () -> service.send(7L, null, "你好", member));
         assertEquals(ProviderError.PROVIDER_UNAVAILABLE, ex.errorCode());
         verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void 绑库_检索命中_系统提示词尾部拼参考资料() {
+        stubRunnableApp("你是客服", List.of(9L));
+        stubTurnAndReply();
+        when(knowledgeFacade.retrieve(List.of(9L), "退货政策"))
+                .thenReturn(List.of(new RetrievedChunk(1L, 2L, "a.txt", "退货需在7天内", 0.83)));
+        service.send(7L, null, "退货政策", member);
+        ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+        verify(chatInvoker).invoke(eq(chatClient), prompt.capture(), any());
+        assertTrue(prompt.getValue().startsWith("你是客服"));
+        assertTrue(prompt.getValue().contains("参考资料"));
+        assertTrue(prompt.getValue().contains("[1] 退货需在7天内"));
+    }
+
+    @Test
+    void 绑库_原提示词为空_直接以参考资料开头() {
+        stubRunnableApp(null, List.of(9L));
+        stubTurnAndReply();
+        when(knowledgeFacade.retrieve(List.of(9L), "退货政策"))
+                .thenReturn(List.of(new RetrievedChunk(1L, 2L, "a.txt", "退货需在7天内", 0.83)));
+        service.send(7L, null, "退货政策", member);
+        ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+        verify(chatInvoker).invoke(eq(chatClient), prompt.capture(), any());
+        assertTrue(prompt.getValue().startsWith("请优先依据下列参考资料"));
+    }
+
+    @Test
+    void 绑库_检索抛异常_降级用原提示词且正常回答() {
+        stubRunnableApp("你是客服", List.of(9L));
+        stubTurnAndReply();
+        when(knowledgeFacade.retrieve(any(), any())).thenThrow(new RuntimeException("供应商超时"));
+        service.send(7L, null, "退货政策", member);
+        verify(chatInvoker).invoke(eq(chatClient), eq("你是客服"), any());
+    }
+
+    @Test
+    void 绑库_命中为空_提示词原样不拼空壳() {
+        stubRunnableApp("你是客服", List.of(9L));
+        stubTurnAndReply();
+        when(knowledgeFacade.retrieve(List.of(9L), "退货政策")).thenReturn(List.of());
+        service.send(7L, null, "退货政策", member);
+        verify(chatInvoker).invoke(eq(chatClient), eq("你是客服"), any());
+    }
+
+    @Test
+    void 未绑库_不调检索() {
+        stubRunnableApp("你是客服");
+        stubTurnAndReply();
+        service.send(7L, null, "退货政策", member);
+        verifyNoInteractions(knowledgeFacade);
     }
 
     @Test

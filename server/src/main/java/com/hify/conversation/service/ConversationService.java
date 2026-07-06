@@ -9,11 +9,16 @@ import com.hify.conversation.dto.MessageView;
 import com.hify.conversation.dto.SendMessageResponse;
 import com.hify.conversation.entity.Message;
 import com.hify.infra.security.CurrentUser;
+import com.hify.knowledge.api.KnowledgeFacade;
+import com.hify.knowledge.api.RetrievedChunk;
 import com.hify.provider.api.ProviderFacade;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -28,19 +33,28 @@ import java.util.List;
 @Service
 public class ConversationService {
 
+    private static final Logger log = LoggerFactory.getLogger(ConversationService.class);
+
+    /** 检索注入的提示词头（K4；引用来源展示留下轮，此处只拼内容不拼出处）。 */
+    private static final String KNOWLEDGE_PROMPT_HEADER =
+            "请优先依据下列参考资料回答用户问题；资料未覆盖时可依据自身知识回答。\n参考资料：";
+
     private final AppFacade appFacade;
     private final ProviderFacade providerFacade;
     private final ChatInvoker chatInvoker;
     private final ConversationStore store;
     private final QuotaGuard quotaGuard;
+    private final KnowledgeFacade knowledgeFacade;
 
     public ConversationService(AppFacade appFacade, ProviderFacade providerFacade,
-                               ChatInvoker chatInvoker, ConversationStore store, QuotaGuard quotaGuard) {
+                               ChatInvoker chatInvoker, ConversationStore store, QuotaGuard quotaGuard,
+                               KnowledgeFacade knowledgeFacade) {
         this.appFacade = appFacade;
         this.providerFacade = providerFacade;
         this.chatInvoker = chatInvoker;
         this.store = store;
         this.quotaGuard = quotaGuard;
+        this.knowledgeFacade = knowledgeFacade;
     }
 
     public SendMessageResponse send(Long appId, Long conversationId, String content, CurrentUser current) {
@@ -54,7 +68,8 @@ public class ConversationService {
         Long cid = turn.conversationId();
         // 4) 取 ChatClient（不可用抛 12002）并调用——事务外，喂历史窗口
         ChatClient chatClient = providerFacade.getChatClient(app.modelId());
-        LlmReply reply = chatInvoker.invoke(chatClient, app.systemPrompt(), turn.window());
+        String effectivePrompt = augmentWithKnowledge(app, content);
+        LlmReply reply = chatInvoker.invoke(chatClient, effectivePrompt, turn.window());
         // 5) 事务B：落 assistant 消息（同事务内发 TokenUsedEvent 计量）
         Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
                 current.userId(), appId, app.modelId());
@@ -68,11 +83,12 @@ public class ConversationService {
         TurnContext turn = store.openTurn(appId, conversationId, current.userId(), content);
         Long cid = turn.conversationId();
         ChatClient chatClient = providerFacade.getChatClient(app.modelId());
+        String effectivePrompt = augmentWithKnowledge(app, content);
 
         StringBuilder buf = new StringBuilder();
         int[] usage = {0, 0}; // [0]=promptTokens [1]=completionTokens，取流中最后一个非空值
 
-        Flux<StreamEvent> deltas = chatInvoker.invokeStream(chatClient, app.systemPrompt(), turn.window())
+        Flux<StreamEvent> deltas = chatInvoker.invokeStream(chatClient, effectivePrompt, turn.window())
                 .doOnNext(cr -> {
                     Usage u = cr.getMetadata() != null ? cr.getMetadata().getUsage() : null;
                     if (u != null) {
@@ -125,6 +141,35 @@ public class ConversationService {
 
     private static String textOf(ChatResponse cr) {
         return cr.getResults().isEmpty() ? null : cr.getResult().getOutput().getText();
+    }
+
+    /**
+     * 绑库应用：按当前消息检索并把命中段拼进系统提示词尾部；未绑/无命中原样返回。
+     * 检索任何失败（未配 embedding 模型/供应商超时熔断）降级继续答（spec 决策 5）——只记 warn，不影响本轮对话。
+     * 调用点在事务 A 之后、LLM 调用之前（事务间隙，与「事务内禁外部 IO」红线一致）。
+     */
+    private String augmentWithKnowledge(AppRuntimeView app, String content) {
+        if (app.datasetIds() == null || app.datasetIds().isEmpty()) {
+            return app.systemPrompt();
+        }
+        try {
+            List<RetrievedChunk> chunks = knowledgeFacade.retrieve(app.datasetIds(), content);
+            if (chunks.isEmpty()) {
+                return app.systemPrompt();
+            }
+            StringBuilder sb = new StringBuilder();
+            if (StringUtils.hasText(app.systemPrompt())) {
+                sb.append(app.systemPrompt()).append("\n\n");
+            }
+            sb.append(KNOWLEDGE_PROMPT_HEADER);
+            for (int i = 0; i < chunks.size(); i++) {
+                sb.append('\n').append('[').append(i + 1).append("] ").append(chunks.get(i).content());
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            log.warn("知识检索失败，本轮降级为无参考资料回答 appId={}", app.appId(), e);
+            return app.systemPrompt();
+        }
     }
 
     private static MessageView toView(Message m) {
