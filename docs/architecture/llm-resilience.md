@@ -133,3 +133,35 @@ provider/
 | `retry_max_attempts` | 3 | `first_token_timeout_sec` | 30 |
 | `cb_failure_rate` | 50 | `token_gap_timeout_sec` | 60 |
 | `cb_wait_open_sec` | 30 | `stream_max_duration_sec` | 600 |
+
+## 6. 供应商接入约定（2026-07-06 拍板）
+
+### 6.1 baseUrl 填法（openai 协议）
+
+`ChatClientFactory` 未覆盖 Spring AI（1.0.1）的默认路径，框架会在 baseUrl 后**自动拼**
+`/v1/chat/completions` 与 `/v1/embeddings`。因此 **baseUrl 必须填「不带版本段」的基址**，
+版本段由框架拼出：
+
+| 供应商 | 官方文档基址 | 平台里应填 |
+|---|---|---|
+| DeepSeek | `https://api.deepseek.com/v1` | `https://api.deepseek.com` |
+| 阿里 MaaS 网关 | `https://<网关>/compatible-mode/v1` | `https://<网关>/compatible-mode` |
+| 火山 Ark | `https://ark.cn-beijing.volces.com/api/v3` | **接不了**（前缀非 /v1，见下） |
+
+填错的典型症状：上游 404 空 body（双 `/v1`）。排障看 `model_provider.last_test_error`
+和 backend 日志的「试连接失败」WARN（cause 链真实原因已随记）。
+
+**已知局限与既定修法**：版本前缀不是 `/v1` 的网关（如 Ark `/api/v3`）无法接入。
+修法已拍板（暂缓执行，接新供应商前再做）：工厂显式设 `completionsPath("/chat/completions")`
+/`embeddingsPath("/embeddings")`，baseUrl 改为「含版本段的完整基址」（OpenAI SDK 生态惯例）；
+届时需同步更新库中存量供应商的 baseUrl（补回版本段）并更新本表。
+
+### 6.2 embedding 模型选型与多模态演进
+
+- **只能接 OpenAI 兼容的「文本」embedding 模型，且须支持 1024 维输出**（`kb_chunk.embedding
+  vector(1024)` 建库定死）。多模态/视觉 embedding（qwen3-vl-embedding、doubao-embedding-vision
+  等）走各家专用端点与请求格式，网关的 OpenAI 兼容模式会直接拒绝（`model_not_supported`）。
+- **演进路径（拍板：等图文检索成为产品需求再做，YAGNI）**：RAG 全链路只依赖 Spring AI 的
+  `EmbeddingModel` 接口（Registry 缓存、韧性装饰、knowledge 经 Facade 获取均是接口），
+  接多模态端点＝新增 protocol 分支 + 自写一个实现该接口的 vendor 适配类，knowledge 模块零改动。
+  真正的深水区是**维度**：若模型输出非 1024 维，需改表 + 全量重嵌，立项前先核对。
