@@ -58,7 +58,7 @@ class ConversationServiceTest {
 
     private void stubRunnableApp(String systemPrompt) {
         when(appFacade.findRunnableChatApp(eq(7L)))
-                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt)));
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, List.of())));
         when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
     }
 
@@ -154,7 +154,7 @@ class ConversationServiceTest {
     @Test
     void send_模型不可用_透传12002_user消息已落但不落assistant() {
         when(appFacade.findRunnableChatApp(eq(7L)))
-                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, null)));
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, null, List.of())));
         when(store.openTurn(any(), any(), any(), any()))
                 .thenReturn(new TurnContext(100L, List.of(userMsg("你好")), 300L, true));
         when(providerFacade.getChatClient(eq(5L)))

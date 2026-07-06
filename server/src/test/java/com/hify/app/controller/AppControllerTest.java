@@ -51,6 +51,7 @@ class AppControllerTest {
 
     private AppResponse sample() {
         return new AppResponse(10L, "客服助手", "答疑", "chat", 5L, "GPT-4o", true, new AppConfig("你是客服"),
+                List.of(),
                 7L, "enabled", OffsetDateTime.parse("2026-06-24T10:00:00+08:00"),
                 OffsetDateTime.parse("2026-06-24T10:00:00+08:00"));
     }

@@ -1,13 +1,17 @@
 package com.hify.app.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.hify.app.api.AppFacade;
 import com.hify.app.api.AppRuntimeView;
 import com.hify.app.constant.AppStatus;
 import com.hify.app.constant.AppType;
 import com.hify.app.entity.App;
+import com.hify.app.entity.AppDatasetRel;
+import com.hify.app.mapper.AppDatasetRelMapper;
 import com.hify.app.mapper.AppMapper;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -17,9 +21,11 @@ import java.util.Optional;
 public class AppFacadeImpl implements AppFacade {
 
     private final AppMapper appMapper;
+    private final AppDatasetRelMapper relMapper;
 
-    public AppFacadeImpl(AppMapper appMapper) {
+    public AppFacadeImpl(AppMapper appMapper, AppDatasetRelMapper relMapper) {
         this.appMapper = appMapper;
+        this.relMapper = relMapper;
     }
 
     @Override
@@ -35,6 +41,9 @@ public class AppFacadeImpl implements AppFacade {
             return Optional.empty();
         }
         String systemPrompt = app.getConfig() == null ? null : app.getConfig().systemPrompt();
-        return Optional.of(new AppRuntimeView(app.getId(), app.getModelId(), systemPrompt));
+        List<Long> datasetIds = relMapper.selectList(new LambdaQueryWrapper<AppDatasetRel>()
+                        .eq(AppDatasetRel::getAppId, app.getId()).orderByAsc(AppDatasetRel::getId))
+                .stream().map(AppDatasetRel::getDatasetId).toList();
+        return Optional.of(new AppRuntimeView(app.getId(), app.getModelId(), systemPrompt, datasetIds));
     }
 }

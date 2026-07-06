@@ -5,14 +5,18 @@ import com.hify.app.api.dto.AppConfig;
 import com.hify.app.constant.AppStatus;
 import com.hify.app.constant.AppType;
 import com.hify.app.entity.App;
+import com.hify.app.entity.AppDatasetRel;
+import com.hify.app.mapper.AppDatasetRelMapper;
 import com.hify.app.mapper.AppMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -20,12 +24,14 @@ import static org.mockito.Mockito.when;
 class AppFacadeImplTest {
 
     private AppMapper mapper;
+    private AppDatasetRelMapper relMapper;
     private AppFacadeImpl facade;
 
     @BeforeEach
     void setUp() {
         mapper = mock(AppMapper.class);
-        facade = new AppFacadeImpl(mapper);
+        relMapper = mock(AppDatasetRelMapper.class);
+        facade = new AppFacadeImpl(mapper, relMapper);
     }
 
     private App app(String type, String status, Long modelId) {
@@ -78,5 +84,21 @@ class AppFacadeImplTest {
     @Test
     void 入参null_空() {
         assertTrue(facade.findRunnableChatApp(null).isEmpty());
+    }
+
+    @Test
+    void findRunnableChatApp_带绑定的知识库ids() {
+        when(mapper.selectById(eq(10L)))
+                .thenReturn(app(AppType.CHAT.value(), AppStatus.ENABLED.value(), 5L));
+        when(relMapper.selectList(any())).thenReturn(List.of(rel(10L, 9L), rel(10L, 8L)));
+        Optional<AppRuntimeView> view = facade.findRunnableChatApp(10L);
+        assertEquals(List.of(9L, 8L), view.orElseThrow().datasetIds());
+    }
+
+    private static AppDatasetRel rel(Long appId, Long datasetId) {
+        AppDatasetRel r = new AppDatasetRel();
+        r.setAppId(appId);
+        r.setDatasetId(datasetId);
+        return r;
     }
 }

@@ -7,25 +7,33 @@ import com.hify.app.dto.AppResponse;
 import com.hify.app.dto.CreateAppRequest;
 import com.hify.app.dto.UpdateAppRequest;
 import com.hify.app.entity.App;
+import com.hify.app.entity.AppDatasetRel;
+import com.hify.app.mapper.AppDatasetRelMapper;
 import com.hify.app.mapper.AppMapper;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.infra.security.CurrentUser;
+import com.hify.knowledge.api.KnowledgeFacade;
 import com.hify.provider.api.ProviderFacade;
 import com.hify.provider.api.dto.ModelView;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.dao.DuplicateKeyException;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +41,8 @@ class AppServiceTest {
 
     private AppMapper mapper;
     private ProviderFacade providerFacade;
+    private AppDatasetRelMapper relMapper;
+    private KnowledgeFacade knowledgeFacade;
     private AppService service;
 
     private final CurrentUser member = new CurrentUser(7L, "bob", CurrentUser.ROLE_MEMBER);
@@ -41,16 +51,18 @@ class AppServiceTest {
     void setUp() {
         mapper = mock(AppMapper.class);
         providerFacade = mock(ProviderFacade.class);
+        relMapper = mock(AppDatasetRelMapper.class);
+        knowledgeFacade = mock(KnowledgeFacade.class);
         // 默认桩：任意 modelId 视为可用，让带 modelId 的既有用例不因校验红；针对性用例各自覆盖。
         when(providerFacade.findUsableChatModel(any()))
                 .thenReturn(Optional.of(new ModelView(5L, "GPT-4o", "chat", "通义千问")));
         when(providerFacade.getModelNames(any())).thenReturn(java.util.Map.of());
         when(providerFacade.filterUsableChatModelIds(any())).thenReturn(java.util.Set.of());
-        service = new AppService(mapper, providerFacade);
+        service = new AppService(mapper, providerFacade, relMapper, knowledgeFacade);
     }
 
     private CreateAppRequest chatReq() {
-        return new CreateAppRequest("客服助手", "答疑", "chat", 5L, new AppConfig("你是客服"));
+        return new CreateAppRequest("客服助手", "答疑", "chat", 5L, new AppConfig("你是客服"), List.of());
     }
 
     @Test
@@ -71,7 +83,7 @@ class AppServiceTest {
 
     @Test
     void 创建_工作流型_拒绝16001() {
-        CreateAppRequest wf = new CreateAppRequest("流程", null, "workflow", null, null);
+        CreateAppRequest wf = new CreateAppRequest("流程", null, "workflow", null, null, List.of());
         BizException ex = assertThrows(BizException.class, () -> service.create(wf, member));
         assertEquals(AppError.APP_TYPE_NOT_SUPPORTED, ex.errorCode());
         verify(mapper, never()).insert(any(App.class));
@@ -79,7 +91,7 @@ class AppServiceTest {
 
     @Test
     void 创建_config缺省兜底为空配置() {
-        CreateAppRequest noCfg = new CreateAppRequest("无配置", null, "chat", null, null);
+        CreateAppRequest noCfg = new CreateAppRequest("无配置", null, "chat", null, null, List.of());
         ArgumentCaptor<App> captor = ArgumentCaptor.forClass(App.class);
         service.create(noCfg, member);
         verify(mapper).insert(captor.capture());
@@ -96,7 +108,7 @@ class AppServiceTest {
 
     @Test
     void 创建_modelId为null_不校验模型_放行() {
-        CreateAppRequest noModel = new CreateAppRequest("无模型", null, "chat", null, null);
+        CreateAppRequest noModel = new CreateAppRequest("无模型", null, "chat", null, null, List.of());
         service.create(noModel, member);
         verify(providerFacade, never()).findUsableChatModel(any());
         verify(mapper).insert(any(App.class));
@@ -198,7 +210,7 @@ class AppServiceTest {
 
     private final CurrentUser admin = new CurrentUser(1L, "root", CurrentUser.ROLE_ADMIN);
     private UpdateAppRequest upd() {
-        return new UpdateAppRequest("新名", "新描述", 9L, new com.hify.app.api.dto.AppConfig("改了"));
+        return new UpdateAppRequest("新名", "新描述", 9L, new com.hify.app.api.dto.AppConfig("改了"), List.of());
     }
 
     @org.junit.jupiter.api.Test
@@ -237,7 +249,7 @@ class AppServiceTest {
     void 更新_modelId为null_不校验模型_放行() {
         when(mapper.selectById(10L)).thenReturn(stored(10L, 7L, "enabled"));
         UpdateAppRequest noModel = new UpdateAppRequest("新名", "新描述", null,
-                new com.hify.app.api.dto.AppConfig("改了"));
+                new com.hify.app.api.dto.AppConfig("改了"), List.of());
         service.update(10L, noModel, member);
         verify(providerFacade, never()).findUsableChatModel(any());
         verify(mapper).updateById(any(App.class));
@@ -289,5 +301,58 @@ class AppServiceTest {
         BizException ex = assertThrows(BizException.class, () -> service.disable(10L, member));
         assertEquals(CommonError.FORBIDDEN, ex.errorCode());
         verify(mapper, never()).updateById(any(App.class));
+    }
+
+    @Test
+    void 创建_带datasetIds_先校验再落绑定行() {
+        when(mapper.insert(any(App.class))).thenAnswer(inv -> {
+            inv.getArgument(0, App.class).setId(7L);
+            return 1;
+        });
+        CreateAppRequest req = new CreateAppRequest("知识助手", null, "chat", null, null, List.of(9L, 8L));
+        AppResponse resp = service.create(req, admin);
+        verify(knowledgeFacade).validateDatasetIds(List.of(9L, 8L));
+        verify(relMapper, times(2)).insert(any(AppDatasetRel.class));
+        assertEquals(List.of(9L, 8L), resp.datasetIds());
+    }
+
+    @Test
+    void 创建_datasetIds校验失败_透传异常不落库() {
+        doThrow(new BizException(CommonError.NOT_FOUND, "知识库不存在或已删除"))
+                .when(knowledgeFacade).validateDatasetIds(List.of(404L));
+        CreateAppRequest req = new CreateAppRequest("知识助手", null, "chat", null, null, List.of(404L));
+        assertThrows(BizException.class, () -> service.create(req, admin));
+        verify(mapper, never()).insert(any(App.class));
+    }
+
+    @Test
+    void 更新_全量替换绑定_先软删后插入() {
+        when(mapper.selectById(7L)).thenReturn(stored(7L, 1L, "enabled"));
+        UpdateAppRequest req = new UpdateAppRequest("改名", null, null, null, List.of(9L));
+        service.update(7L, req, admin);
+        InOrder inOrder = inOrder(relMapper);
+        inOrder.verify(relMapper).delete(any());
+        inOrder.verify(relMapper).insert(any(AppDatasetRel.class));
+    }
+
+    @Test
+    void 更新_datasetIds为null_清空绑定_响应空列表() {
+        when(mapper.selectById(7L)).thenReturn(stored(7L, 1L, "enabled"));
+        UpdateAppRequest req = new UpdateAppRequest("改名", null, null, null, null);
+        AppResponse resp = service.update(7L, req, admin);
+        verify(relMapper).delete(any());
+        verify(relMapper, never()).insert(any(AppDatasetRel.class));
+        assertEquals(List.of(), resp.datasetIds());
+    }
+
+    @Test
+    void 创建_重复datasetIds_去重后落库() {
+        when(mapper.insert(any(App.class))).thenAnswer(inv -> {
+            inv.getArgument(0, App.class).setId(7L);
+            return 1;
+        });
+        CreateAppRequest req = new CreateAppRequest("知识助手", null, "chat", null, null, List.of(9L, 9L));
+        service.create(req, admin);
+        verify(relMapper, times(1)).insert(any(AppDatasetRel.class));
     }
 }

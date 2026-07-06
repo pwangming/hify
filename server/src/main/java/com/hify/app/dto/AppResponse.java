@@ -3,6 +3,7 @@ package com.hify.app.dto;
 import com.hify.app.api.dto.AppConfig;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * 应用视图。id/modelId/ownerId 为 Long（infra 全局序列化为 string）。
@@ -18,6 +19,7 @@ public record AppResponse(
         String modelName,
         boolean modelUsable,
         AppConfig config,
+        List<Long> datasetIds,
         Long ownerId,
         String status,
         OffsetDateTime createTime,

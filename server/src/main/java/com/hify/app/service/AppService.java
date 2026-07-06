@@ -10,11 +10,14 @@ import com.hify.app.dto.AppResponse;
 import com.hify.app.dto.CreateAppRequest;
 import com.hify.app.dto.UpdateAppRequest;
 import com.hify.app.entity.App;
+import com.hify.app.entity.AppDatasetRel;
+import com.hify.app.mapper.AppDatasetRelMapper;
 import com.hify.app.mapper.AppMapper;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.common.page.PageResult;
 import com.hify.infra.security.CurrentUser;
+import com.hify.knowledge.api.KnowledgeFacade;
 import com.hify.provider.api.ProviderFacade;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 应用业务逻辑。具体类 + @Service（不拆接口）。团队共享权限判定在本层（assertCanModify）。
@@ -34,10 +38,15 @@ public class AppService {
 
     private final AppMapper appMapper;
     private final ProviderFacade providerFacade;
+    private final AppDatasetRelMapper relMapper;
+    private final KnowledgeFacade knowledgeFacade;
 
-    public AppService(AppMapper appMapper, ProviderFacade providerFacade) {
+    public AppService(AppMapper appMapper, ProviderFacade providerFacade,
+                      AppDatasetRelMapper relMapper, KnowledgeFacade knowledgeFacade) {
         this.appMapper = appMapper;
         this.providerFacade = providerFacade;
+        this.relMapper = relMapper;
+        this.knowledgeFacade = knowledgeFacade;
     }
 
     @Transactional
@@ -46,6 +55,8 @@ public class AppService {
             throw new BizException(AppError.APP_TYPE_NOT_SUPPORTED);
         }
         assertModelUsableIfPresent(req.modelId());
+        List<Long> datasetIds = req.datasetIds() == null ? List.of() : req.datasetIds();
+        knowledgeFacade.validateDatasetIds(datasetIds);
         App entity = new App();
         entity.setName(req.name());
         entity.setDescription(req.description());
@@ -59,7 +70,9 @@ public class AppService {
         } catch (DuplicateKeyException e) {
             throw new BizException(CommonError.CONFLICT, "应用名已存在", e);
         }
-        return toResponse(entity, modelNameOf(entity.getModelId()), modelUsableOf(entity.getModelId()));
+        replaceDatasetBindings(entity.getId(), datasetIds);
+        return toResponse(entity, modelNameOf(entity.getModelId()), modelUsableOf(entity.getModelId()),
+                datasetIds.stream().distinct().toList());
     }
 
     public AppResponse get(Long id) {
@@ -67,7 +80,8 @@ public class AppService {
         if (app == null) {
             throw new BizException(CommonError.NOT_FOUND, "应用不存在");
         }
-        return toResponse(app, modelNameOf(app.getModelId()), modelUsableOf(app.getModelId()));
+        return toResponse(app, modelNameOf(app.getModelId()), modelUsableOf(app.getModelId()),
+                datasetIdsOf(app.getId()));
     }
 
     public PageResult<AppResponse> page(String keyword, String type, int page, int size) {
@@ -85,10 +99,12 @@ public class AppService {
                 .map(App::getModelId).filter(java.util.Objects::nonNull).distinct().toList();
         Map<Long, String> names = providerFacade.getModelNames(modelIds);
         Set<Long> usable = providerFacade.filterUsableChatModelIds(modelIds);
+        Map<Long, List<Long>> bindings = datasetIdsByApp(records.stream().map(App::getId).toList());
         List<AppResponse> list = records.stream()
                 .map(a -> toResponse(a,
                         a.getModelId() == null ? null : names.get(a.getModelId()),
-                        a.getModelId() != null && usable.contains(a.getModelId())))
+                        a.getModelId() != null && usable.contains(a.getModelId()),
+                        bindings.getOrDefault(a.getId(), List.of())))
                 .toList();
         return PageResult.of(list, result.getTotal(), page, size);
     }
@@ -98,6 +114,10 @@ public class AppService {
         App app = loadOrThrow(id);
         assertCanModify(app, current);
         assertModelUsableIfPresent(req.modelId());
+        List<Long> datasetIds = req.datasetIds() == null ? List.of() : req.datasetIds();
+        if (AppType.CHAT.value().equals(app.getType())) {
+            knowledgeFacade.validateDatasetIds(datasetIds);
+        }
         app.setName(req.name());
         app.setDescription(req.description());
         app.setModelId(req.modelId());
@@ -107,7 +127,11 @@ public class AppService {
         } catch (DuplicateKeyException e) {
             throw new BizException(CommonError.CONFLICT, "应用名已存在", e);
         }
-        return toResponse(app, modelNameOf(app.getModelId()), modelUsableOf(app.getModelId()));
+        if (AppType.CHAT.value().equals(app.getType())) {
+            replaceDatasetBindings(app.getId(), datasetIds);
+        }
+        return toResponse(app, modelNameOf(app.getModelId()), modelUsableOf(app.getModelId()),
+                datasetIdsOf(app.getId()));
     }
 
     @Transactional
@@ -172,11 +196,41 @@ public class AppService {
         return modelId != null && providerFacade.findUsableChatModel(modelId).isPresent();
     }
 
-    AppResponse toResponse(App e, String modelName, boolean modelUsable) {
+    /** 全量替换绑定：软删该应用全部关系行 + 插入新勾选（去重）。调用方均在 @Transactional 内。 */
+    private void replaceDatasetBindings(Long appId, List<Long> datasetIds) {
+        relMapper.delete(new LambdaQueryWrapper<AppDatasetRel>().eq(AppDatasetRel::getAppId, appId));
+        for (Long dsId : datasetIds.stream().distinct().toList()) {
+            AppDatasetRel rel = new AppDatasetRel();
+            rel.setAppId(appId);
+            rel.setDatasetId(dsId);
+            relMapper.insert(rel);
+        }
+    }
+
+    /** 单应用的绑定知识库 ids（按绑定先后稳定排序）。 */
+    private List<Long> datasetIdsOf(Long appId) {
+        return relMapper.selectList(new LambdaQueryWrapper<AppDatasetRel>()
+                        .eq(AppDatasetRel::getAppId, appId).orderByAsc(AppDatasetRel::getId))
+                .stream().map(AppDatasetRel::getDatasetId).toList();
+    }
+
+    /** 批量取绑定（列表页防 N+1：一页一查）。 */
+    private Map<Long, List<Long>> datasetIdsByApp(List<Long> appIds) {
+        if (appIds.isEmpty()) {
+            return Map.of();
+        }
+        return relMapper.selectList(new LambdaQueryWrapper<AppDatasetRel>()
+                        .in(AppDatasetRel::getAppId, appIds).orderByAsc(AppDatasetRel::getId))
+                .stream().collect(Collectors.groupingBy(AppDatasetRel::getAppId,
+                        Collectors.mapping(AppDatasetRel::getDatasetId, Collectors.toList())));
+    }
+
+    AppResponse toResponse(App e, String modelName, boolean modelUsable, List<Long> datasetIds) {
         return new AppResponse(
                 e.getId(), e.getName(), e.getDescription(), e.getType(),
                 e.getModelId(), modelName, modelUsable,
                 e.getConfig() == null ? new AppConfig(null) : e.getConfig(),
+                datasetIds,
                 e.getOwnerId(), e.getStatus(), e.getCreateTime(), e.getUpdateTime());
     }
 }
