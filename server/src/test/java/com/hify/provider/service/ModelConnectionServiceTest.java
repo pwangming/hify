@@ -18,7 +18,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.embedding.EmbeddingModel;
+
+import java.net.SocketTimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -66,12 +69,27 @@ class ModelConnectionServiceTest {
     void test_chat模型_ping聊天返回样例() {
         when(modelMapper.selectById(5L)).thenReturn(model(5L, "chat"));
         ChatClient chatClient = mock(ChatClient.class, RETURNS_DEEP_STUBS);
-        when(chatClient.prompt().user("ping").call().content()).thenReturn("pong");
+        when(chatClient.prompt().options(any(ChatOptions.class)).user("ping").call().content())
+                .thenReturn("pong");
         when(registry.getChatClient(5L)).thenReturn(chatClient);
 
         ModelTestResponse resp = service.test(5L);
 
         assertEquals("pong", resp.sample());
+    }
+
+    @Test
+    void test_chat测试限制输出token上限_防慢模型耗尽超时() {
+        when(modelMapper.selectById(5L)).thenReturn(model(5L, "chat"));
+        // 不打桩返回值（deep stub 默认 null 即可），否则 when(...) 链本身会多记一次 options 调用
+        ChatClient chatClient = mock(ChatClient.class, RETURNS_DEEP_STUBS);
+        when(registry.getChatClient(5L)).thenReturn(chatClient);
+
+        service.test(5L);
+
+        ArgumentCaptor<ChatOptions> captor = ArgumentCaptor.forClass(ChatOptions.class);
+        verify(chatClient.prompt()).options(captor.capture());
+        assertEquals(16, captor.getValue().getMaxTokens());
     }
 
     @Test
@@ -107,7 +125,8 @@ class ModelConnectionServiceTest {
         when(modelMapper.selectList(any())).thenReturn(
                 java.util.List.of(model(6L, "embedding"), model(5L, "chat")));
         ChatClient chatClient = mock(ChatClient.class, RETURNS_DEEP_STUBS);
-        when(chatClient.prompt().user("ping").call().content()).thenReturn("pong");
+        when(chatClient.prompt().options(any(ChatOptions.class)).user("ping").call().content())
+                .thenReturn("pong");
         when(registry.getChatClient(5L)).thenReturn(chatClient);
 
         ProviderTestResponse resp = service.testProvider(1L);
@@ -144,6 +163,25 @@ class ModelConnectionServiceTest {
 
         assertEquals(ProviderError.PROVIDER_UNAVAILABLE, ex.errorCode());
         verify(providerMapper).update(isNull(), any()); // 失败也落库
+    }
+
+    @Test
+    void testProvider_失败_落库记录cause链底层真实原因() {
+        when(providerMapper.selectById(1L)).thenReturn(provider("enabled"));
+        when(modelMapper.selectList(any())).thenReturn(java.util.List.of(model(5L, "chat")));
+        when(registry.getChatClient(5L)).thenThrow(new BizException(
+                ProviderError.PROVIDER_UNAVAILABLE,
+                ProviderError.PROVIDER_UNAVAILABLE.defaultMessage(),
+                new SocketTimeoutException("Read timed out")));
+
+        assertThrows(BizException.class, () -> service.testProvider(1L));
+
+        ArgumentCaptor<LambdaUpdateWrapper<ModelProvider>> captor =
+                ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(providerMapper).update(isNull(), captor.capture());
+        assertTrue(captor.getValue().getParamNameValuePairs().values().stream()
+                        .anyMatch(v -> String.valueOf(v).contains("Read timed out")),
+                "last_test_error 应包含底层真实原因，而非只有 12003 统一文案");
     }
 
     @Test

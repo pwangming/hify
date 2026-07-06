@@ -14,6 +14,9 @@ import com.hify.provider.entity.ModelProvider;
 import com.hify.provider.mapper.AiModelMapper;
 import com.hify.provider.mapper.ModelProviderMapper;
 import com.hify.provider.service.resilience.ResilienceRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -25,6 +28,11 @@ import java.util.List;
  */
 @Service
 public class ModelConnectionService {
+
+    private static final Logger log = LoggerFactory.getLogger(ModelConnectionService.class);
+
+    /** 测试只验连通不看内容：限制输出上限，防推理型慢模型（如 qwen3.7-plus）耗尽 120s 超时。 */
+    private static final ChatOptions TEST_CHAT_OPTIONS = ChatOptions.builder().maxTokens(16).build();
 
     private final ResilienceRegistry registry;
     private final AiModelMapper modelMapper;
@@ -43,7 +51,12 @@ public class ModelConnectionService {
         if (model == null) {
             throw new BizException(ProviderError.MODEL_NOT_USABLE);
         }
-        return new ModelTestResponse(pingModel(model));
+        try {
+            return new ModelTestResponse(pingModel(model));
+        } catch (RuntimeException e) {
+            log.warn("模型测试失败 modelId={}: {}", modelId, failureDetail(e), e);
+            throw e;
+        }
     }
 
     /**
@@ -73,9 +86,20 @@ public class ModelConnectionService {
             saveResult(providerId, "ok", null);
             return new ProviderTestResponse(candidate.getName(), sample);
         } catch (RuntimeException e) {
-            saveResult(providerId, "fail", e.getMessage());
+            String detail = failureDetail(e);
+            log.warn("试连接失败 providerId={} modelId={}: {}", providerId, candidate.getId(), detail, e);
+            saveResult(providerId, "fail", detail);
             throw e;
         }
+    }
+
+    /** 12003 对超时/401/404 等一视同仁；这里附上 cause 链最底层的真实原因，admin 排障不用翻日志。 */
+    private String failureDetail(RuntimeException e) {
+        Throwable deepest = e;
+        while (deepest.getCause() != null && deepest.getCause() != deepest) {
+            deepest = deepest.getCause();
+        }
+        return deepest == e ? e.getMessage() : e.getMessage() + "（" + deepest + "）";
     }
 
     /** updateById 会忽略 null 字段，清空 last_test_error 必须用 UpdateWrapper 显式 set NULL。 */
@@ -94,6 +118,6 @@ public class ModelConnectionService {
             return "已返回 " + vector.length + " 维向量";
         }
         return registry.getChatClient(model.getId())
-                .prompt().user("ping").call().content();
+                .prompt().options(TEST_CHAT_OPTIONS).user("ping").call().content();
     }
 }
