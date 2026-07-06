@@ -838,17 +838,17 @@ git commit -m "feat(web): 供应商详情页模型行测试按钮（TDD）"
 
 **Files:** 无新改动（只跑回归；有失败则修）。
 
-- [ ] **Step 1: 后端全量（含 ModularityTests / ArchUnit）**
+- [x] **Step 1: 后端全量（含 ModularityTests / ArchUnit）**
 
 Run: `cd /home/wang/playlab/hify/server && mvn -q verify; echo EXIT=$?`
 Expected: EXIT=0（**不要**用 grep BUILD SUCCESS 判定）
 
-- [ ] **Step 2: 前端全量**
+- [x] **Step 2: 前端全量**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test && pnpm typecheck && pnpm lint`
 Expected: 全部通过（lint 带 --fix，若有自动修复产生 diff 则一并提交）
 
-- [ ] **Step 3: 如有修复，提交**
+- [x] **Step 3: 如有修复，提交**
 
 ```bash
 git add -A && git commit -m "chore: 试连接功能全量回归修复"
