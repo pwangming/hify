@@ -32,11 +32,13 @@ const OPENAI_PROVIDER: Provider = {
   id: '1', name: '通义千问', protocol: 'openai',
   baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   status: 'enabled', apiKeyTail: '4321', createTime: '2026-06-22T15:40:00+08:00',
+  lastTestStatus: null, lastTestAt: null, lastTestError: null,
 }
 const ANTHROPIC_PROVIDER: Provider = {
   id: '3', name: 'Anthropic Claude', protocol: 'anthropic',
   baseUrl: 'https://api.anthropic.com',
   status: 'enabled', apiKeyTail: 'wxyz', createTime: '2026-06-22T09:05:00+08:00',
+  lastTestStatus: null, lastTestAt: null, lastTestError: null,
 }
 const MODELS: AiModel[] = [
   { id: '10', providerId: '1', type: 'chat', name: 'GPT-4o', modelKey: 'gpt-4o',

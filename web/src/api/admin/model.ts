@@ -1,5 +1,6 @@
 import { request } from '@/api/request'
-import type { AiModel, ModelForm } from '@/types/model'
+import { config } from '@/config'
+import type { AiModel, ModelForm, ModelTestResult } from '@/types/model'
 
 // baseURL 已含 /api/v1（见 api/request.ts），此处只拼模块内路径。
 const BASE = '/admin/provider'
@@ -32,4 +33,11 @@ export function enableModel(id: string) {
 /** 禁用模型。后端：POST .../models/{id}/disable */
 export function disableModel(id: string) {
   return request.post<void>(`${BASE}/models/${id}/disable`)
+}
+
+/** 测试模型连通（chat 发 ping / embedding 转向量）。后端：POST .../models/{id}/test */
+export function testModel(id: string) {
+  return request.post<ModelTestResult>(`${BASE}/models/${id}/test`, undefined, {
+    timeout: config.llmTestTimeoutMs,
+  })
 }

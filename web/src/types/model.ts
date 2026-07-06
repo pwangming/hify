@@ -35,3 +35,8 @@ export interface EmbeddingSetting {
   modelId: string | null
   modelName: string | null
 }
+
+/** 模型测试响应（对齐后端 ModelTestResponse）。 */
+export interface ModelTestResult {
+  sample: string
+}

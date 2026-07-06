@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { request } from '@/api/request'
+import { config } from '@/config'
 import {
   listModels, createModel, updateModel,
-  deleteModel, enableModel, disableModel,
+  deleteModel, enableModel, disableModel, testModel,
 } from '@/api/admin/model'
 import type { ModelForm } from '@/types/model'
 
@@ -39,5 +40,11 @@ describe('admin model api', () => {
   it('disableModel → POST .../{id}/disable', () => {
     disableModel('8')
     expect(request.post).toHaveBeenCalledWith('/admin/provider/models/8/disable')
+  })
+  it('testModel → POST /models/{id}/test 且带 LLM 专用超时', () => {
+    testModel('5')
+    expect(request.post).toHaveBeenCalledWith('/admin/provider/models/5/test', undefined, {
+      timeout: config.llmTestTimeoutMs,
+    })
   })
 })

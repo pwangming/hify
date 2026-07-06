@@ -1,6 +1,7 @@
 import { request } from '@/api/request'
+import { config } from '@/config'
 import type { EmbeddingSetting } from '@/types/model'
-import type { Provider, ProviderForm } from '@/types/provider'
+import type { Provider, ProviderForm, ProviderTestResult } from '@/types/provider'
 
 // baseURL 已含 /api/v1（见 api/request.ts），此处只拼模块内路径。
 const BASE = '/admin/provider/providers'
@@ -33,6 +34,13 @@ export function disableProvider(id: string) {
 /** 删除提供商（逻辑删除）。后端：DELETE .../{id} */
 export function deleteProvider(id: string) {
   return request.delete<void>(`${BASE}/${id}`)
+}
+
+/** 试连接：后端自动挑一个启用模型真实调用并落库。后端：POST .../{id}/test */
+export function testProvider(id: string) {
+  return request.post<ProviderTestResult>(`${BASE}/${id}/test`, undefined, {
+    timeout: config.llmTestTimeoutMs,
+  })
 }
 
 /** 查系统 embedding 模型设置。后端：GET /api/v1/admin/provider/settings/embedding-model */

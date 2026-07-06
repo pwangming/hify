@@ -38,6 +38,9 @@ const SAMPLE: Provider[] = [
     status: 'enabled',
     apiKeyTail: '7890',
     createTime: '2026-06-20T10:00:00+08:00',
+    lastTestStatus: null,
+    lastTestAt: null,
+    lastTestError: null,
   },
   {
     id: '3',
@@ -47,6 +50,9 @@ const SAMPLE: Provider[] = [
     status: 'enabled',
     apiKeyTail: 'wxyz',
     createTime: '2026-06-22T09:05:00+08:00',
+    lastTestStatus: null,
+    lastTestAt: null,
+    lastTestError: null,
   },
 ]
 
@@ -110,6 +116,9 @@ describe('ProviderList', () => {
       status: 'enabled',
       apiKeyTail: 'xxx0',
       createTime: '2026-06-24T08:00:00+08:00',
+      lastTestStatus: null,
+      lastTestAt: null,
+      lastTestError: null,
     })
     const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
     await flushPromises()
@@ -152,6 +161,9 @@ describe('ProviderList', () => {
       status: 'enabled',
       apiKeyTail: '7890',
       createTime: '2026-06-20T10:00:00+08:00',
+      lastTestStatus: null,
+      lastTestAt: null,
+      lastTestError: null,
     })
     const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
     await flushPromises()
@@ -211,6 +223,9 @@ describe('ProviderList', () => {
         status: 'disabled',
         apiKeyTail: '4321',
         createTime: '2026-06-22T15:40:00+08:00',
+        lastTestStatus: null,
+        lastTestAt: null,
+        lastTestError: null,
       },
     ])
     vi.mocked(enableProvider).mockResolvedValue(undefined)
