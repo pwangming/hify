@@ -868,7 +868,7 @@ git commit -m "feat(knowledge): KnowledgeFacade.retrieve 检索能力 + 全局 t
 - Consumes: Task 3 的 `RetrievalService.retrieve(ids, query, topK, threshold)` 与 `RetrievedChunk`。
 - Produces: `RetrievalService.retrieveTest(Long datasetId, String query, Integer topK, Double scoreThreshold) → List<RetrievedChunk>`（库不存在抛 10005；null 参数落全局默认）；HTTP `POST /api/v1/knowledge/datasets/{id}/retrieve`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `RetrievalServiceTest` 追加（`RetrievalService` 构造需加 `DatasetMapper`，setUp 同步改——见 Step 3；先按新签名写测试）：
 
@@ -941,12 +941,12 @@ git commit -m "feat(knowledge): KnowledgeFacade.retrieve 检索能力 + 全局 t
     }
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='RetrievalServiceTest,DatasetControllerTest'`
 Expected: FAIL（retrieveTest 方法不存在，编译错）
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 `server/src/main/java/com/hify/knowledge/dto/RetrieveTestRequest.java`：
 
@@ -995,12 +995,12 @@ public record RetrieveTestRequest(
     }
 ```
 
-- [ ] **Step 4: 运行测试通过**
+- [x] **Step 4: 运行测试通过**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='RetrievalServiceTest,DatasetControllerTest'`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add server/src/main/java/com/hify/knowledge/ server/src/test/java/com/hify/knowledge/

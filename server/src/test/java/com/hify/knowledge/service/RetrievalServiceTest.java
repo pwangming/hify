@@ -3,6 +3,8 @@ package com.hify.knowledge.service;
 import com.hify.common.exception.BizException;
 import com.hify.knowledge.api.RetrievedChunk;
 import com.hify.knowledge.dto.ChunkHit;
+import com.hify.knowledge.entity.Dataset;
+import com.hify.knowledge.mapper.DatasetMapper;
 import com.hify.knowledge.mapper.KbChunkMapper;
 import com.hify.provider.api.ProviderFacade;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +26,7 @@ import static org.mockito.Mockito.when;
 class RetrievalServiceTest {
 
     private KbChunkMapper chunkMapper;
+    private DatasetMapper datasetMapper;
     private ProviderFacade providerFacade;
     private EmbeddingModel embeddingModel;
     private RetrievalService service;
@@ -31,10 +34,11 @@ class RetrievalServiceTest {
     @BeforeEach
     void setUp() {
         chunkMapper = mock(KbChunkMapper.class);
+        datasetMapper = mock(DatasetMapper.class);
         providerFacade = mock(ProviderFacade.class);
         embeddingModel = mock(EmbeddingModel.class);
         // 全局默认 topK=4、阈值=0.3（对应 yml 缺省）
-        service = new RetrievalService(chunkMapper, providerFacade, 4, 0.3);
+        service = new RetrievalService(chunkMapper, datasetMapper, providerFacade, 4, 0.3);
     }
 
     private static ChunkHit hit(long id, String content, double score) {
@@ -91,5 +95,31 @@ class RetrievalServiceTest {
         when(providerFacade.getEmbeddingModel())
                 .thenThrow(new BizException(com.hify.common.exception.CommonError.DEPENDENCY_UNAVAILABLE, "未配置"));
         assertThrows(BizException.class, () -> service.retrieve(List.of(9L), "问题"));
+    }
+
+    @Test
+    void 命中测试_库不存在_抛10005() {
+        when(datasetMapper.selectById(404L)).thenReturn(null);
+        BizException e = assertThrows(BizException.class,
+                () -> service.retrieveTest(404L, "问题", null, null));
+        assertEquals(10005, e.errorCode().code());
+    }
+
+    @Test
+    void 命中测试_可选参数为null_落全局默认() {
+        when(datasetMapper.selectById(9L)).thenReturn(new Dataset());
+        stubEmbedding();
+        when(chunkMapper.searchByVector(eq(List.of(9L)), anyString(), eq(4))).thenReturn(List.of());
+        service.retrieveTest(9L, "问题", null, null);
+        verify(chunkMapper).searchByVector(eq(List.of(9L)), anyString(), eq(4));
+    }
+
+    @Test
+    void 命中测试_显式参数生效() {
+        when(datasetMapper.selectById(9L)).thenReturn(new Dataset());
+        stubEmbedding();
+        when(chunkMapper.searchByVector(eq(List.of(9L)), anyString(), eq(2)))
+                .thenReturn(List.of(hit(1L, "低分", 0.05)));
+        assertEquals(1, service.retrieveTest(9L, "问题", 2, 0.0).size());
     }
 }

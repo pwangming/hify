@@ -1,6 +1,9 @@
 package com.hify.knowledge.service;
 
+import com.hify.common.exception.BizException;
+import com.hify.common.exception.CommonError;
 import com.hify.knowledge.api.RetrievedChunk;
+import com.hify.knowledge.mapper.DatasetMapper;
 import com.hify.knowledge.mapper.KbChunkMapper;
 import com.hify.provider.api.ProviderFacade;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,14 +20,16 @@ import java.util.List;
 public class RetrievalService {
 
     private final KbChunkMapper chunkMapper;
+    private final DatasetMapper datasetMapper;
     private final ProviderFacade providerFacade;
     private final int defaultTopK;
     private final double defaultScoreThreshold;
 
-    public RetrievalService(KbChunkMapper chunkMapper, ProviderFacade providerFacade,
+    public RetrievalService(KbChunkMapper chunkMapper, DatasetMapper datasetMapper, ProviderFacade providerFacade,
                             @Value("${hify.knowledge.retrieval.top-k}") int defaultTopK,
                             @Value("${hify.knowledge.retrieval.score-threshold}") double defaultScoreThreshold) {
         this.chunkMapper = chunkMapper;
+        this.datasetMapper = datasetMapper;
         this.providerFacade = providerFacade;
         this.defaultTopK = defaultTopK;
         this.defaultScoreThreshold = defaultScoreThreshold;
@@ -48,11 +53,13 @@ public class RetrievalService {
                 .toList();
     }
 
-    int defaultTopK() {
-        return defaultTopK;
-    }
-
-    double defaultScoreThreshold() {
-        return defaultScoreThreshold;
+    /** 命中测试（排障工具）：不降级，embedding/供应商异常原样抛（12006/12003/12004 前端可见）。 */
+    public List<RetrievedChunk> retrieveTest(Long datasetId, String query, Integer topK, Double scoreThreshold) {
+        if (datasetMapper.selectById(datasetId) == null) {
+            throw new BizException(CommonError.NOT_FOUND, "知识库不存在");
+        }
+        return retrieve(List.of(datasetId), query,
+                topK != null ? topK : defaultTopK,
+                scoreThreshold != null ? scoreThreshold : defaultScoreThreshold);
     }
 }

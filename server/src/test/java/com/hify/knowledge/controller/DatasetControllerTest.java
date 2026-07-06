@@ -8,8 +8,10 @@ import com.hify.infra.security.RestAccessDeniedHandler;
 import com.hify.infra.security.RestAuthenticationEntryPoint;
 import com.hify.infra.security.SecurityConfig;
 import com.hify.infra.security.SecurityResponseWriter;
+import com.hify.knowledge.api.RetrievedChunk;
 import com.hify.knowledge.dto.DatasetResponse;
 import com.hify.knowledge.service.DatasetService;
+import com.hify.knowledge.service.RetrievalService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -46,6 +48,9 @@ class DatasetControllerTest {
 
     @MockitoBean
     private DatasetService datasetService;
+
+    @MockitoBean
+    private RetrievalService retrievalService;
 
     private String memberToken() {
         return jwtService.generateToken(new CurrentUser(7L, "bob", CurrentUser.ROLE_MEMBER));
@@ -125,5 +130,40 @@ class DatasetControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").isEmpty());
         verify(datasetService).delete(eq(10L), any());
+    }
+
+    @Test
+    void 命中测试_POST_retrieve_返回命中段_Long转string() throws Exception {
+        when(retrievalService.retrieveTest(10L, "退货政策", 2, null))
+                .thenReturn(List.of(new RetrievedChunk(1L, 2L, "a.txt", "退货需在7天内", 0.83)));
+        mockMvc.perform(post("/api/v1/knowledge/datasets/10/retrieve")
+                        .header("Authorization", "Bearer " + memberToken())
+                        .contentType("application/json")
+                        .content("{\"query\":\"退货政策\",\"topK\":2}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].chunkId").value("1"))
+                .andExpect(jsonPath("$.data[0].documentName").value("a.txt"))
+                .andExpect(jsonPath("$.data[0].score").value(0.83));
+    }
+
+    @Test
+    void 命中测试_query空白_10001() throws Exception {
+        mockMvc.perform(post("/api/v1/knowledge/datasets/10/retrieve")
+                        .header("Authorization", "Bearer " + memberToken())
+                        .contentType("application/json")
+                        .content("{\"query\":\" \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(10001));
+    }
+
+    @Test
+    void 命中测试_topK超上限_10001() throws Exception {
+        mockMvc.perform(post("/api/v1/knowledge/datasets/10/retrieve")
+                        .header("Authorization", "Bearer " + memberToken())
+                        .contentType("application/json")
+                        .content("{\"query\":\"q\",\"topK\":21}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(10001));
     }
 }
