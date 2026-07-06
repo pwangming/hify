@@ -82,7 +82,10 @@ comment on table example is '表用途一句话';
   where dataset_id = any(?) and deleted = false
   order by embedding <=> ? limit ?;
   ```
-  `dataset_id` 必有 b-tree 索引（原则 1）；通过 Spring AI `VectorStore` 的 filter 表达，不手写。
+  `dataset_id` 必有 b-tree 索引（原则 1）。检索 SQL 在 Mapper 手写注解 SQL（K4 拍板：`kb_chunk`
+  自建表与 Spring AI `PgVectorStore` 表结构不兼容，Advisor 抽象对单一消费方无收益）；多库过滤用
+  MyBatis foreach `in (...)`，与 `any(?)` 等价。相似度阈值在 Java 层过滤，不进 where（避免干扰
+  HNSW 索引走法）。
 - **首次大批量导入：先插数据再建 HNSW 索引**（快一个量级）；日常增量直接插。
 - JDBC 连接串加 `reWriteBatchedInserts=true`，chunk 批量写入用 `Db.saveBatch`（每批 ≤ 1000）。
 - **召回不足先调查询参数**：会话级 `set local hnsw.ef_search = 100`（默认 40，代价是延迟），
