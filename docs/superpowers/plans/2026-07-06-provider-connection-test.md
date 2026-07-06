@@ -155,7 +155,7 @@ git commit -m "feat(provider): V17 供应商最近测试三字段+实体/DTO/投
 - Consumes: `ResilienceRegistry.getChatClient(Long)` / `getEmbeddingModel(Long)`（已有）。
 - Produces: `ModelConnectionService` 构造函数变为 `(ResilienceRegistry, AiModelMapper, ModelProviderMapper)`；`test(Long modelId)` 签名不变；私有 `pingModel(AiModel)` 供 Task 3 的 `testProvider` 复用。
 
-- [ ] **Step 1: 写失败测试**——新建 `ModelConnectionServiceTest.java`：
+- [x] **Step 1: 写失败测试**——新建 `ModelConnectionServiceTest.java`：
 
 ```java
 package com.hify.provider.service;
@@ -247,12 +247,12 @@ class ModelConnectionServiceTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd /home/wang/playlab/hify/server && mvn -q test -Dtest=ModelConnectionServiceTest; echo EXIT=$?`
 Expected: EXIT 非 0（构造函数不匹配，编译失败）
 
-- [ ] **Step 3: 重写 `ModelConnectionService.java`**（testProvider 在 Task 3 才加）：
+- [x] **Step 3: 重写 `ModelConnectionService.java`**（testProvider 在 Task 3 才加）：
 
 ```java
 package com.hify.provider.service;
@@ -308,7 +308,7 @@ public class ModelConnectionService {
 
 （`providerMapper` 本 Task 未用属正常——Task 3 的 `testProvider` 落库要用，一次把构造函数改到位，避免两次动 Controller 测试。）
 
-- [ ] **Step 4: 跑测试通过**
+- [x] **Step 4: 跑测试通过**
 
 Run: `cd /home/wang/playlab/hify/server && mvn -q test -Dtest=ModelConnectionServiceTest; echo EXIT=$?`
 Expected: EXIT=0
