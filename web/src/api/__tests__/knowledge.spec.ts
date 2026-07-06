@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { request } from '@/api/request'
 import {
   listDatasets, getDataset, createDataset, updateDataset, deleteDataset,
-  uploadDocument, listDocuments, deleteDocument, listChunks, retryDocument,
+  uploadDocument, listDocuments, deleteDocument, listChunks, retryDocument, retrieveTest,
 } from '@/api/knowledge'
 import type { DatasetForm } from '@/types/knowledge'
 
@@ -67,5 +67,12 @@ describe('knowledge api', () => {
   it('retryDocument → POST /knowledge/documents/{id}/retry', () => {
     retryDocument('20')
     expect(request.post).toHaveBeenCalledWith('/knowledge/documents/20/retry')
+  })
+  it('retrieveTest → POST /knowledge/datasets/{id}/retrieve + body', () => {
+    retrieveTest('10', { query: '退货政策', topK: 2 })
+    expect(request.post).toHaveBeenCalledWith('/knowledge/datasets/10/retrieve', {
+      query: '退货政策',
+      topK: 2,
+    })
   })
 })

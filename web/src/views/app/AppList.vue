@@ -95,7 +95,13 @@ async function onDelete(row: App) {
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
 const formRef = ref<FormInstance>()
-const form = reactive<AppForm>({ name: '', description: '', modelId: null, config: { systemPrompt: '' } })
+const form = reactive<AppForm>({
+  name: '',
+  description: '',
+  modelId: null,
+  config: { systemPrompt: '' },
+  datasetIds: [],
+})
 
 // 模型选择器选项（成员侧「可用」chat 模型），每次打开弹窗刷新一次。
 const modelOptions = ref<ModelOption[]>([])
@@ -140,6 +146,7 @@ function openCreate() {
   form.modelId = null
   editingModelName.value = null
   form.config = { systemPrompt: '' }
+  form.datasetIds = []
   dialogVisible.value = true
   loadModelOptions()
 }
@@ -150,6 +157,7 @@ function openEdit(row: App) {
   form.modelId = row.modelId
   editingModelName.value = row.modelName
   form.config = { systemPrompt: row.config.systemPrompt ?? '' }
+  form.datasetIds = [...row.datasetIds]
   dialogVisible.value = true
   loadModelOptions()
 }

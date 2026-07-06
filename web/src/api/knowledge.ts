@@ -1,6 +1,8 @@
 import { request } from '@/api/request'
 import { config } from '@/config'
-import type { Dataset, DatasetForm, KbDocument, Chunk } from '@/types/knowledge'
+import type {
+  Dataset, DatasetForm, KbDocument, Chunk, RetrieveTestForm, RetrievedChunk,
+} from '@/types/knowledge'
 import type { PageResult } from '@/types/app'
 
 // baseURL 已含 /api/v1（见 api/request.ts），此处只拼模块内路径。成员资源，放 api/ 根（不进 admin/）。
@@ -29,6 +31,11 @@ export function updateDataset(id: string, body: DatasetForm) {
 /** 删除（逻辑删除）。后端：DELETE .../{id} */
 export function deleteDataset(id: string) {
   return request.delete<void>(`${BASE}/${id}`)
+}
+
+/** 命中测试（检索调试，不走 LLM）。后端：POST /api/v1/knowledge/datasets/{id}/retrieve */
+export function retrieveTest(datasetId: string, body: RetrieveTestForm) {
+  return request.post<RetrievedChunk[]>(`${BASE}/${datasetId}/retrieve`, body)
 }
 
 const DOC_BASE = '/knowledge/documents'

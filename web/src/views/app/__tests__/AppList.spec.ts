@@ -26,7 +26,7 @@ function page(list: App[]): PageResult<App> {
 }
 const MINE: App = {
   id: '1', name: '我的助手', description: null, type: 'chat', modelId: null, modelName: null,
-  modelUsable: false, config: { systemPrompt: null }, ownerId: '7', status: 'enabled',
+  modelUsable: false, config: { systemPrompt: null }, datasetIds: [], ownerId: '7', status: 'enabled',
   createTime: '2026-06-24T10:00:00+08:00', updateTime: '2026-06-24T10:00:00+08:00',
 }
 const OTHERS: App = { ...MINE, id: '2', name: '他人应用', ownerId: '999' }

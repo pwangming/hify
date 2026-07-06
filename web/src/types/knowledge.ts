@@ -39,3 +39,19 @@ export interface Chunk {
   position: number
   content: string
 }
+
+/** 命中测试请求（对齐后端 RetrieveTestRequest）。topK/scoreThreshold 缺省=走后端全局配置。 */
+export interface RetrieveTestForm {
+  query: string
+  topK?: number
+  scoreThreshold?: number
+}
+
+/** 检索命中段（对齐后端 RetrievedChunk）。chunkId/documentId 为 string（Long 序列化）；score=相似度，越大越相关。 */
+export interface RetrievedChunk {
+  chunkId: string
+  documentId: string
+  documentName: string
+  content: string
+  score: number
+}

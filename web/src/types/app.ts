@@ -19,6 +19,8 @@ export interface App {
   modelName: string | null
   modelUsable: boolean
   config: AppConfig
+  /** 绑定的知识库 ids（K4 起）。 */
+  datasetIds: string[]
   ownerId: string
   status: AppStatus
   createTime: string
@@ -31,6 +33,8 @@ export interface AppForm {
   description: string
   modelId: string | null
   config: AppConfig
+  /** 绑定的知识库 ids（K4 起）。 */
+  datasetIds: string[]
 }
 
 /** 页码分页结果（对齐后端 PageResult）。total/page/size 后端以 string 下发（long 也序列化为 string）。 */

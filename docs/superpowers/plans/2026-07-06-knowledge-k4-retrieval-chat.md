@@ -1465,7 +1465,7 @@ git commit -m "feat(conversation): 绑库应用检索命中拼系统提示词，
 - Consumes: Task 4/5 的后端契约。
 - Produces: `retrieveTest(datasetId: string, body: RetrieveTestForm) → Promise<RetrievedChunk[]>`；`App`/`AppForm` 均含 `datasetIds: string[]`；`RetrievedChunk { chunkId, documentId, documentName, content, score }`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `web/src/api/__tests__/knowledge.spec.ts` 追加（import 补 `retrieveTest`）：
 
@@ -1481,12 +1481,12 @@ git commit -m "feat(conversation): 绑库应用检索命中拼系统提示词，
 
 `web/src/api/__tests__/app.spec.ts`：既有 `AppForm` fixture 补 `datasetIds: []`，并在 createApp 断言的期望对象里加 `datasetIds: []`（提交载荷透传验证）。
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test src/api/__tests__/knowledge.spec.ts src/api/__tests__/app.spec.ts`
 Expected: FAIL（retrieveTest 未导出）
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 `web/src/types/knowledge.ts` 末尾追加：
 
@@ -1519,17 +1519,17 @@ export function retrieveTest(datasetId: string, body: RetrieveTestForm) {
 
 `web/src/types/app.ts`：`App` 的 `config` 行后加 `datasetIds: string[]`（注释「绑定的知识库 ids（K4 起）」）；`AppForm` 同样加 `datasetIds: string[]`。
 
-- [ ] **Step 4: 修全仓 App fixture**
+- [x] **Step 4: 修全仓 App fixture**
 
 Run: `cd /home/wang/playlab/hify/web && grep -rln "modelUsable" src --include='*.spec.ts' --include='*.ts' --include='*.vue'`
 对命中文件里每个 `App` 对象字面量补 `datasetIds: []`（AppList.spec 的 MINE/OTHERS/WITH_MODEL/NAMED、chat 相关 spec 的 fixture 等）。
 
-- [ ] **Step 5: 运行测试通过 + 类型检查**
+- [x] **Step 5: 运行测试通过 + 类型检查**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test && pnpm build`
 Expected: vitest 全绿；vue-tsc 无类型错误（漏改的 fixture 在这一步暴露）
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add web/src

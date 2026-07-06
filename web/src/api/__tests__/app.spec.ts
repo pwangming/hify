@@ -9,7 +9,13 @@ vi.mock('@/api/request', () => ({
   request: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 
-const FORM: AppForm = { name: '客服助手', description: '答疑', config: { systemPrompt: '你是客服' } }
+const FORM: AppForm = {
+  name: '客服助手',
+  description: '答疑',
+  modelId: null,
+  config: { systemPrompt: '你是客服' },
+  datasetIds: [],
+}
 
 describe('app api', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -26,7 +32,7 @@ describe('app api', () => {
   })
   it('createApp → POST /app/apps + body(type=chat)', () => {
     createApp(FORM)
-    expect(request.post).toHaveBeenCalledWith('/app/apps', { ...FORM, type: 'chat' })
+    expect(request.post).toHaveBeenCalledWith('/app/apps', { ...FORM, type: 'chat', datasetIds: [] })
   })
   it('updateApp → PUT /app/apps/{id} + body', () => {
     updateApp('10', FORM)

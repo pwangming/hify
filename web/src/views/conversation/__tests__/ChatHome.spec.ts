@@ -13,6 +13,7 @@ function app(over: Record<string, unknown> = {}) {
   return {
     id: '1', name: '客服助手', description: '答疑', type: 'chat',
     modelId: '5', modelName: 'gpt', modelUsable: true, config: { systemPrompt: null },
+    datasetIds: [],
     ownerId: '9', status: 'enabled', createTime: 'x', updateTime: 'x', ...over,
   }
 }
