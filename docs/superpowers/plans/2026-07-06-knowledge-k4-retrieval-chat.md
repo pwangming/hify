@@ -502,7 +502,7 @@ git commit -m "feat(knowledge): 手写 pgvector 余弦检索 SQL + K3 留账 Doc
 - Consumes: Task 2 的 `KbChunkMapper.searchByVector` 与 `ChunkHit`；既有 `ProviderFacade.getEmbeddingModel()`、`DocumentProcessStore.vectorLiteral(float[])`（同包 static）。
 - Produces: `KnowledgeFacade.retrieve(List<Long> datasetIds, String query) → List<RetrievedChunk>`、`KnowledgeFacade.validateDatasetIds(List<Long>)`；`RetrievedChunk(Long chunkId, Long documentId, String documentName, String content, double score)`；模块内 `RetrievalService.retrieve(List<Long>, String, int topK, double scoreThreshold)`（Task 4 命中测试用）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `server/src/test/java/com/hify/knowledge/service/RetrievalServiceTest.java`：
 
@@ -672,12 +672,12 @@ class KnowledgeFacadeImplTest {
 
 注：`BizException` 取错误码的访问器名以 `com.hify.common.exception.BizException` 现有实现为准（K3 测试有先例，照抄既有写法；若是 `getCode()` 之类就相应调整断言行）。
 
-- [ ] **Step 2: 运行确认失败（编译错）**
+- [x] **Step 2: 运行确认失败（编译错）**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='RetrievalServiceTest,KnowledgeFacadeImplTest'`
 Expected: FAIL（compilation error：RetrievedChunk / RetrievalService / KnowledgeFacadeImpl 不存在）
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 `server/src/main/java/com/hify/knowledge/api/RetrievedChunk.java`：
 
@@ -841,12 +841,12 @@ public class KnowledgeFacadeImpl implements KnowledgeFacade {
       score-threshold: ${HIFY_KNOWLEDGE_RETRIEVAL_SCORE_THRESHOLD:0.3}
 ```
 
-- [ ] **Step 4: 运行测试通过 + ModularityTests 回归**
+- [x] **Step 4: 运行测试通过 + ModularityTests 回归**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='RetrievalServiceTest,KnowledgeFacadeImplTest,ModularityTests,LayerRulesTest'`
 Expected: PASS（knowledge 新增 api 顶层类型不破模块规则）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add server/src/main/java/com/hify/knowledge/ server/src/main/resources/application.yml server/src/test/java/com/hify/knowledge/

@@ -114,6 +114,10 @@ hify:
     chunk-overlap: ${HIFY_KNOWLEDGE_CHUNK_OVERLAP:50}
     # 每次 embedding API 调用打包的分段数（千问 v4 单次上限 10；OpenAI 可更大但统一按最小公倍走）。
     embedding-batch-size: ${HIFY_KNOWLEDGE_EMBEDDING_BATCH_SIZE:10}
+    # K4 向量检索全局参数（spec 决策 4：全局固定不做应用级）：取几段 / 相似度阈值（1-余弦距离，低于丢弃）
+    retrieval:
+      top-k: ${HIFY_KNOWLEDGE_RETRIEVAL_TOP_K:4}
+      score-threshold: ${HIFY_KNOWLEDGE_RETRIEVAL_SCORE_THRESHOLD:0.3}
   provider:
     crypto:
       # 供应商 API Key 加密主密钥（AES-256-GCM，经 SHA-256 派生 32 字节密钥）。
