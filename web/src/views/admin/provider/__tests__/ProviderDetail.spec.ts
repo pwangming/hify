@@ -5,7 +5,7 @@ import ElementPlus, { ElMessageBox } from 'element-plus'
 import { listProviders } from '@/api/admin/provider'
 import {
   listModels, createModel, updateModel,
-  deleteModel, enableModel, disableModel,
+  deleteModel, enableModel, disableModel, testModel,
 } from '@/api/admin/model'
 import type { Provider } from '@/types/provider'
 import type { AiModel } from '@/types/model'
@@ -19,6 +19,7 @@ vi.mock('@/api/admin/model', () => ({
   deleteModel: vi.fn(),
   enableModel: vi.fn(),
   disableModel: vi.fn(),
+  testModel: vi.fn(),
 }))
 
 // el-table 依赖 ResizeObserver，happy-dom 未实现，补桩
@@ -41,9 +42,9 @@ const ANTHROPIC_PROVIDER: Provider = {
   lastTestStatus: null, lastTestAt: null, lastTestError: null,
 }
 const MODELS: AiModel[] = [
-  { id: '10', providerId: '1', type: 'chat', name: 'GPT-4o', modelKey: 'gpt-4o',
+  { id: '5', providerId: '1', type: 'chat', name: 'GPT-4o', modelKey: 'gpt-4o',
     status: 'enabled', createTime: '2026-06-23T10:00:00+08:00' },
-  { id: '11', providerId: '1', type: 'embedding', name: 'BGE', modelKey: 'bge-large',
+  { id: '6', providerId: '1', type: 'embedding', name: 'BGE', modelKey: 'bge-large',
     status: 'disabled', createTime: '2026-06-23T11:00:00+08:00' },
 ]
 
@@ -138,7 +139,7 @@ describe('ProviderDetail', () => {
 
   it('编辑态：类型为只读展示，不渲染可切换的 radio 组', async () => {
     const { wrapper } = await mountAt('1')
-    await wrapper.get('[data-test="model-edit-10"]').trigger('click')
+    await wrapper.get('[data-test="model-edit-5"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-test="form-type"]').exists()).toBe(false)
     expect(wrapper.get('[data-test="form-type-readonly"]').text()).toBe('chat')
@@ -147,14 +148,14 @@ describe('ProviderDetail', () => {
   it('编辑：预填 name/modelKey，提交只调 updateModel(id, {name,modelKey})', async () => {
     vi.mocked(updateModel).mockResolvedValue({ ...MODELS[0], name: 'GPT-4o 改' })
     const { wrapper } = await mountAt('1')
-    await wrapper.get('[data-test="model-edit-10"]').trigger('click')
+    await wrapper.get('[data-test="model-edit-5"]').trigger('click')
     await flushPromises()
     expect((wrapper.get('[data-test="form-name"]').element as HTMLInputElement).value).toBe('GPT-4o')
     expect((wrapper.get('[data-test="form-modelkey"]').element as HTMLInputElement).value).toBe('gpt-4o')
     await wrapper.get('[data-test="form-name"]').setValue('GPT-4o 改')
     await wrapper.get('[data-test="form-submit"]').trigger('click')
     await flushPromises()
-    expect(updateModel).toHaveBeenCalledWith('10', { name: 'GPT-4o 改', modelKey: 'gpt-4o' })
+    expect(updateModel).toHaveBeenCalledWith('5', { name: 'GPT-4o 改', modelKey: 'gpt-4o' })
     expect(listModels).toHaveBeenCalledTimes(2)
   })
 
@@ -162,16 +163,16 @@ describe('ProviderDetail', () => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
     vi.mocked(deleteModel).mockResolvedValue(undefined)
     const { wrapper } = await mountAt('1')
-    await wrapper.get('[data-test="model-delete-10"]').trigger('click')
+    await wrapper.get('[data-test="model-delete-5"]').trigger('click')
     await flushPromises()
-    expect(deleteModel).toHaveBeenCalledWith('10')
+    expect(deleteModel).toHaveBeenCalledWith('5')
     expect(listModels).toHaveBeenCalledTimes(2)
   })
 
   it('删除：取消则不调 deleteModel', async () => {
     vi.spyOn(ElMessageBox, 'confirm').mockRejectedValue('cancel')
     const { wrapper } = await mountAt('1')
-    await wrapper.get('[data-test="model-delete-10"]').trigger('click')
+    await wrapper.get('[data-test="model-delete-5"]').trigger('click')
     await flushPromises()
     expect(deleteModel).not.toHaveBeenCalled()
   })
@@ -180,21 +181,34 @@ describe('ProviderDetail', () => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
     vi.mocked(disableModel).mockResolvedValue(undefined)
     const { wrapper } = await mountAt('1')
-    expect(wrapper.find('[data-test="model-enable-10"]').exists()).toBe(false)
-    await wrapper.get('[data-test="model-disable-10"]').trigger('click')
+    expect(wrapper.find('[data-test="model-enable-5"]').exists()).toBe(false)
+    await wrapper.get('[data-test="model-disable-5"]').trigger('click')
     await flushPromises()
-    expect(disableModel).toHaveBeenCalledWith('10')
+    expect(disableModel).toHaveBeenCalledWith('5')
     expect(listModels).toHaveBeenCalledTimes(2)
   })
 
   it('禁用行（status=disabled）显示「启用」：直接调 enableModel（无确认）', async () => {
     vi.mocked(enableModel).mockResolvedValue(undefined)
     const { wrapper } = await mountAt('1')
-    expect(wrapper.find('[data-test="model-disable-11"]').exists()).toBe(false)
-    await wrapper.get('[data-test="model-enable-11"]').trigger('click')
+    expect(wrapper.find('[data-test="model-disable-6"]').exists()).toBe(false)
+    await wrapper.get('[data-test="model-enable-6"]').trigger('click')
     await flushPromises()
-    expect(enableModel).toHaveBeenCalledWith('11')
+    expect(enableModel).toHaveBeenCalledWith('6')
     expect(listModels).toHaveBeenCalledTimes(2)
+  })
+
+  it('点击模型测试按钮调用 API 并弹出样例', async () => {
+    vi.mocked(testModel).mockResolvedValue({ sample: 'pong' })
+    const { wrapper } = await mountAt('1')
+    await wrapper.find('[data-test="model-test-5"]').trigger('click')
+    await flushPromises()
+    expect(testModel).toHaveBeenCalledWith('5')
+  })
+
+  it('禁用模型的测试按钮置灰', async () => {
+    const { wrapper } = await mountAt('1')
+    expect(wrapper.find('[data-test="model-test-6"]').attributes('disabled')).toBeDefined()
   })
 
   it('点「返回」跳回供应商列表', async () => {

@@ -10,6 +10,7 @@ import {
   deleteModel,
   enableModel,
   disableModel,
+  testModel,
 } from '@/api/admin/model'
 import type { Provider, ProviderProtocol } from '@/types/provider'
 import type { AiModel, ModelForm } from '@/types/model'
@@ -32,6 +33,7 @@ const providerId = String(route.params.id)
 const provider = ref<Provider | null>(null)
 const models = ref<AiModel[]>([])
 const loading = ref(false)
+const testingId = ref<string | null>(null)
 
 // Anthropic 协议不支持 embedding（后端 12001 兜底）；前端置灰该选项。
 const embeddingDisabled = computed(() => provider.value?.protocol === 'anthropic')
@@ -103,6 +105,18 @@ async function onDelete(row: AiModel) {
     await loadModels()
   } catch {
     /* 已由 request 拦截器统一 toast */
+  }
+}
+
+async function onTest(row: AiModel) {
+  testingId.value = row.id
+  try {
+    const result = await testModel(row.id)
+    ElMessage.success(`测试通过：${result.sample}`)
+  } catch {
+    /* 已由 request 拦截器统一 toast */
+  } finally {
+    testingId.value = null
   }
 }
 
@@ -192,9 +206,17 @@ async function submitForm() {
         <el-table-column label="创建时间">
           <template #default="{ row }">{{ formatDateTime((row as AiModel).createTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="240">
+        <el-table-column label="操作" width="300">
           <template #default="{ row }">
             <div class="provider-detail__ops">
+              <el-button
+                :data-test="`model-test-${(row as AiModel).id}`"
+                size="small"
+                :loading="testingId === (row as AiModel).id"
+                :disabled="(row as AiModel).status !== 'enabled'"
+                @click="onTest(row as AiModel)"
+                >测试</el-button
+              >
               <el-button
                 :data-test="`model-edit-${(row as AiModel).id}`"
                 size="small"
