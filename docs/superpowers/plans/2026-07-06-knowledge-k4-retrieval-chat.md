@@ -1548,7 +1548,7 @@ git commit -m "feat(web): 命中测试 api + App 类型带 datasetIds（TDD）"
 - Consumes: Task 7 的 `AppForm.datasetIds`；既有 `listDatasets`（`@/api/knowledge`）。
 - Produces: 弹窗 `[data-test="form-datasets"]` 多选；提交载荷带 `datasetIds`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `AppList.spec.ts`：顶部补 mock 与 fixture：
 
@@ -1605,12 +1605,12 @@ beforeEach 补 `vi.mocked(listDatasets).mockResolvedValue({ list: [DS], total: '
 
 （选择器/交互写法若与文件内既有用例惯例不同，以既有用例为准微调，断言目标不变。）
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test src/views/app/__tests__/AppList.spec.ts`
 Expected: FAIL（form 无 datasetIds、无 form-datasets 控件）
 
-- [ ] **Step 3: 写实现（AppList.vue）**
+- [x] **Step 3: 写实现（AppList.vue）**
 
 script 部分：
 
@@ -1686,12 +1686,12 @@ style 补：
 }
 ```
 
-- [ ] **Step 4: 运行测试通过（含既有用例回归）**
+- [x] **Step 4: 运行测试通过（含既有用例回归）**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test src/views/app/__tests__/AppList.spec.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add web/src

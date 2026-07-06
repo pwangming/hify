@@ -6,8 +6,10 @@ import {
   listApps, createApp, updateApp, deleteApp, enableApp, disableApp,
 } from '@/api/app'
 import { listChatModels } from '@/api/provider'
+import { listDatasets } from '@/api/knowledge'
 import type { App, AppForm } from '@/types/app'
 import type { ModelOption } from '@/types/model'
+import type { Dataset } from '@/types/knowledge'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
 import PageHeader from '@/components/PageHeader.vue'
@@ -132,6 +134,28 @@ const selectOptions = computed(() => {
   return opts
 })
 
+// 知识库选项（团队共享全员可见），打开弹窗时刷新；一页 100 够内部团队用
+const datasetOptions = ref<Dataset[]>([])
+async function loadDatasetOptions() {
+  try {
+    const res = await listDatasets({ page: 1, size: 100 })
+    datasetOptions.value = res.list
+  } catch {
+    /* 失败由 request 拦截器统一 toast；下拉留空 */
+  }
+}
+
+/** 下拉选项：现存知识库 + （编辑态）已绑但已删除的库作禁用项，避免裸露 id（同模型下拉手法）。 */
+const datasetSelectOptions = computed(() => {
+  const opts = datasetOptions.value.map((d) => ({ value: d.id, label: d.name, disabled: false }))
+  for (const id of form.datasetIds) {
+    if (!datasetOptions.value.some((d) => d.id === id)) {
+      opts.unshift({ value: id, label: '已删除的知识库', disabled: true })
+    }
+  }
+  return opts
+})
+
 const rules: FormRules<AppForm> = {
   name: [
     { required: true, message: '请输入名称', trigger: 'blur' },
@@ -149,6 +173,7 @@ function openCreate() {
   form.datasetIds = []
   dialogVisible.value = true
   loadModelOptions()
+  loadDatasetOptions()
 }
 function openEdit(row: App) {
   editingId.value = row.id
@@ -160,6 +185,7 @@ function openEdit(row: App) {
   form.datasetIds = [...row.datasetIds]
   dialogVisible.value = true
   loadModelOptions()
+  loadDatasetOptions()
 }
 
 async function submitForm() {
@@ -320,6 +346,25 @@ async function submitForm() {
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="关联知识库">
+          <el-select
+            v-model="form.datasetIds"
+            data-test="form-datasets"
+            multiple
+            clearable
+            placeholder="选择知识库（可选）"
+            class="app-list__model-select"
+          >
+            <el-option
+              v-for="o in datasetSelectOptions"
+              :key="o.value"
+              :value="o.value"
+              :label="o.label"
+              :disabled="o.disabled"
+            />
+          </el-select>
+          <div class="app-list__hint">绑定后，该应用回答会参考所选知识库内容</div>
+        </el-form-item>
         <el-form-item label="系统提示词">
           <el-input
             v-model="form.config.systemPrompt"
@@ -347,6 +392,12 @@ async function submitForm() {
 }
 .app-list__muted {
   color: var(--el-text-color-secondary);
+}
+.app-list__hint {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 4px;
 }
 .app-list__ops {
   display: flex;

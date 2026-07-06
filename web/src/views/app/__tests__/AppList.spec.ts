@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus, { ElSelect, ElOption } from 'element-plus'
-import { listApps, createApp, deleteApp } from '@/api/app'
+import { listApps, createApp, updateApp, deleteApp } from '@/api/app'
 import { listChatModels } from '@/api/provider'
+import { listDatasets } from '@/api/knowledge'
 import type { App, PageResult } from '@/types/app'
 import { useUserStore } from '@/stores/user'
 import AppList from '@/views/app/AppList.vue'
@@ -13,6 +14,7 @@ vi.mock('@/api/app', () => ({
   deleteApp: vi.fn(), enableApp: vi.fn(), disableApp: vi.fn(),
 }))
 vi.mock('@/api/provider', () => ({ listChatModels: vi.fn() }))
+vi.mock('@/api/knowledge', () => ({ listDatasets: vi.fn() }))
 
 const routerPush = vi.fn()
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: routerPush }) }))
@@ -33,6 +35,11 @@ const OTHERS: App = { ...MINE, id: '2', name: '他人应用', ownerId: '999' }
 // 选了模型且模型已失效（其供应商被停用）：modelName 仍有值、modelUsable=false、不在可用列表里
 const WITH_MODEL: App = { ...MINE, id: '3', name: '带模型应用', modelId: '5', modelName: 'GPT-4o', modelUsable: false }
 const NAMED: App = { ...MINE, id: '4', name: '命名应用', modelId: '5', modelName: 'GPT-4o', modelUsable: true }
+const BOUND: App = { ...MINE, id: '6', name: '绑库应用', datasetIds: ['9'] }
+const DS = {
+  id: '9', name: '客服知识库', description: null, ownerId: '7',
+  createTime: '2026-07-02T10:00:00+08:00', updateTime: '2026-07-02T10:00:00+08:00',
+}
 
 describe('AppList', () => {
   beforeEach(() => {
@@ -42,6 +49,7 @@ describe('AppList', () => {
     vi.mocked(listChatModels).mockResolvedValue([
       { id: '5', name: 'GPT-4o', type: 'chat', providerName: '通义千问' },
     ])
+    vi.mocked(listDatasets).mockResolvedValue({ list: [DS], total: '1', page: '1', size: '100' })
     const store = useUserStore()
     store.user = { id: '7', username: 'bob', role: 'member' } // 当前用户=bob(7)
   })
@@ -189,5 +197,39 @@ describe('AppList', () => {
     expect(wrapper.find('[data-test="edit-5"]').exists()).toBe(false)
     await wrapper.find('[data-test="chat-5"]').trigger('click')
     expect(routerPush).toHaveBeenCalledWith('/apps/5/chat')
+  })
+
+  it('编辑：回显已绑知识库并提交载荷带 datasetIds', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([BOUND]))
+    vi.mocked(updateApp).mockResolvedValue(BOUND)
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="edit-6"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(updateApp).toHaveBeenCalledWith('6', expect.objectContaining({ datasetIds: ['9'] }))
+  })
+
+  it('编辑：已删除的知识库以禁用项回显', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([{ ...BOUND, datasetIds: ['404'] }]))
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="edit-6"]').trigger('click')
+    await flushPromises()
+    const gone = wrapper.findAllComponents(ElOption).find((o) => o.props('label') === '已删除的知识库')
+    expect(gone).toBeTruthy()
+    expect(gone!.props('disabled')).toBe(true)
+  })
+
+  it('新建：提交载荷 datasetIds 为空数组', async () => {
+    vi.mocked(createApp).mockResolvedValue(MINE)
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="create-open"]').trigger('click')
+    wrapper.find('[data-test="form-name"]').setValue('新应用')
+    await wrapper.find('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ datasetIds: [] }))
   })
 })
