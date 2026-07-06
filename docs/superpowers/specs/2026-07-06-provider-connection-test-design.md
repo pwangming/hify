@@ -39,11 +39,12 @@
 
 `POST /api/v1/admin/provider/providers/{id}/test`（动作子资源 POST，与既有
 `/models/{id}/test` 同款式；已现场核对 api-standards.md）。
-响应 `Result<ProviderTestResponse>`，含测试用的模型名与样例文本。
+响应 `Result<ProviderTestResponse>`，字段：`modelName`（本次测试借用的模型名）、
+`sample`（样例文本，同 `ModelTestResponse.sample` 语义）。
 
 ### 3.2 执行逻辑（`ModelConnectionService.testProvider`）
 
-1. 校验供应商存在且启用；
+1. 校验供应商存在（不存在抛通用 10005）且启用（禁用抛 12002，message「供应商已禁用，无法试连接」）；
 2. 挑该供应商下一个**启用**模型：优先 chat（ping 聊天便宜），无 chat 则用 embedding；
 3. 一个启用模型都没有 → 抛既有 12002，message「该供应商下暂无启用的模型，无法试连接」，**不落库**；
 4. 经 ResilienceRegistry 真实调用（超时/重试/熔断自动继承供应商韧性配置）；
