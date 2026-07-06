@@ -152,6 +152,7 @@ public class ProviderService {
     private ProviderResponse toResponse(ModelProvider e) {
         return new ProviderResponse(
                 e.getId(), e.getName(), e.getProtocol(), e.getBaseUrl(),
-                e.getStatus(), e.getApiKeyTail(), e.getCreateTime());
+                e.getStatus(), e.getApiKeyTail(), e.getCreateTime(),
+                e.getLastTestStatus(), e.getLastTestAt(), e.getLastTestError());
     }
 }

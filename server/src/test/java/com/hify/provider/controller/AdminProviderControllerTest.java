@@ -55,7 +55,8 @@ class AdminProviderControllerTest {
 
     private ProviderResponse sample() {
         return new ProviderResponse(7L, "通义-生产", "openai",
-                "https://dashscope.aliyuncs.com/compatible-mode/v1", "enabled", "3456", OffsetDateTime.now());
+                "https://dashscope.aliyuncs.com/compatible-mode/v1", "enabled", "3456", OffsetDateTime.now(),
+                null, null, null);
     }
 
     @Test

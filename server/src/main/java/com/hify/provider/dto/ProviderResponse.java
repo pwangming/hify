@@ -14,5 +14,8 @@ public record ProviderResponse(
         String baseUrl,
         String status,
         String apiKeyTail,
-        OffsetDateTime createTime) {
+        OffsetDateTime createTime,
+        String lastTestStatus,
+        OffsetDateTime lastTestAt,
+        String lastTestError) {
 }

@@ -3,6 +3,8 @@ package com.hify.provider.entity;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.hify.common.BaseEntity;
 
+import java.time.OffsetDateTime;
+
 /**
  * 模型供应商表 {@code model_provider} 的映射实体。继承 {@link BaseEntity}，自动带
  * id / create_time / update_time / deleted 四列（填充逻辑在 infra 的 MetaObjectHandler）。
@@ -29,6 +31,10 @@ public class ModelProvider extends BaseEntity {
     private Integer firstTokenTimeoutSec;
     private Integer tokenGapTimeoutSec;
     private Integer streamMaxDurationSec;
+    // 最近一次试连接结果（V17）；NULL=从未测试。成功/失败由 ModelConnectionService 落库。
+    private String lastTestStatus;          // ok / fail
+    private OffsetDateTime lastTestAt;
+    private String lastTestError;
 
     public String getName() {
         return name;
@@ -156,5 +162,29 @@ public class ModelProvider extends BaseEntity {
 
     public void setStreamMaxDurationSec(Integer streamMaxDurationSec) {
         this.streamMaxDurationSec = streamMaxDurationSec;
+    }
+
+    public String getLastTestStatus() {
+        return lastTestStatus;
+    }
+
+    public void setLastTestStatus(String lastTestStatus) {
+        this.lastTestStatus = lastTestStatus;
+    }
+
+    public OffsetDateTime getLastTestAt() {
+        return lastTestAt;
+    }
+
+    public void setLastTestAt(OffsetDateTime lastTestAt) {
+        this.lastTestAt = lastTestAt;
+    }
+
+    public String getLastTestError() {
+        return lastTestError;
+    }
+
+    public void setLastTestError(String lastTestError) {
+        this.lastTestError = lastTestError;
     }
 }

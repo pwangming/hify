@@ -163,6 +163,23 @@ class ProviderServiceTest {
     }
 
     @Test
+    void list_投影携带最近测试三字段() {
+        ModelProvider e = new ModelProvider();
+        e.setId(7L);
+        e.setName("通义");
+        e.setLastTestStatus("fail");
+        e.setLastTestAt(OffsetDateTime.parse("2026-07-06T10:00:00+08:00"));
+        e.setLastTestError("401 Unauthorized");
+        when(mapper.selectList(any())).thenReturn(List.of(e));
+
+        ProviderResponse resp = service.list().get(0);
+
+        assertEquals("fail", resp.lastTestStatus());
+        assertEquals(OffsetDateTime.parse("2026-07-06T10:00:00+08:00"), resp.lastTestAt());
+        assertEquals("401 Unauthorized", resp.lastTestError());
+    }
+
+    @Test
     void 启用_已启用_幂等不写库() {
         when(mapper.selectById(1L)).thenReturn(stored(1L, "a", ProviderStatus.ENABLED.value()));
 

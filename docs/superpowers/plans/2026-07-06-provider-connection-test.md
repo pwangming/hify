@@ -43,7 +43,7 @@
 **Interfaces:**
 - Produces: `ModelProvider` 新属性 `String lastTestStatus` / `OffsetDateTime lastTestAt` / `String lastTestError`（含 getter/setter）；`ProviderResponse` 末尾新增同名三字段。Task 3、4 依赖这些名字。
 
-- [ ] **Step 1: 写失败测试**——`ProviderServiceTest` 追加（沿用该文件既有 mock 风格）：
+- [x] **Step 1: 写失败测试**——`ProviderServiceTest` 追加（沿用该文件既有 mock 风格）：
 
 ```java
 @Test
@@ -64,12 +64,12 @@ void list_投影携带最近测试三字段() {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认编译失败**（字段不存在）
+- [x] **Step 2: 跑测试确认编译失败**（字段不存在）
 
 Run: `cd /home/wang/playlab/hify/server && mvn -q test -Dtest=ProviderServiceTest; echo EXIT=$?`
 Expected: EXIT 非 0（compilation error: cannot find symbol setLastTestStatus）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `V17__alter_model_provider_last_test.sql`（风格对齐 V8）：
 
@@ -127,7 +127,7 @@ public record ProviderResponse(
 
 `AdminProviderControllerTest.java:57` 的 `new ProviderResponse(7L, "通义-生产", "openai", ...)` 结尾补 `null, null, null`。
 
-- [ ] **Step 4: 跑 provider 模块测试通过**
+- [x] **Step 4: 跑 provider 模块测试通过**
 
 Run: `cd /home/wang/playlab/hify/server && mvn -q test -Dtest='com.hify.provider.**'; echo EXIT=$?`
 Expected: EXIT=0
