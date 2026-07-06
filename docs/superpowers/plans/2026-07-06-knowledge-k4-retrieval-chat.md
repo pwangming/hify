@@ -1710,7 +1710,7 @@ git commit -m "feat(web): 应用弹窗关联知识库多选（已删库禁用项
 - Consumes: Task 7 的 `retrieveTest` / `RetrievedChunk`。
 - Produces: `[data-test="retrieve-open"]` 按钮 + 弹窗（`retrieve-query`/`retrieve-topk`/`retrieve-threshold`/`retrieve-run`），结果卡片含分数/文档名/内容。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `DatasetDetail.spec.ts`：`vi.mock('@/api/knowledge', ...)` 工厂补 `retrieveTest: vi.fn(),`，import 补 `retrieveTest`。追加：
 
@@ -1751,12 +1751,12 @@ git commit -m "feat(web): 应用弹窗关联知识库多选（已删库禁用项
 
 （mountPage 为该文件既有辅助；datasetId 以其 vue-router mock 的 params.id 为准，断言第一参同步调整。）
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test src/views/knowledge/__tests__/DatasetDetail.spec.ts`
 Expected: FAIL（无 retrieve-open 元素）
 
-- [ ] **Step 3: 写实现（DatasetDetail.vue）**
+- [x] **Step 3: 写实现（DatasetDetail.vue）**
 
 script 补（import 区补 `retrieveTest` 与 `RetrievedChunk` 类型）：
 
@@ -1875,12 +1875,12 @@ style 补：
 }
 ```
 
-- [ ] **Step 4: 运行测试通过 + 前端全量回归**
+- [x] **Step 4: 运行测试通过 + 前端全量回归**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test && pnpm build`
 Expected: 全绿 + 类型检查通过
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add web/src

@@ -3,7 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import {
-  getDataset, listDocuments, uploadDocument, deleteDocument, listChunks, retryDocument,
+  getDataset, listDocuments, uploadDocument, deleteDocument, listChunks, retryDocument, retrieveTest,
 } from '@/api/knowledge'
 import type { Dataset, KbDocument, Chunk } from '@/types/knowledge'
 import type { PageResult } from '@/types/app'
@@ -14,7 +14,7 @@ vi.mock('@/api/knowledge', () => ({
   getDataset: vi.fn(), listDatasets: vi.fn(), createDataset: vi.fn(),
   updateDataset: vi.fn(), deleteDataset: vi.fn(),
   uploadDocument: vi.fn(), listDocuments: vi.fn(), deleteDocument: vi.fn(), listChunks: vi.fn(),
-  retryDocument: vi.fn(),
+  retryDocument: vi.fn(), retrieveTest: vi.fn(),
 }))
 
 const routerPush = vi.fn()
@@ -57,6 +57,21 @@ async function selectFile(wrapper: ReturnType<typeof mount>, name: string) {
   const file = new File(['hello world'], name, { type: 'text/plain' })
   Object.defineProperty(input.element, 'files', { value: [file], configurable: true })
   await input.trigger('change')
+  await flushPromises()
+}
+
+async function setRetrieveQuery(wrapper: ReturnType<typeof mount>, value: string) {
+  const input = (
+    wrapper.element.querySelector('[data-test="retrieve-query"] input')
+    ?? wrapper.element.querySelector('[data-test="retrieve-query"]')
+  ) as HTMLInputElement
+  input.value = value
+  input.dispatchEvent(new Event('input'))
+  await flushPromises()
+}
+
+async function clickRetrieveRun(wrapper: ReturnType<typeof mount>) {
+  ;(wrapper.element.querySelector('[data-test="retrieve-run"]') as HTMLElement).click()
   await flushPromises()
 }
 
@@ -197,5 +212,41 @@ describe('DatasetDetail', () => {
     const wrapper = await mountPage()
     expect(wrapper.find('[data-test="doc-table"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('faq.txt')
+  })
+
+  it('命中测试：输入问题→调 api 并渲染分数与文档名', async () => {
+    vi.mocked(retrieveTest).mockResolvedValue([
+      { chunkId: '1', documentId: '2', documentName: 'a.txt', content: '退货需在7天内', score: 0.83 },
+    ])
+    const wrapper = await mountPage()
+    await wrapper.find('[data-test="retrieve-open"]').trigger('click')
+    await flushPromises()
+    await setRetrieveQuery(wrapper, '退货政策')
+    await clickRetrieveRun(wrapper)
+    await flushPromises()
+    expect(retrieveTest).toHaveBeenCalledWith('10', { query: '退货政策', topK: undefined, scoreThreshold: undefined })
+    expect(wrapper.text()).toContain('a.txt')
+    expect(wrapper.text()).toContain('0.83')
+    expect(wrapper.text()).toContain('退货需在7天内')
+  })
+
+  it('命中测试：空结果显示提示', async () => {
+    vi.mocked(retrieveTest).mockResolvedValue([])
+    const wrapper = await mountPage()
+    await wrapper.find('[data-test="retrieve-open"]').trigger('click')
+    await flushPromises()
+    await setRetrieveQuery(wrapper, '无关问题')
+    await clickRetrieveRun(wrapper)
+    await flushPromises()
+    expect(wrapper.text()).toContain('无命中分段')
+  })
+
+  it('命中测试：问题为空不发请求', async () => {
+    const wrapper = await mountPage()
+    await wrapper.find('[data-test="retrieve-open"]').trigger('click')
+    await flushPromises()
+    await clickRetrieveRun(wrapper)
+    await flushPromises()
+    expect(retrieveTest).not.toHaveBeenCalled()
   })
 })

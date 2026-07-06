@@ -3,9 +3,9 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus'
 import {
-  getDataset, listDocuments, uploadDocument, deleteDocument, listChunks, retryDocument,
+  getDataset, listDocuments, uploadDocument, deleteDocument, listChunks, retryDocument, retrieveTest,
 } from '@/api/knowledge'
-import type { Dataset, KbDocument, Chunk, DocumentStatus } from '@/types/knowledge'
+import type { Dataset, KbDocument, Chunk, DocumentStatus, RetrievedChunk } from '@/types/knowledge'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
 import PageHeader from '@/components/PageHeader.vue'
@@ -168,12 +168,47 @@ function formatFileSize(bytes: string): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
   return `${(n / 1024 / 1024).toFixed(1)} MB`
 }
+
+// —— 命中测试弹窗（检索调试，不走 LLM；12006/12003 等错误由拦截器 toast，不吞）——
+const retrieveDialogVisible = ref(false)
+const retrieveQuery = ref('')
+const retrieveTopK = ref<number | undefined>()
+const retrieveThreshold = ref<number | undefined>()
+const retrieving = ref(false)
+const retrieveTried = ref(false)
+const hits = ref<RetrievedChunk[]>([])
+
+function openRetrieveTest() {
+  retrieveDialogVisible.value = true
+}
+
+async function onRetrieveRun() {
+  const q = retrieveQuery.value.trim()
+  if (!q) {
+    ElMessage.error('请输入测试问题')
+    return
+  }
+  retrieving.value = true
+  try {
+    hits.value = await retrieveTest(datasetId, {
+      query: q,
+      topK: retrieveTopK.value || undefined,
+      scoreThreshold: retrieveThreshold.value ?? undefined,
+    })
+    retrieveTried.value = true
+  } catch {
+    /* 未配 embedding 模型/供应商故障由拦截器 toast——排障工具要暴露真实错误 */
+  } finally {
+    retrieving.value = false
+  }
+}
 </script>
 
 <template>
   <div class="dataset-detail">
     <PageHeader :title="dataset?.name ?? '知识库'" :description="dataset?.description ?? ''">
       <el-button data-test="back" @click="router.push('/knowledge')">返回列表</el-button>
+      <el-button data-test="retrieve-open" @click="openRetrieveTest">命中测试</el-button>
       <el-upload
         v-if="canModify"
         accept=".txt,.md"
@@ -265,6 +300,51 @@ function formatFileSize(bytes: string): string {
         @current-change="onChunkPageChange"
       />
     </el-drawer>
+
+    <el-dialog v-model="retrieveDialogVisible" title="命中测试" width="640">
+      <div class="dataset-detail__retrieve-form">
+        <el-input
+          v-model="retrieveQuery"
+          data-test="retrieve-query"
+          placeholder="输入一句话，查看检索会命中哪些分段（不走 LLM）"
+          maxlength="1000"
+          @keyup.enter="onRetrieveRun"
+        />
+        <el-input-number
+          v-model="retrieveTopK"
+          data-test="retrieve-topk"
+          :min="1"
+          :max="20"
+          placeholder="topK"
+          controls-position="right"
+        />
+        <el-input-number
+          v-model="retrieveThreshold"
+          data-test="retrieve-threshold"
+          :min="0"
+          :max="1"
+          :step="0.05"
+          placeholder="阈值"
+          controls-position="right"
+        />
+        <el-button type="primary" data-test="retrieve-run" :loading="retrieving" @click="onRetrieveRun"
+          >测试</el-button
+        >
+      </div>
+      <div class="dataset-detail__retrieve-hint">topK/阈值留空则使用系统全局配置</div>
+      <template v-if="retrieveTried">
+        <div v-if="hits.length === 0" class="dataset-detail__retrieve-empty">
+          无命中分段（可尝试降低阈值或换个问法）
+        </div>
+        <div v-for="h in hits" :key="h.chunkId" class="dataset-detail__chunk">
+          <div class="dataset-detail__chunk-pos">
+            <el-tag size="small" type="success">{{ h.score.toFixed(2) }}</el-tag>
+            <span class="dataset-detail__retrieve-doc">{{ h.documentName }}</span>
+          </div>
+          <div class="dataset-detail__chunk-content">{{ h.content }}</div>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -287,5 +367,24 @@ function formatFileSize(bytes: string): string {
 .dataset-detail__chunk-content {
   white-space: pre-wrap;
   word-break: break-all;
+}
+.dataset-detail__retrieve-form {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+}
+.dataset-detail__retrieve-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  margin: 4px 0 $spacing-md;
+}
+.dataset-detail__retrieve-empty {
+  color: var(--el-text-color-secondary);
+  padding: $spacing-md 0;
+}
+.dataset-detail__retrieve-doc {
+  margin-left: $spacing-sm;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 </style>
