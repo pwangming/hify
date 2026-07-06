@@ -8,6 +8,8 @@ import com.hify.infra.security.RestAuthenticationEntryPoint;
 import com.hify.infra.security.SecurityConfig;
 import com.hify.infra.security.SecurityResponseWriter;
 import com.hify.provider.dto.ProviderResponse;
+import com.hify.provider.dto.ProviderTestResponse;
+import com.hify.provider.service.ModelConnectionService;
 import com.hify.provider.service.ProviderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +46,9 @@ class AdminProviderControllerTest {
 
     @MockitoBean
     private ProviderService providerService;
+
+    @MockitoBean
+    private ModelConnectionService modelConnectionService;
 
     private String adminToken() {
         return jwtService.generateToken(new CurrentUser(1L, "root", CurrentUser.ROLE_ADMIN));
@@ -118,6 +123,17 @@ class AdminProviderControllerTest {
         mockMvc.perform(post("/api/v1/admin/provider/providers/7/disable")
                         .header("Authorization", "Bearer " + adminToken()))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void test_试连接_返回模型名与样例() throws Exception {
+        when(modelConnectionService.testProvider(7L))
+                .thenReturn(new ProviderTestResponse("通义-chat", "pong"));
+        mockMvc.perform(post("/api/v1/admin/provider/providers/7/test")
+                        .header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.modelName").value("通义-chat"))
+                .andExpect(jsonPath("$.data.sample").value("pong"));
     }
 
     @Test

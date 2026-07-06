@@ -1,5 +1,6 @@
 package com.hify.provider.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.hify.common.BaseEntity;
 
@@ -32,8 +33,11 @@ public class ModelProvider extends BaseEntity {
     private Integer tokenGapTimeoutSec;
     private Integer streamMaxDurationSec;
     // 最近一次试连接结果（V17）；NULL=从未测试。成功/失败由 ModelConnectionService 落库。
+    @TableField("last_test_status")
     private String lastTestStatus;          // ok / fail
+    @TableField("last_test_at")
     private OffsetDateTime lastTestAt;
+    @TableField("last_test_error")
     private String lastTestError;
 
     public String getName() {

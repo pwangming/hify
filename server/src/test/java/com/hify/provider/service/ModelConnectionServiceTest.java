@@ -1,9 +1,12 @@
 package com.hify.provider.service;
 
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.hify.common.exception.BizException;
+import com.hify.common.exception.CommonError;
 import com.hify.provider.api.dto.ModelTestResponse;
 import com.hify.provider.constant.ProviderError;
+import com.hify.provider.dto.ProviderTestResponse;
 import com.hify.provider.entity.AiModel;
 import com.hify.provider.entity.ModelProvider;
 import com.hify.provider.mapper.AiModelMapper;
@@ -13,14 +16,19 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ModelConnectionServiceTest {
@@ -83,5 +91,80 @@ class ModelConnectionServiceTest {
         when(modelMapper.selectById(99L)).thenReturn(null);
         BizException ex = assertThrows(BizException.class, () -> service.test(99L));
         assertEquals(ProviderError.MODEL_NOT_USABLE, ex.errorCode());
+    }
+
+    private ModelProvider provider(String status) {
+        ModelProvider p = new ModelProvider();
+        p.setId(1L);
+        p.setName("通义");
+        p.setStatus(status);
+        return p;
+    }
+
+    @Test
+    void testProvider_优先挑chat_成功落库ok() {
+        when(providerMapper.selectById(1L)).thenReturn(provider("enabled"));
+        when(modelMapper.selectList(any())).thenReturn(
+                java.util.List.of(model(6L, "embedding"), model(5L, "chat")));
+        ChatClient chatClient = mock(ChatClient.class, RETURNS_DEEP_STUBS);
+        when(chatClient.prompt().user("ping").call().content()).thenReturn("pong");
+        when(registry.getChatClient(5L)).thenReturn(chatClient);
+
+        ProviderTestResponse resp = service.testProvider(1L);
+
+        assertEquals("chat-模型", resp.modelName());
+        assertEquals("pong", resp.sample());
+        ArgumentCaptor<LambdaUpdateWrapper<ModelProvider>> captor =
+                ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(providerMapper).update(isNull(), captor.capture());
+        assertTrue(captor.getValue().getSqlSet().contains("last_test_status"));
+    }
+
+    @Test
+    void testProvider_仅embedding_用embedding测() {
+        when(providerMapper.selectById(1L)).thenReturn(provider("enabled"));
+        when(modelMapper.selectList(any())).thenReturn(java.util.List.of(model(6L, "embedding")));
+        EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
+        when(embeddingModel.embed(any(String.class))).thenReturn(new float[1024]);
+        when(registry.getEmbeddingModel(6L)).thenReturn(embeddingModel);
+
+        ProviderTestResponse resp = service.testProvider(1L);
+
+        assertEquals("已返回 1024 维向量", resp.sample());
+    }
+
+    @Test
+    void testProvider_调用失败_落库fail后原异常继续抛() {
+        when(providerMapper.selectById(1L)).thenReturn(provider("enabled"));
+        when(modelMapper.selectList(any())).thenReturn(java.util.List.of(model(5L, "chat")));
+        when(registry.getChatClient(5L))
+                .thenThrow(new BizException(ProviderError.PROVIDER_UNAVAILABLE));
+
+        BizException ex = assertThrows(BizException.class, () -> service.testProvider(1L));
+
+        assertEquals(ProviderError.PROVIDER_UNAVAILABLE, ex.errorCode());
+        verify(providerMapper).update(isNull(), any()); // 失败也落库
+    }
+
+    @Test
+    void testProvider_无启用模型_12002且不落库() {
+        when(providerMapper.selectById(1L)).thenReturn(provider("enabled"));
+        when(modelMapper.selectList(any())).thenReturn(java.util.List.of());
+
+        BizException ex = assertThrows(BizException.class, () -> service.testProvider(1L));
+
+        assertEquals(ProviderError.MODEL_NOT_USABLE, ex.errorCode());
+        verify(providerMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void testProvider_供应商不存在或禁用() {
+        when(providerMapper.selectById(9L)).thenReturn(null);
+        assertEquals(CommonError.NOT_FOUND,
+                assertThrows(BizException.class, () -> service.testProvider(9L)).errorCode());
+
+        when(providerMapper.selectById(1L)).thenReturn(provider("disabled"));
+        assertEquals(ProviderError.MODEL_NOT_USABLE,
+                assertThrows(BizException.class, () -> service.testProvider(1L)).errorCode());
     }
 }

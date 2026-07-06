@@ -3,7 +3,9 @@ package com.hify.provider.controller;
 import com.hify.common.Result;
 import com.hify.provider.dto.CreateProviderRequest;
 import com.hify.provider.dto.ProviderResponse;
+import com.hify.provider.dto.ProviderTestResponse;
 import com.hify.provider.dto.UpdateProviderRequest;
+import com.hify.provider.service.ModelConnectionService;
 import com.hify.provider.service.ProviderService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,9 +30,11 @@ import java.util.List;
 public class AdminProviderController {
 
     private final ProviderService providerService;
+    private final ModelConnectionService modelConnectionService;
 
-    public AdminProviderController(ProviderService providerService) {
+    public AdminProviderController(ProviderService providerService, ModelConnectionService modelConnectionService) {
         this.providerService = providerService;
+        this.modelConnectionService = modelConnectionService;
     }
 
     @GetMapping
@@ -65,5 +69,11 @@ public class AdminProviderController {
     public Result<Void> disable(@PathVariable Long id) {
         providerService.disable(id);
         return Result.ok(null);
+    }
+
+    /** 试连接：自动挑一个启用模型真实调用，成败都记入最近测试字段。失败按韧性映射（12002/12003/12004）。 */
+    @PostMapping("/{id}/test")
+    public Result<ProviderTestResponse> test(@PathVariable Long id) {
+        return Result.ok(modelConnectionService.testProvider(id));
     }
 }

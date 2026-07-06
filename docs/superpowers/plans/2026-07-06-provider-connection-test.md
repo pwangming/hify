@@ -335,7 +335,7 @@ git commit -m "feat(provider): 模型级测试支持 embedding 分流（TDD）"
 **Interfaces:**
 - Produces: `ProviderTestResponse(String modelName, String sample)`（record，`provider/dto`，仅本模块用，不进 api 包）；`ModelConnectionService.testProvider(Long providerId)`；`POST /api/v1/admin/provider/providers/{id}/test`。Task 4 前端按 `{ modelName, sample }` 对接。
 
-- [ ] **Step 1: 写失败测试**——`ModelConnectionServiceTest` 追加（import `CommonError`、`LambdaUpdateWrapper` 相关按需补）：
+- [x] **Step 1: 写失败测试**——`ModelConnectionServiceTest` 追加（import `CommonError`、`LambdaUpdateWrapper` 相关按需补）：
 
 ```java
     private ModelProvider provider(String status) {
@@ -414,12 +414,12 @@ git commit -m "feat(provider): 模型级测试支持 embedding 分流（TDD）"
     }
 ```
 
-- [ ] **Step 2: 跑测试确认编译失败**（`testProvider` / `ProviderTestResponse` 不存在）
+- [x] **Step 2: 跑测试确认编译失败**（`testProvider` / `ProviderTestResponse` 不存在）
 
 Run: `cd /home/wang/playlab/hify/server && mvn -q test -Dtest=ModelConnectionServiceTest; echo EXIT=$?`
 Expected: EXIT 非 0
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `ProviderTestResponse.java`：
 
@@ -503,7 +503,7 @@ public record ProviderTestResponse(String modelName, String sample) {
 
 （`adminToken()` 为该测试类已有的取 token 辅助写法，按现文件实际方法名对齐。）
 
-- [ ] **Step 4: 跑 provider 模块测试通过**
+- [x] **Step 4: 跑 provider 模块测试通过**
 
 Run: `cd /home/wang/playlab/hify/server && mvn -q test -Dtest='com.hify.provider.**'; echo EXIT=$?`
 Expected: EXIT=0
