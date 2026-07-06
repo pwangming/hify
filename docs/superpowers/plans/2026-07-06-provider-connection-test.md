@@ -132,7 +132,7 @@ public record ProviderResponse(
 Run: `cd /home/wang/playlab/hify/server && mvn -q test -Dtest='com.hify.provider.**'; echo EXIT=$?`
 Expected: EXIT=0
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/resources/db/migration/V17__alter_model_provider_last_test.sql \
