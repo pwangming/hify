@@ -138,23 +138,25 @@ provider/
 
 ### 6.1 baseUrl 填法（openai 协议）
 
-`ChatClientFactory` 未覆盖 Spring AI（1.0.1）的默认路径，框架会在 baseUrl 后**自动拼**
-`/v1/chat/completions` 与 `/v1/embeddings`。因此 **baseUrl 必须填「不带版本段」的基址**，
-版本段由框架拼出：
+`ChatClientFactory` 显式指定 `completionsPath("/chat/completions")` / `embeddingsPath("/embeddings")`
+（修缮轮拍板，2026-07-07）。**baseUrl 照抄厂商文档给的完整基址（含版本段）**，平台在其后只拼资源
+路径，任意版本前缀的网关均可接入，零厂商代码：
 
-| 供应商 | 官方文档基址 | 平台里应填 |
-|---|---|---|
-| DeepSeek | `https://api.deepseek.com/v1` | `https://api.deepseek.com` |
-| 阿里 MaaS 网关 | `https://<网关>/compatible-mode/v1` | `https://<网关>/compatible-mode` |
-| 火山 Ark | `https://ark.cn-beijing.volces.com/api/v3` | **接不了**（前缀非 /v1，见下） |
+| 厂商 | baseUrl 填法 |
+|---|---|
+| OpenAI / DeepSeek / Moonshot / 腾讯混元 / SiliconFlow / xAI / Ollama·vLLM 本地 | `https://.../v1` |
+| 阿里百炼（compatible-mode 网关） | `https://<网关>/compatible-mode/v1` |
+| 火山方舟 Ark | `https://ark.cn-beijing.volces.com/api/v3` |
+| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` |
+| 百度千帆 v2 | `https://qianfan.baidubce.com/v2` |
+| Google Gemini（OpenAI 兼容层） | `https://generativelanguage.googleapis.com/v1beta/openai` |
 
-填错的典型症状：上游 404 空 body（双 `/v1`）。排障看 `model_provider.last_test_error`
-和 backend 日志的「试连接失败」WARN（cause 链真实原因已随记）。
+尾部斜杠自动去除；不做其他防呆——填错的症状是试连接报 404/401，看
+`model_provider.last_test_error` 与后端「试连接失败」WARN 的 cause 链定位。
+存量数据已由 V19 迁移补回版本段。
 
-**已知局限与既定修法**：版本前缀不是 `/v1` 的网关（如 Ark `/api/v3`）无法接入。
-修法已拍板（暂缓执行，接新供应商前再做）：工厂显式设 `completionsPath("/chat/completions")`
-/`embeddingsPath("/embeddings")`，baseUrl 改为「含版本段的完整基址」（OpenAI SDK 生态惯例）；
-届时需同步更新库中存量供应商的 baseUrl（补回版本段）并更新本表。
+**anthropic 协议不同**：随 Anthropic 生态惯例填「不带版本段」基址
+（如 `https://api.anthropic.com`），SDK 自动拼 `/v1/messages`。
 
 ### 6.2 embedding 模型选型与多模态演进
 

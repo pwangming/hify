@@ -301,7 +301,10 @@ async function submitForm() {
           />
         </el-form-item>
         <el-form-item label="Base URL" prop="baseUrl">
-          <el-input v-model="form.baseUrl" data-test="form-baseurl" placeholder="https://..." />
+          <el-input v-model="form.baseUrl" data-test="form-baseurl" placeholder="https://api.deepseek.com/v1" />
+          <div class="provider-list__hint">
+            照抄厂商文档的完整基址（含版本段），如 https://api.deepseek.com/v1、https://ark.cn-beijing.volces.com/api/v3
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -317,5 +320,12 @@ async function submitForm() {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
+}
+
+.provider-list__hint {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 4px;
 }
 </style>
