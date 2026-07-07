@@ -68,6 +68,15 @@ function isResult(data: unknown): data is Result<unknown> {
   return typeof data === 'object' && data !== null && typeof (data as Result<unknown>).code === 'number'
 }
 
+/**
+ * 非 Result 失败的用户可见文案：一律中文，绝不透传 axios 的英文 error.message。
+ * 断网时 axios 的 error.message 是非空英文 "Network Error"，会把中文兜底顶掉——正是断网英文 toast 的根因。
+ * 无 response=网络层失败（断网/超时/DNS）；有 response 但非 Result=异常网关/非 JSON 错误体。
+ */
+export function fallbackErrorMessage(error: AxiosError): string {
+  return error.response ? '服务器繁忙，请稍后重试' : '网络异常，请稍后重试'
+}
+
 // 清登录态并跳登录页（10002/10003 的统一出口；登录页就绪后由其承接）
 function redirectToLogin() {
   localStorage.removeItem(TOKEN_KEY)
@@ -96,7 +105,7 @@ instance.interceptors.response.use(
       ? new ApiError(body.code, body.message, body.traceId, body.data as FieldError[] | undefined)
       : new ApiError(
           -1,
-          error.message || '网络异常，请稍后重试',
+          fallbackErrorMessage(error),
           undefined,
         )
 
