@@ -77,6 +77,36 @@ describe('useChatStream', () => {
     expect(msg).toBe('网络异常，请稍后重试')
   })
 
+  it('流中途断开（收到增量但 EOF 前无 done 事件）→ 补 onError，不静默挂起', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
+      'event:message\ndata:{"delta":"半截答案"}\n\n',
+      // 流到此结束，从未发 done —— 模拟中途断网后的 EOF
+    ])))
+    const deltas: string[] = []
+    let doneCalled = false
+    let errMsg = ''
+    const { start } = useChatStream()
+    await start('7', null, '你好', {
+      onDelta: (t) => deltas.push(t),
+      onDone: () => { doneCalled = true },
+      onError: (e) => { errMsg = e.message },
+    })
+    expect(deltas).toEqual(['半截答案'])
+    expect(doneCalled).toBe(false)
+    expect(errMsg).toBe('网络异常，请稍后重试')
+  })
+
+  it('正常收到 done 后 EOF → 不补发多余 onError', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
+      'event:message\ndata:{"delta":"答案"}\n\n',
+      'event:done\ndata:{"conversationId":"100","messageId":"200","usage":{"promptTokens":1,"completionTokens":1}}\n\n',
+    ])))
+    const errFn = vi.fn()
+    const { start } = useChatStream()
+    await start('7', null, '你好', { onDelta: () => {}, onDone: () => {}, onError: errFn })
+    expect(errFn).not.toHaveBeenCalled()
+  })
+
   it('连接前非2xx → onError 解包 Result', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ code: 17001, message: '应用不可用', data: null }),
