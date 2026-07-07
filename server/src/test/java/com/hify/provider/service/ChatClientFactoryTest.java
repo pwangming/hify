@@ -11,6 +11,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
+import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.retry.support.RetryTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -93,5 +94,37 @@ class ChatClientFactoryTest {
         BizException ex = assertThrows(BizException.class,
                 () -> factory.buildEmbeddingModel(p, new AiModel()));
         assertEquals(ProviderError.EMBEDDING_NOT_SUPPORTED, ex.errorCode());
+    }
+
+    @Test
+    void normalizeBaseUrl_去尾部斜杠_单个多个与首尾空白() {
+        assertEquals("https://a.com/v1", ChatClientFactory.normalizeBaseUrl("https://a.com/v1"));
+        assertEquals("https://a.com/v1", ChatClientFactory.normalizeBaseUrl("https://a.com/v1/"));
+        assertEquals("https://a.com/v1", ChatClientFactory.normalizeBaseUrl("https://a.com/v1//"));
+        assertEquals("https://a.com/v1beta/openai",
+                ChatClientFactory.normalizeBaseUrl(" https://a.com/v1beta/openai/ "));
+    }
+
+    @Test
+    void buildOpenAiApi_显式资源路径_任意版本前缀基址可接入() throws Exception {
+        ModelProvider p = provider("openai");
+        p.setBaseUrl("https://ark.cn-beijing.volces.com/api/v3/");
+        OpenAiApi api = factory.buildOpenAiApi(p, "sk-x");
+        assertEquals("https://ark.cn-beijing.volces.com/api/v3", baseUrlOf(api));
+        assertEquals("/chat/completions", stringField(api, "completionsPath"));
+        assertEquals("/embeddings", stringField(api, "embeddingsPath"));
+    }
+
+    // Spring AI 1.0.1 的 getter/字段为包私有——反射断言装配结果；升级 Spring AI 若更名，此测试显式红。
+    private static String stringField(OpenAiApi api, String name) throws Exception {
+        java.lang.reflect.Field f = OpenAiApi.class.getDeclaredField(name);
+        f.setAccessible(true);
+        return (String) f.get(api);
+    }
+
+    private static String baseUrlOf(OpenAiApi api) throws Exception {
+        java.lang.reflect.Method m = OpenAiApi.class.getDeclaredMethod("getBaseUrl");
+        m.setAccessible(true);
+        return (String) m.invoke(api);
     }
 }

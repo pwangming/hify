@@ -54,7 +54,7 @@ public class ChatClientFactory {
             throw new BizException(ProviderError.EMBEDDING_NOT_SUPPORTED);
         }
         String apiKey = cipher.decrypt(provider.getApiKeyCipher());
-        OpenAiApi api = OpenAiApi.builder().baseUrl(provider.getBaseUrl()).apiKey(apiKey).build();
+        OpenAiApi api = buildOpenAiApi(provider, apiKey);
         return new OpenAiEmbeddingModel(api, MetadataMode.EMBED,
                 OpenAiEmbeddingOptions.builder()
                         .model(model.getModelKey())
@@ -64,7 +64,7 @@ public class ChatClientFactory {
     }
 
     private ChatModel openAi(ModelProvider p, AiModel m, String apiKey) {
-        OpenAiApi api = OpenAiApi.builder().baseUrl(p.getBaseUrl()).apiKey(apiKey).build();
+        OpenAiApi api = buildOpenAiApi(p, apiKey);
         return OpenAiChatModel.builder()
                 .openAiApi(api)
                 .defaultOptions(OpenAiChatOptions.builder().model(m.getModelKey()).build())
@@ -78,6 +78,29 @@ public class ChatClientFactory {
                 .anthropicApi(api)
                 .defaultOptions(AnthropicChatOptions.builder().model(m.getModelKey()).build())
                 .retryTemplate(noRetryTemplate)
+                .build();
+    }
+
+    /** baseUrl 归一化：仅去首尾空白与尾部斜杠（spec 决策 2：不做更多防呆，填错由试连接暴露真实错误）。 */
+    static String normalizeBaseUrl(String baseUrl) {
+        String s = baseUrl.strip();
+        while (s.endsWith("/")) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s;
+    }
+
+    /**
+     * openai 协议统一装配（包级可见供测试断言）：显式资源路径 + 完整基址约定（修缮轮拍板，
+     * llm-resilience.md §6.1）。baseUrl 照抄厂商文档完整基址（含版本段），此处只拼
+     * /chat/completions 与 /embeddings——任意版本前缀（/v1、/api/v3、/api/paas/v4...）的网关均可接入。
+     */
+    OpenAiApi buildOpenAiApi(ModelProvider p, String apiKey) {
+        return OpenAiApi.builder()
+                .baseUrl(normalizeBaseUrl(p.getBaseUrl()))
+                .apiKey(apiKey)
+                .completionsPath("/chat/completions")
+                .embeddingsPath("/embeddings")
                 .build();
     }
 }

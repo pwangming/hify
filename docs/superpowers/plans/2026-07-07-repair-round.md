@@ -30,7 +30,7 @@
 
 ### Task 0: 建分支
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /home/wang/playlab/hify && git checkout main && git checkout -b fix/repair-round
@@ -48,7 +48,7 @@ cd /home/wang/playlab/hify && git checkout main && git checkout -b fix/repair-ro
 - Consumes: 既有 `ChatClientFactory` 结构（cipher/noRetryTemplate 构造、`openAi`/`buildEmbeddingModel`）。
 - Produces: `static String normalizeBaseUrl(String)`（包级）、`OpenAiApi buildOpenAiApi(ModelProvider p, String apiKey)`（包级，openai 协议统一装配入口）。Task 2 的迁移与文档、手动验收依赖本 Task 的新约定生效。
 
-- [ ] **Step 1: 写失败测试（ChatClientFactoryTest 追加）**
+- [x] **Step 1: 写失败测试（ChatClientFactoryTest 追加）**
 
 import 区补 `org.springframework.ai.openai.api.OpenAiApi`。类内追加：
 
@@ -86,12 +86,12 @@ import 区补 `org.springframework.ai.openai.api.OpenAiApi`。类内追加：
     }
 ```
 
-- [ ] **Step 2: 运行确认失败（编译错：normalizeBaseUrl / buildOpenAiApi 不存在）**
+- [x] **Step 2: 运行确认失败（编译错：normalizeBaseUrl / buildOpenAiApi 不存在）**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest=ChatClientFactoryTest`
 Expected: FAIL（compilation error）
 
-- [ ] **Step 3: 写实现（ChatClientFactory）**
+- [x] **Step 3: 写实现（ChatClientFactory）**
 
 追加两个方法；`openAi(...)` 与 `buildEmbeddingModel(...)` 里的 `OpenAiApi.builder().baseUrl(...).apiKey(apiKey).build()` 均改为调 `buildOpenAiApi(p, apiKey)` / `buildOpenAiApi(provider, apiKey)`：
 
@@ -120,12 +120,12 @@ Expected: FAIL（compilation error）
     }
 ```
 
-- [ ] **Step 4: 运行测试通过 + provider 模块回归**
+- [x] **Step 4: 运行测试通过 + provider 模块回归**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='ChatClientFactoryTest,ModelConnectionServiceTest,ProviderFacadeImplTest'`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add server/src
