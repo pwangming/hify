@@ -708,3 +708,15 @@ Expected: 全绿 + 类型检查通过
 - Task 6 首次 `mvn clean test` 在普通沙箱中失败，失败摘要为 Mockito/ByteBuddy inline mock maker 无法 self-attach 当前 JVM；按权限规则用同一裸命令提权重跑后通过，未改命令参数、未改测试代码。
 - Task 6 的 `git rm` / `git mv` 因沙箱无法创建 `.git/index.lock` 提权执行，文件改动内容仍严格按计划。
 - Task 7 计划未提供 commit message；执行记录使用单独 docs 提交保存，Task 7 commit hash 在最终响应中给出。
+
+## 复审追加（用户手动验收暴露的连带问题，均 TDD）
+
+Task 4/5 的 SSE meta 提前写 `currentId`，用户手验时连带带出几处流式健壮性问题，逐一定位修复（systematic-debugging 走查）：
+
+- **现象一（回归）** `dfc9db8`：meta 提前写 `currentId` 后，`ChatView.deliver` 原来「`currentId===null` 判新会话」的逻辑失效——断网重发时 `currentId` 已非空，漏刷侧边栏（新会话要手动刷新才出现）。改判据为「结果 id 不在已知会话列表」。新增回归测试，前端 233 tests 通过。
+- **现象二** `a9cf79d`：`useChatStream` 两处网络失败 catch 透传 axios/fetch 的英文 `error.message`（"Failed to fetch"）。统一为中文「网络异常，请稍后重试」；store 外层兜底 catch 保留原始 message（接的是 `start()` 意外 reject=自身 bug，利于排障）。
+- **axios 英文 toast** `bbe26f4`：`request.ts` 拦截器 `error.message || '网络异常…'`——断网时 axios 的 `error.message` 是非空英文 "Network Error"，中文兜底成死代码，任何 axios 请求断网都弹英文 toast（用户经 Network 面板确认是 `conversations` 请求）。抽出 `fallbackErrorMessage(error)` 纯函数：无 response=网络异常、有 response 非信封=服务器繁忙，一律中文。新增 `request.spec.ts` 3 用例。
+- **断流兜底（真 bug）** `afa16da`：流中途断网时既不触发 `onDone` 也不触发 `onError`（干净 EOF 或被误判为用户取消），气泡停半截无提示、`send` Promise 永不落定致发送态卡死。改用显式 `aborted` 标志区分用户取消/网络断，并跟踪终态事件——EOF 前未收到 done/error 且非用户取消则补 `onError`。
+- **错误红色高亮** `d27fc76`：错误从「拼进气泡正文文本」改为独立 `error` 字段（`MessageView.error?`），气泡下方渲染红色高亮块，已生成正文原样保留。改 4 条 store 测试断言 + 新增 ChatView 渲染测试。
+
+复审后前端全量 239 tests + build 全绿。分支 `fix/repair-round` 最终 = 原 7 提交（a67469a..6868001）+ 复审 5 提交（dfc9db8..d27fc76）。
