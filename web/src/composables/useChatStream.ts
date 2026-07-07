@@ -31,7 +31,9 @@ export function useChatStream() {
       })
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return
-      h.onError({ code: -1, message: (e as Error)?.message ?? '网络异常，请稍后重试' })
+      // 网络层失败（fetch/reader 抛 TypeError）的原始 message 是 "Failed to fetch" 之类的英文，
+      // 对用户无意义——统一中文提示；部分已生成内容由 store 的 onError 保留在气泡内。
+      h.onError({ code: -1, message: '网络异常，请稍后重试' })
       return
     }
 
@@ -59,7 +61,9 @@ export function useChatStream() {
       }
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return
-      h.onError({ code: -1, message: (e as Error)?.message ?? '网络异常，请稍后重试' })
+      // 网络层失败（fetch/reader 抛 TypeError）的原始 message 是 "Failed to fetch" 之类的英文，
+      // 对用户无意义——统一中文提示；部分已生成内容由 store 的 onError 保留在气泡内。
+      h.onError({ code: -1, message: '网络异常，请稍后重试' })
     }
   }
 

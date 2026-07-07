@@ -69,6 +69,14 @@ describe('useChatStream', () => {
     expect(err?.code).toBe(12003)
   })
 
+  it('网络失败 → onError 用中文提示，不暴露原始英文', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    let msg = ''
+    const { start } = useChatStream()
+    await start('7', null, '你好', { onDelta: () => {}, onDone: () => {}, onError: (e) => { msg = e.message } })
+    expect(msg).toBe('网络异常，请稍后重试')
+  })
+
   it('连接前非2xx → onError 解包 Result', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ code: 17001, message: '应用不可用', data: null }),
