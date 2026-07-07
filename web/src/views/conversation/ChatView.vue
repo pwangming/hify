@@ -52,10 +52,12 @@ function startNew() {
 
 // 发送一条文本（新会话首发写回 URL + 刷新侧边栏）。输入框与行内编辑共用。
 async function deliver(text: string) {
-  const wasNew = currentId.value === null
+  // 「是不是新会话」以「结果 id 尚不在侧边栏」判定，而非 currentId 是否为空——
+  // meta 事件会在开场即写 currentId，断网重发时 currentId 已非空，靠它会漏刷侧边栏。
+  const knownIds = new Set(conversations.value.map((c) => c.id))
   try {
     const cid = await store.send(appId, text)
-    if (wasNew) {
+    if (!knownIds.has(cid)) {
       // 新会话拿到 id：写回 URL（replace 不增历史栈）并刷新侧边栏
       await router.replace({ query: { c: cid } })
       await store.loadConversations(appId)

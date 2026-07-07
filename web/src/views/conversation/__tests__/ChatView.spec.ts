@@ -87,6 +87,39 @@ describe('ChatView', () => {
     expect(replace).toHaveBeenCalledWith({ query: { c: '100' } })
   })
 
+  it('新会话断网重发：meta 已置 currentId，仍应刷新侧边栏', async () => {
+    // 首发：meta 先到（置 currentId=100）后断网失败；重发：成功。
+    // 回归点：deliver 若按 currentId===null 判新会话，重发时 currentId 已非空→漏刷侧边栏。
+    const start = vi.fn()
+      .mockImplementationOnce(async (
+        _a: unknown, _c: unknown, _t: unknown,
+        h: { onMeta?: (cid: string) => void; onError: (e: { code: number; message: string }) => void },
+      ) => {
+        h.onMeta?.('100')
+        h.onError({ code: -1, message: '网络异常，请稍后重试' })
+      })
+      .mockImplementationOnce(async (
+        _a: unknown, _c: unknown, _t: unknown,
+        h: { onDelta: (t: string) => void; onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void },
+      ) => {
+        h.onDelta('答案')
+        h.onDone('100', '200', { promptTokens: 1, completionTokens: 1 })
+      })
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="chat-input"] textarea').setValue('第一次')
+    await wrapper.find('[data-test="chat-send"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="chat-input"] textarea').setValue('重发')
+    await wrapper.find('[data-test="chat-send"]').trigger('click')
+    await flushPromises()
+
+    // 挂载 1 次 + 重发成功后刷新 1 次 = 2；漏刷时只有挂载的 1 次
+    expect(listConversations).toHaveBeenCalledTimes(2)
+  })
+
   it('URL 带 c：挂载即载入该会话历史（刷新恢复）', async () => {
     routeQuery.c = '100'
     vi.mocked(getMessages).mockResolvedValue([assistant])
