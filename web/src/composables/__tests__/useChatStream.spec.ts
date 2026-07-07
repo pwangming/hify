@@ -30,6 +30,35 @@ describe('useChatStream', () => {
     expect(doneCid).toBe('100')
   })
 
+  it('meta → onMeta 先于 done 到达', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
+      'event:meta\ndata:{"conversationId":"100"}\n\n',
+      'event:done\ndata:{"conversationId":"100","messageId":"200","usage":{"promptTokens":1,"completionTokens":1}}\n\n',
+    ])))
+    const order: string[] = []
+    const { start } = useChatStream()
+    await start('7', null, '你好', {
+      onMeta: (cid) => order.push(`meta:${cid}`),
+      onDelta: () => {},
+      onDone: (cid) => order.push(`done:${cid}`),
+      onError: () => {},
+    })
+    expect(order).toEqual(['meta:100', 'done:100'])
+  })
+
+  it('未注册 onMeta 时 meta 事件静默忽略不炸', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
+      'event:meta\ndata:{"conversationId":"100"}\n\n',
+      'event:done\ndata:{"conversationId":"100","messageId":"200","usage":{"promptTokens":1,"completionTokens":1}}\n\n',
+    ])))
+    let doneCid = ''
+    const { start } = useChatStream()
+    await start('7', null, '你好', {
+      onDelta: () => {}, onDone: (cid) => { doneCid = cid }, onError: () => {},
+    })
+    expect(doneCid).toBe('100')
+  })
+
   it('error 事件 → onError', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
       'event:error\ndata:{"code":12003,"message":"模型供应商暂时不可用"}\n\n',

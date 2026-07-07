@@ -118,6 +118,24 @@ describe('useConversationStore', () => {
     expect(store.sending).toBe(false)
   })
 
+  it('meta 先到即记 currentId——断流重发不再新建会话', async () => {
+    const start = vi.fn(async (
+      _a: unknown,
+      _c: unknown,
+      _t: unknown,
+      h: { onMeta?: (cid: string) => void; onError: (e: { code: number; message: string }) => void },
+    ) => {
+      h.onMeta?.('100')
+      h.onError({ code: -1, message: '网络异常' })
+    })
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    await store.send('7', '你好').catch(() => {})
+
+    expect(store.currentId).toBe('100')
+  })
+
   // Fix 1: start() 自身 reject（未调用任何回调）时 send() 也应 reject，sending 复位，气泡内联错误
   it('send：start() reject 时 send() 拒绝、sending 复位、气泡内联错误', async () => {
     const start = vi.fn(() => Promise.reject(new Error('fetch 失败')))

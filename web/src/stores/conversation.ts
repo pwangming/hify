@@ -118,6 +118,10 @@ export const useConversationStore = defineStore('conversation', () => {
         reject(err)
       }
       chat.start(appId, currentId.value, content, {
+        onMeta: (conversationId) => {
+          // 新会话开场即记 id：此后哪怕断流，重发也走续聊（D2 断网重复建会话的根治）
+          if (currentId.value === null) currentId.value = conversationId
+        },
         onDelta: (t) => { pendingText += t },   // buffer; drain timer writes to bubble
         onDone: (conversationId, messageId, usage) => {
           // Flush all remaining buffered text before committing the final id/usage

@@ -2,6 +2,8 @@ import { config } from '@/config'
 import { TOKEN_KEY } from '@/api/request'
 
 export interface ChatStreamHandlers {
+  /** 开场元信息：后端 openTurn 一落库即推送会话 id（先于任何增量）；断网重发据此走续聊不重复建会话 */
+  onMeta?: (conversationId: string) => void
   onDelta: (text: string) => void
   onDone: (conversationId: string, messageId: string,
            usage: { promptTokens: number; completionTokens: number }) => void
@@ -72,6 +74,7 @@ export function useChatStream() {
     if (!data) return
     const payload = JSON.parse(data)
     if (event === 'message') h.onDelta(payload.delta)
+    else if (event === 'meta') h.onMeta?.(payload.conversationId)
     else if (event === 'done') h.onDone(payload.conversationId, payload.messageId, payload.usage)
     else if (event === 'error') h.onError({ code: payload.code, message: payload.message })
   }
