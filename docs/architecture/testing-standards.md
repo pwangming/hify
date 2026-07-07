@@ -87,6 +87,27 @@ cd web && pnpm test:coverage      # = vitest run --coverage
 
 ---
 
+## 四、连库测试（Testcontainers）运行前提（K4 起）
+
+继承 `com.hify.support.PgIntegrationTest` 的测试类会真起一个 `pgvector/pgvector:pg16` 容器跑全量 Flyway 迁移，**前提是本机 Docker 已启动**。
+
+**WSL2 + Docker Desktop 的坑（2026-07-07 拍板）**：Docker Desktop 29.x 下 Testcontainers 会报
+`Could not find a valid Docker environment`（socket 探测不到 + API 版本协商失败），症状是 `mvn test`
+里所有连库测试报 `NoClassDefFound: PgIntegrationTest`（静态块起容器失败）。修法是把两项配置持久化到
+**用户目录**（一次配置，此后裸 `mvn test` 即可，不用带环境变量或 `-D` 参数）：
+
+```properties
+# ~/.testcontainers.properties 追加
+docker.host=unix:///var/run/docker.sock
+
+# ~/.docker-java.properties 新建
+api.version=1.54
+```
+
+`api.version` 取本机 `docker version --format '{{.Server.APIVersion}}'` 的值；Docker Desktop 大版本升级后若连库测试再挂，先核对并更新这个值。
+
+---
+
 ## 附：`web/` 现有测试体检（2026-06-22，28 用例 / 8 文件）
 
 总体**明显高于 AI 平均水平**：普遍用 `data-test` 选择器、断言查具体值、`beforeEach` 清状态（localStorage + pinia）避开测试污染。真正的小问题：
