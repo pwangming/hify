@@ -146,6 +146,7 @@ async function onDeleteConv(id: string) {
               </div>
             </div>
             <div v-else class="chat__bubble-text">{{ m.content }}</div>
+            <div v-if="m.error" class="chat__bubble-error" data-test="msg-error">⚠️ {{ m.error }}</div>
           </div>
           <!-- 操作图标：气泡外，hover 显现；用户右下角（复制+编辑）、AI 左下角（复制，回答完成后可用） -->
           <div v-if="editingId !== m.id" class="chat__ops">
@@ -244,6 +245,17 @@ async function onDeleteConv(id: string) {
 
   &__row--assistant &__bubble {
     background: var(--el-fill-color-light);
+  }
+
+  // 流式失败提示：气泡下方红色高亮块（正文之外单列，正文照常保留已生成内容）
+  &__bubble-error {
+    margin-top: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--el-color-danger);
+    background: var(--el-color-danger-light-9);
+    border: 1px solid var(--el-color-danger-light-7);
   }
 
   // 操作图标区：气泡外，默认隐藏，整行 hover 时显现。

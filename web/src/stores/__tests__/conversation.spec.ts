@@ -114,7 +114,7 @@ describe('useConversationStore', () => {
     await store.send('7', '你好').catch(() => {})
 
     const last = store.messages[store.messages.length - 1]
-    expect(last.content).toContain('模型供应商暂时不可用')
+    expect(last.error).toBe('模型供应商暂时不可用') // 错误进 error 字段（红块渲染）
     expect(store.sending).toBe(false)
   })
 
@@ -145,7 +145,7 @@ describe('useConversationStore', () => {
     await expect(store.send('7', '你好')).rejects.toMatchObject({ message: 'fetch 失败' })
     expect(store.sending).toBe(false)
     const last = store.messages[store.messages.length - 1]
-    expect(last.content).toContain('fetch 失败')
+    expect(last.error).toBe('fetch 失败') // 错误进独立 error 字段（红色高亮渲染），不再拼进 content
   })
 
   // Fix 2: 已有增量内容再报错，错误应追加而非丢弃
@@ -160,8 +160,8 @@ describe('useConversationStore', () => {
     await store.send('7', '你好').catch(() => {})
 
     const last = store.messages[store.messages.length - 1]
-    expect(last.content).toContain('部分内容')
-    expect(last.content).toContain('⚠️ 服务中断')
+    expect(last.content).toBe('部分内容') // 已生成正文原样保留
+    expect(last.error).toBe('服务中断')   // 错误单列，不污染正文
     expect(store.sending).toBe(false)
   })
 
@@ -289,7 +289,7 @@ describe('send render-pacing (throttle)', () => {
     expect(cid).toBe('100')
   })
 
-  it('onError 立即冲刷缓冲并追加 ⚠️，之后 timer 不再改变气泡', async () => {
+  it('onError 立即冲刷缓冲并单列错误，之后 timer 不再改变气泡', async () => {
     vi.useFakeTimers()
     const { start, getH } = makeControlledStart()
     ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
@@ -302,9 +302,10 @@ describe('send render-pacing (throttle)', () => {
     // 仍在缓冲，timer 未触发
     expect(store.messages[bubbleIdx].content).toBe('')
 
-    // onError 必须先冲刷缓冲，再追加 ⚠️
+    // onError 必须先冲刷缓冲（正文完整保留），错误进 error 字段（红块渲染）
     getH().onError({ code: 500, message: '服务器错误' })
-    expect(store.messages[bubbleIdx].content).toBe('你好，我是助手\n⚠️ 服务器错误')
+    expect(store.messages[bubbleIdx].content).toBe('你好，我是助手')
+    expect(store.messages[bubbleIdx].error).toBe('服务器错误')
     expect(store.sending).toBe(false)
 
     // timer 已清除：继续推进不再改变气泡

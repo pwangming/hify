@@ -120,6 +120,29 @@ describe('ChatView', () => {
     expect(listConversations).toHaveBeenCalledTimes(2)
   })
 
+  it('流报错：气泡下方渲染红色错误提示块', async () => {
+    ;(useChatStream as unknown as Mock).mockReturnValue({
+      start: vi.fn(async (
+        _a: unknown, _c: unknown, _t: unknown,
+        h: { onDelta: (t: string) => void; onError: (e: { code: number; message: string }) => void },
+      ) => {
+        h.onDelta('半截答案')
+        h.onError({ code: -1, message: '网络异常，请稍后重试' })
+      }),
+      abort: vi.fn(),
+    })
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="chat-input"] textarea').setValue('你好')
+    await wrapper.find('[data-test="chat-send"]').trigger('click')
+    await flushPromises()
+    const err = wrapper.find('[data-test="msg-error"]')
+    expect(err.exists()).toBe(true)
+    expect(err.text()).toContain('网络异常，请稍后重试')
+    // 已生成正文仍在，未被错误覆盖
+    expect(wrapper.text()).toContain('半截答案')
+  })
+
   it('URL 带 c：挂载即载入该会话历史（刷新恢复）', async () => {
     routeQuery.c = '100'
     vi.mocked(getMessages).mockResolvedValue([assistant])

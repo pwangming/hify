@@ -106,14 +106,13 @@ export const useConversationStore = defineStore('conversation', () => {
 
     return new Promise<string>((resolve, reject) => {
       const onError = (err: { code: number; message: string }) => {
-        // Flush remaining buffer first so partial content is visible before the ⚠️
+        // 先冲净缓冲，保留已生成正文；错误单独进 error 字段，由气泡下方红色高亮块渲染（不污染 content）
         if (pendingText.length > 0) {
           messages.value[idx].content += pendingText
           pendingText = ''
         }
         clearDrainTimer()
-        const cur = messages.value[idx].content
-        messages.value[idx].content = cur ? `${cur}\n⚠️ ${err.message}` : `⚠️ ${err.message}`
+        messages.value[idx].error = err.message
         sending.value = false
         reject(err)
       }
