@@ -89,7 +89,9 @@ public class ConversationController {
     }
 
     private ServerSentEvent<String> toSse(StreamEvent e) {
-        if (e instanceof StreamEvent.Delta d) {
+        if (e instanceof StreamEvent.Meta m) {
+            return sse("meta", new StreamPayloads.Meta(m.conversationId()));
+        } else if (e instanceof StreamEvent.Delta d) {
             return sse("message", new StreamPayloads.Delta(d.text()));
         } else if (e instanceof StreamEvent.Done done) {
             return sse("done", new StreamPayloads.Done(done.conversationId(), done.messageId(),

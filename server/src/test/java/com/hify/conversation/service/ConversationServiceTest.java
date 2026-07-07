@@ -346,6 +346,7 @@ class ConversationServiceTest {
                 .thenReturn(savedAssistant());
 
         reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
+                .expectNext(new StreamEvent.Meta(100L))
                 .expectNext(new StreamEvent.Delta("你好，"))
                 .expectNext(new StreamEvent.Delta("我是助手"))
                 .expectNextMatches(e -> e instanceof StreamEvent.Done d
@@ -366,6 +367,7 @@ class ConversationServiceTest {
                         reactor.core.publisher.Flux.error(new BizException(ProviderError.PROVIDER_UNAVAILABLE))));
 
         reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
+                .expectNext(new StreamEvent.Meta(100L))
                 .expectNext(new StreamEvent.Delta("半"))
                 .expectErrorMatches(e -> e instanceof BizException b
                         && b.errorCode() == ProviderError.PROVIDER_UNAVAILABLE)
@@ -386,6 +388,7 @@ class ConversationServiceTest {
                         new BizException(ProviderError.PROVIDER_UNAVAILABLE)));
 
         reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
+                .expectNext(new StreamEvent.Meta(100L))
                 .expectErrorMatches(e -> e instanceof BizException b
                         && b.errorCode() == ProviderError.PROVIDER_UNAVAILABLE)
                 .verify();
@@ -404,6 +407,7 @@ class ConversationServiceTest {
                         new BizException(ProviderError.PROVIDER_UNAVAILABLE)));
 
         reactor.test.StepVerifier.create(service.sendStream(7L, 100L, "继续", member))
+                .expectNext(new StreamEvent.Meta(100L))
                 .expectError()
                 .verify();
         verify(store).cleanupFailedTurn(100L, 300L, false);
@@ -420,6 +424,7 @@ class ConversationServiceTest {
         when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong())).thenReturn(savedAssistant());
 
         reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
+                .expectNext(new StreamEvent.Meta(100L))
                 .expectNext(new StreamEvent.Delta("答案"))
                 .expectNextMatches(e -> e instanceof StreamEvent.Done)
                 .verifyComplete();

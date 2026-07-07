@@ -5,6 +5,8 @@ public final class StreamPayloads {
 
     private StreamPayloads() {}
 
+    public record Meta(Long conversationId) {}
+
     public record Delta(String delta) {}
 
     public record Usage(Integer promptTokens, Integer completionTokens) {}

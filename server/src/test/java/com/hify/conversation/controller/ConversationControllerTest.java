@@ -122,6 +122,7 @@ class ConversationControllerTest {
     void 流式发消息_输出message与done事件() throws Exception {
         when(conversationService.sendStream(eq(7L), eq(null), eq("你好"), any()))
                 .thenReturn(reactor.core.publisher.Flux.just(
+                        new StreamEvent.Meta(100L),
                         new StreamEvent.Delta("你好，"),
                         new StreamEvent.Done(100L, 200L, 12, 8)));
 
@@ -138,6 +139,7 @@ class ConversationControllerTest {
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
 
         assertThat(body)
+                .contains("event:meta")
                 .contains("event:message").contains("\"delta\":\"你好，\"")
                 .contains("event:done").contains("\"conversationId\":\"100\"")
                 .contains("\"messageId\":\"200\"").contains("\"promptTokens\":12");
