@@ -66,14 +66,24 @@ public class ConversationService {
         // 3) 事务A：建/取会话 + 落 user 消息 + 读窗口
         TurnContext turn = store.openTurn(appId, conversationId, current.userId(), content);
         Long cid = turn.conversationId();
-        // 4) 取 ChatClient（不可用抛 12002）并调用——事务外，喂历史窗口
-        ChatClient chatClient = providerFacade.getChatClient(app.modelId());
-        String effectivePrompt = augmentWithKnowledge(app, content);
-        LlmReply reply = chatInvoker.invoke(chatClient, effectivePrompt, turn.window());
-        // 5) 事务B：落 assistant 消息（同事务内发 TokenUsedEvent 计量）
-        Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
-                current.userId(), appId, app.modelId());
-        return new SendMessageResponse(cid, toView(saved));
+        try {
+            // 4) 取 ChatClient（不可用抛 12002）并调用——事务外，喂历史窗口
+            ChatClient chatClient = providerFacade.getChatClient(app.modelId());
+            String effectivePrompt = augmentWithKnowledge(app, content);
+            LlmReply reply = chatInvoker.invoke(chatClient, effectivePrompt, turn.window());
+            // 5) 事务B：落 assistant 消息（同事务内发 TokenUsedEvent 计量）
+            Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
+                    current.userId(), appId, app.modelId());
+            return new SendMessageResponse(cid, toView(saved));
+        } catch (RuntimeException e) {
+            // 修缮轮 D2：失败清孤儿（新会话删会话+user消息；续聊只删user消息），与 sendStream 语义对齐
+            try {
+                store.cleanupFailedTurn(cid, turn.userMessageId(), turn.newConversation());
+            } catch (RuntimeException cleanupEx) {
+                log.warn("同步端点孤儿清理失败 conversationId={}", cid, cleanupEx);
+            }
+            throw e;
+        }
     }
 
     public Flux<StreamEvent> sendStream(Long appId, Long conversationId, String content, CurrentUser current) {

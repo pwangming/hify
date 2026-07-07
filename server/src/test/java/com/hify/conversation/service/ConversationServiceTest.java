@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -171,7 +172,7 @@ class ConversationServiceTest {
     }
 
     @Test
-    void send_模型不可用_透传12002_user消息已落但不落assistant() {
+    void send_模型不可用_透传12002_清理孤儿turn() {
         when(appFacade.findRunnableChatApp(eq(7L)))
                 .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, null, List.of())));
         when(store.openTurn(any(), any(), any(), any()))
@@ -182,6 +183,7 @@ class ConversationServiceTest {
         BizException ex = assertThrows(BizException.class, () -> service.send(7L, null, "你好", member));
         assertEquals(ProviderError.MODEL_NOT_USABLE, ex.errorCode());
         verify(store).openTurn(7L, null, 42L, "你好"); // 事务A 已发生
+        verify(store).cleanupFailedTurn(100L, 300L, true); // 新会话：删会话+user消息，与流式语义一致
         verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong());
     }
 
@@ -195,7 +197,33 @@ class ConversationServiceTest {
 
         BizException ex = assertThrows(BizException.class, () -> service.send(7L, null, "你好", member));
         assertEquals(ProviderError.PROVIDER_UNAVAILABLE, ex.errorCode());
+        verify(store).cleanupFailedTurn(100L, 300L, true);
         verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void send_续聊失败_只删user消息不删会话() {
+        stubRunnableApp(null);
+        when(store.openTurn(any(), any(), any(), any()))
+                .thenReturn(new TurnContext(100L, List.of(userMsg("继续")), 300L, false));
+        when(chatInvoker.invoke(any(), any(), any()))
+                .thenThrow(new BizException(ProviderError.PROVIDER_UNAVAILABLE));
+
+        assertThrows(BizException.class, () -> service.send(7L, 100L, "继续", member));
+        verify(store).cleanupFailedTurn(100L, 300L, false);
+    }
+
+    @Test
+    void send_清理孤儿失败_不吞原始异常() {
+        stubRunnableApp(null);
+        when(store.openTurn(any(), any(), any(), any()))
+                .thenReturn(new TurnContext(100L, List.of(userMsg("你好")), 300L, true));
+        when(chatInvoker.invoke(any(), any(), any()))
+                .thenThrow(new BizException(ProviderError.PROVIDER_UNAVAILABLE));
+        doThrow(new RuntimeException("db down")).when(store).cleanupFailedTurn(any(), any(), anyBoolean());
+
+        BizException ex = assertThrows(BizException.class, () -> service.send(7L, null, "你好", member));
+        assertEquals(ProviderError.PROVIDER_UNAVAILABLE, ex.errorCode()); // 原始错误必须原样透传
     }
 
     @Test
