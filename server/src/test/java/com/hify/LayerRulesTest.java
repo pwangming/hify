@@ -1,5 +1,6 @@
 package com.hify;
 
+import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
@@ -16,8 +17,10 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
  *
  * <p>注意包匹配通配符：{@code "..xxx.."} 匹配任意层级的 xxx 包（如 {@code com.hify.app.controller}）；
  * {@code "com.hify.*.dto.."} 中的单星只匹配一层，因此<b>只命中模块级 {@code dto/}，不会误伤 {@code api/dto/}</b>。
+ *
+ * <p>分层规则只约束生产代码（DoNotIncludeTests，修缮轮拍板）——测试代码无分层，按被测对象放包。
  */
-@AnalyzeClasses(packages = "com.hify")
+@AnalyzeClasses(packages = "com.hify", importOptions = ImportOption.DoNotIncludeTests.class)
 class LayerRulesTest {
 
     // 依赖「目标」包一律用 com.hify 前缀限定，避免把第三方库里同名段（如 MyBatis 的

@@ -1,9 +1,9 @@
 package com.hify.support;
 
-import com.hify.support.service.TransactionalPgIntegrationTest;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -13,7 +13,8 @@ import org.testcontainers.utility.DockerImageName;
  * 各测试类共享容器但数据互不污染。运行前提：本机 Docker 已启动。
  */
 @SpringBootTest
-public abstract class PgIntegrationTest extends TransactionalPgIntegrationTest {
+@Transactional
+public abstract class PgIntegrationTest {
 
     // 官方 postgres 镜像无 vector 扩展，必须用 pgvector 镜像（与生产 docker-compose 同款）
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(

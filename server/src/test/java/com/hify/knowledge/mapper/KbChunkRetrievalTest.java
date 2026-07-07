@@ -1,7 +1,6 @@
-package com.hify.knowledge.service;
+package com.hify.knowledge.mapper;
 
 import com.hify.knowledge.dto.ChunkHit;
-import com.hify.knowledge.mapper.KbChunkMapper;
 import com.hify.support.PgIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
