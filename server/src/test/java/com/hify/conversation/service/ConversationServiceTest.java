@@ -416,6 +416,55 @@ class ConversationServiceTest {
                 .build();
     }
 
+    private void stubStreamOneDelta(String text) {
+        when(store.openTurn(eq(7L), eq(null), eq(42L), any()))
+                .thenReturn(new TurnContext(100L, List.of(userMsg("问题")), 300L, true));
+        when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
+        when(chatInvoker.invokeStream(eq(chatClient), any(), any()))
+                .thenReturn(reactor.core.publisher.Flux.just(chunkWithUsage(text, 12, 8)));
+        when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any()))
+                .thenReturn(savedAssistant());
+    }
+
+    private static int indexOfType(List<StreamEvent> events, Class<? extends StreamEvent> type) {
+        for (int i = 0; i < events.size(); i++) {
+            if (type.isInstance(events.get(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @Test
+    void sendStream_boundHit_emitsSourcesAfterMetaBeforeDelta() {
+        var app = runnableChatAppBoundTo(List.of(100L));
+        when(appFacade.findRunnableChatApp(7L)).thenReturn(Optional.of(app));
+        when(knowledgeFacade.retrieve(any(), any()))
+                .thenReturn(List.of(new RetrievedChunk(10L, 20L, "手册.pdf", "命中内容", 0.9)));
+        stubStreamOneDelta("你好");
+
+        List<StreamEvent> events = service.sendStream(7L, null, "问题", member).collectList().block();
+
+        assertTrue(events.get(0) instanceof StreamEvent.Meta);
+        assertTrue(events.get(1) instanceof StreamEvent.Sources);
+        assertEquals(1, ((StreamEvent.Sources) events.get(1)).sources().size());
+        assertTrue(events.stream().anyMatch(e -> e instanceof StreamEvent.Delta));
+        int srcIdx = indexOfType(events, StreamEvent.Sources.class);
+        int deltaIdx = indexOfType(events, StreamEvent.Delta.class);
+        assertTrue(srcIdx < deltaIdx);
+    }
+
+    @Test
+    void sendStream_unbound_emitsNoSourcesEvent() {
+        var app = runnableChatAppBoundTo(List.of());
+        when(appFacade.findRunnableChatApp(7L)).thenReturn(Optional.of(app));
+        stubStreamOneDelta("你好");
+
+        List<StreamEvent> events = service.sendStream(7L, null, "问题", member).collectList().block();
+
+        assertTrue(events.stream().noneMatch(e -> e instanceof StreamEvent.Sources));
+    }
+
     @Test
     void sendStream_增量吐字_结束落全文与usage_发Done() {
         stubRunnableApp("你是客服");

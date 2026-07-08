@@ -7,6 +7,8 @@ public final class StreamPayloads {
 
     public record Meta(Long conversationId) {}
 
+    public record Sources(java.util.List<MessageSource> sources) {}
+
     public record Delta(String delta) {}
 
     public record Usage(Integer promptTokens, Integer completionTokens) {}

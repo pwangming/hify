@@ -163,6 +163,34 @@ class ConversationControllerTest {
     }
 
     @Test
+    void 流式发消息_sources事件_输出sources事件名与载荷() throws Exception {
+        when(conversationService.sendStream(eq(7L), eq(null), eq("你好"), any()))
+                .thenReturn(reactor.core.publisher.Flux.just(
+                        new StreamEvent.Meta(9L),
+                        new StreamEvent.Sources(List.of(new com.hify.conversation.dto.MessageSource(
+                                10L, 20L, "手册.pdf", 0.82, "预览"))),
+                        new StreamEvent.Done(9L, 7L, 1, 2)));
+
+        MvcResult res = mockMvc.perform(post("/api/v1/conversation/messages/stream")
+                        .header("Authorization", "Bearer " + memberToken())
+                        .contentType("application/json")
+                        .content("{\"appId\":\"7\",\"content\":\"你好\"}"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        String body = mockMvc.perform(asyncDispatch(res))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(body)
+                .contains("event:sources")
+                .contains("\"chunkId\":\"10\"")
+                .contains("\"documentId\":\"20\"")
+                .contains("\"score\":0.82");
+    }
+
+    @Test
     void 流式发消息_content为空_400JSON_不开流() throws Exception {
         mockMvc.perform(post("/api/v1/conversation/messages/stream")
                         .header("Authorization", "Bearer " + memberToken())
