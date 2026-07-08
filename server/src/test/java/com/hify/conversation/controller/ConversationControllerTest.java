@@ -59,7 +59,7 @@ class ConversationControllerTest {
 
     private MessageView assistant() {
         return new MessageView(200L, "assistant", "你好，我是助手", 12, 8,
-                OffsetDateTime.parse("2026-06-26T10:00:00+08:00"));
+                OffsetDateTime.parse("2026-06-26T10:00:00+08:00"), List.of());
     }
 
     @Test
@@ -95,6 +95,23 @@ class ConversationControllerTest {
                         .header("Authorization", "Bearer " + memberToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].id").value("200"));
+    }
+
+    @Test
+    void history_returns_sources_with_long_as_string_and_score_as_number() throws Exception {
+        var view = new MessageView(
+                7L, "assistant", "答案", 1, 2, OffsetDateTime.now(),
+                List.of(new com.hify.conversation.dto.MessageSource(
+                        10L, 20L, "手册.pdf", 0.82, "预览文字")));
+        when(conversationService.history(eq(5L), any())).thenReturn(List.of(view));
+
+        mockMvc.perform(get("/api/v1/conversation/messages").param("conversationId", "5")
+                        .header("Authorization", "Bearer " + memberToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].sources[0].chunkId").value("10"))
+                .andExpect(jsonPath("$.data[0].sources[0].documentName").value("手册.pdf"))
+                .andExpect(jsonPath("$.data[0].sources[0].score").value(0.82))
+                .andExpect(jsonPath("$.data[0].sources[0].preview").value("预览文字"));
     }
 
     @Test

@@ -184,6 +184,7 @@ public class ConversationService {
 
     private static MessageView toView(Message m) {
         return new MessageView(m.getId(), m.getRole(), m.getContent(),
-                m.getPromptTokens(), m.getCompletionTokens(), m.getCreateTime());
+                m.getPromptTokens(), m.getCompletionTokens(), m.getCreateTime(),
+                m.getSources() == null ? List.of() : m.getSources());
     }
 }
