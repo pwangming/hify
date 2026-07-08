@@ -26,3 +26,7 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 .DS_Store
+
+# Playwright E2E
+test-results/
+playwright-report/

@@ -1,0 +1,14 @@
+# E2E 专用：数据源指向独立库 hify_e2e（wrapper 已 drop/recreate），启动时 Flyway 全量迁移 + 引导 admin。
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/hify_e2e?reWriteBatchedInserts=true
+    username: ${POSTGRES_USER:hify}
+    password: ${POSTGRES_PASSWORD:hify}
+hify:
+  identity:
+    bootstrap-admin:
+      username: admin
+      password: e2e-admin-123
+  usage:
+    # E2E 不测配额，放到极大，避免旅程被每日 Token 上限拦
+    daily-token-limit-per-user: 999999999
