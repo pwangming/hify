@@ -87,7 +87,7 @@ export const useConversationStore = defineStore('conversation', () => {
     })
     const idx = messages.value.push({
       id: `local-asst-${Date.now()}`, role: 'assistant', content: '',
-      promptTokens: null, completionTokens: null, createTime: new Date().toISOString(),
+      promptTokens: null, completionTokens: null, createTime: new Date().toISOString(), sources: [],
     }) - 1
     sending.value = true
 
@@ -121,6 +121,7 @@ export const useConversationStore = defineStore('conversation', () => {
           // 新会话开场即记 id：此后哪怕断流，重发也走续聊（D2 断网重复建会话的根治）
           if (currentId.value === null) currentId.value = conversationId
         },
+        onSources: (list) => { messages.value[idx].sources = list },
         onDelta: (t) => { pendingText += t },   // buffer; drain timer writes to bubble
         onDone: (conversationId, messageId, usage) => {
           // Flush all remaining buffered text before committing the final id/usage

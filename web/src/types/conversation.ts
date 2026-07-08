@@ -1,6 +1,15 @@
 /** 消息角色（对齐后端 message.role）。 */
 export type MessageRole = 'user' | 'assistant'
 
+/** 引用来源快照（对齐后端 MessageSource）。id 类为 string（Long）；score 为 number（0~1）。 */
+export interface MessageSource {
+  chunkId: string
+  documentId: string
+  documentName: string
+  score: number
+  preview: string
+}
+
 /** 消息视图（对齐后端 MessageView）。id 为 string（Long）；token 为 number（Integer）。 */
 export interface MessageView {
   id: string
@@ -9,6 +18,8 @@ export interface MessageView {
   promptTokens: number | null
   completionTokens: number | null
   createTime: string
+  /** 引用来源；未绑库/降级/无命中为空数组或缺省。 */
+  sources?: MessageSource[]
   /** 客户端专用：流式失败时的错误文案（红色高亮渲染），后端不返回。 */
   error?: string
 }

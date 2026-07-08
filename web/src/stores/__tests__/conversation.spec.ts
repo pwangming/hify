@@ -106,6 +106,34 @@ describe('useConversationStore', () => {
     expect(store.sending).toBe(false)
   })
 
+  it('attaches sources from onSources to the assistant message', async () => {
+    const sources = [{ chunkId: '10', documentId: '20', documentName: '手册.pdf', score: 0.82, preview: '预览' }]
+    const start = vi.fn(async (
+      _a: unknown,
+      _c: unknown,
+      _t: unknown,
+      h: {
+        onMeta?: (cid: string) => void
+        onSources?: (list: typeof sources) => void
+        onDelta: (t: string) => void
+        onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void
+        onError: (e: { code: number; message: string }) => void
+      },
+    ) => {
+      h.onMeta?.('100')
+      h.onSources?.(sources)
+      h.onDelta('你好')
+      h.onDone('100', '200', { promptTokens: 1, completionTokens: 2 })
+    })
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    await store.send('7', '问题')
+
+    const asst = store.messages.find((m) => m.role === 'assistant')!
+    expect(asst.sources).toEqual(sources)
+  })
+
   it('send：error 时占位气泡内联错误、sending 复位', async () => {
     const start = vi.fn(async (_a: unknown, _c: unknown, _t: unknown, h: { onDelta: (t: string) => void; onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void; onError: (e: { code: number; message: string }) => void }) => h.onError({ code: 12003, message: '模型供应商暂时不可用' }))
     ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })

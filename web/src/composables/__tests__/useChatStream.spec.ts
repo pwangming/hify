@@ -59,6 +59,23 @@ describe('useChatStream', () => {
     expect(doneCid).toBe('100')
   })
 
+  it('parses sources event and calls onSources', async () => {
+    const onSources = vi.fn()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
+      'event:meta\ndata:{"conversationId":"9"}\n\n',
+      'event:sources\ndata:{"sources":[{"chunkId":"10","documentId":"20","documentName":"手册.pdf","score":0.82,"preview":"预览"}]}\n\n',
+      'event:message\ndata:{"delta":"你好"}\n\n',
+      'event:done\ndata:{"conversationId":"9","messageId":"7","usage":{"promptTokens":1,"completionTokens":2}}\n\n',
+    ])))
+    const { start } = useChatStream()
+    await start('1', null, '问题', {
+      onDelta: vi.fn(), onDone: vi.fn(), onError: vi.fn(), onSources,
+    })
+    expect(onSources).toHaveBeenCalledWith([
+      { chunkId: '10', documentId: '20', documentName: '手册.pdf', score: 0.82, preview: '预览' },
+    ])
+  })
+
   it('error 事件 → onError', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
       'event:error\ndata:{"code":12003,"message":"模型供应商暂时不可用"}\n\n',
