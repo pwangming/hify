@@ -16,7 +16,7 @@
 | | `app_dataset_rel` | 应用 ↔ 知识库 多对多 |
 | | `app_tool_rel` | 应用 ↔ 工具 多对多 |
 | conversation | `conversation` | 会话 |
-| | `message` | 消息；Agent 工具调用轨迹存本表 jsonb，不单独建表 |
+| | `message` | 消息；`sources jsonb` 存引用来源快照数组 `[{chunkId,documentId,documentName,score,preview}]`，随消息落库/删会话级联，未命中为 `[]`；Agent 工具调用轨迹存本表 jsonb，不单独建表 |
 | knowledge | `dataset` | 知识库 |
 | | `kb_document` | 文档元数据 + 原始文件（bytea 列；一库通吃，随 pg_dump 一份备齐） |
 | | `kb_chunk` | 分段，embedding 向量列在本表（pgvector，HNSW 索引） |

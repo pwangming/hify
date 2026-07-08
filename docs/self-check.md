@@ -783,3 +783,12 @@ mvn -f server/pom.xml test
 - [x] 文档列表排除 content 大列；删除级联软删（库→文档→分段）
 - [x] 后端 mvn test 全绿（无 -q）；前端 pnpm test + typecheck 全绿
 - [x] 手动验收：传 txt/md → 看分段数与状态 → 传 pdf 报 15004 → 空文件报 15001 → 分段预览翻页 → member 门控 → 删文档/删库级联
+
+## 2026-07-08 conversation 聊天引用来源展示
+
+- [x] 持久化：新增 V20 `message.sources jsonb not null default '[]'`，`MessageSource` DTO 放 `conversation.dto`，`MessageSourcesTypeHandler` 复用 AppConfig jsonb 手法，`appendAssistant` 末尾新增 sources 参数并随 assistant 消息落库。
+- [x] 编排：`augmentWithKnowledge` 返回 `Augmented(prompt,sources)`；未绑库、检索失败降级、命中空均 sources=`[]`；命中时仍用全文拼 prompt，只把截断 preview 存来源快照，长度走 `hify.conversation.source-preview-length` 配置。
+- [x] 协议：`MessageView.sources` 暴露历史/同步返回；SSE 只新增 `sources` 事件，位于 `meta` 后、首个 `message` 前，空来源不发；`meta/message/done/error` 结构未改。
+- [x] 前端：`useChatStream` 解析 `sources`，Pinia store 把来源挂到助手消息；ChatView 在助手气泡下用 Element Plus `el-collapse`/`el-tag` 展示折叠来源卡片（文档名、分数、预览），纯展示不可点。
+- [x] 验证：后端 `mvn -q test` 全绿（含 V20 连库往返、Modulith/ArchUnit）；前端 `pnpm vitest run && pnpm build` 全绿。
+- [x] 留账：无新留账；卡片点击/全文展开/计量/Rerank/来源反查按 spec 明确不做，后续需求再开轮。
