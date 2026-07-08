@@ -3,9 +3,11 @@ package com.hify.conversation.service;
 import com.hify.app.api.AppFacade;
 import com.hify.app.api.AppRuntimeView;
 import com.hify.common.exception.BizException;
+import com.hify.conversation.config.ConversationProperties;
 import com.hify.conversation.constant.ConversationError;
 import com.hify.conversation.constant.MessageRole;
 import com.hify.conversation.dto.ConversationView;
+import com.hify.conversation.dto.MessageSource;
 import com.hify.conversation.dto.SendMessageResponse;
 import com.hify.conversation.entity.Conversation;
 import com.hify.conversation.entity.Message;
@@ -61,7 +63,9 @@ class ConversationServiceTest {
         store = mock(ConversationStore.class);
         quotaGuard = mock(QuotaGuard.class);
         knowledgeFacade = mock(KnowledgeFacade.class);
-        service = new ConversationService(appFacade, providerFacade, chatInvoker, store, quotaGuard, knowledgeFacade);
+        service = new ConversationService(appFacade, providerFacade, chatInvoker, store, quotaGuard, knowledgeFacade,
+                new ConversationProperties(new ConversationProperties.Memory(10),
+                        new ConversationProperties.ListProps(50), 10));
     }
 
     private void stubRunnableApp(String systemPrompt) {
@@ -72,6 +76,18 @@ class ConversationServiceTest {
         when(appFacade.findRunnableChatApp(eq(7L)))
                 .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, datasetIds)));
         when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
+    }
+
+    private AppRuntimeView runnableChatAppBoundTo(List<Long> datasetIds) {
+        return new AppRuntimeView(7L, 5L, "你是客服", datasetIds);
+    }
+
+    private void stubTurnAndReplyFor(String content) {
+        when(store.openTurn(eq(7L), eq(null), eq(42L), eq(content)))
+                .thenReturn(new TurnContext(100L, List.of(userMsg(content)), 300L, true));
+        when(chatInvoker.invoke(any(), any(), any())).thenReturn(new LlmReply("答案", 12, 8));
+        when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any()))
+                .thenReturn(savedAssistant());
     }
 
     private Message userMsg(String content) {
@@ -276,6 +292,71 @@ class ConversationServiceTest {
         stubTurnAndReply();
         service.send(7L, null, "退货政策", member);
         verifyNoInteractions(knowledgeFacade);
+    }
+
+    @Test
+    void send_boundApp_hit_capturesSourcesWithTruncatedPreview() {
+        var app = runnableChatAppBoundTo(List.of(100L));
+        when(appFacade.findRunnableChatApp(7L)).thenReturn(Optional.of(app));
+        when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
+        stubTurnAndReplyFor("问题");
+        when(knowledgeFacade.retrieve(eq(List.of(100L)), eq("问题")))
+                .thenReturn(List.of(new RetrievedChunk(10L, 20L, "手册.pdf", "0123456789ABCDEF", 0.9)));
+
+        service.send(7L, null, "问题", member);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<MessageSource>> cap = ArgumentCaptor.forClass(List.class);
+        verify(store).appendAssistant(anyLong(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(),
+                cap.capture());
+        List<MessageSource> src = cap.getValue();
+        assertEquals(1, src.size());
+        assertEquals(10L, src.get(0).chunkId());
+        assertEquals("手册.pdf", src.get(0).documentName());
+        assertEquals(0.9, src.get(0).score());
+        assertEquals("0123456789", src.get(0).preview());
+    }
+
+    @Test
+    void send_unboundApp_capturesEmptySources() {
+        var app = runnableChatAppBoundTo(List.of());
+        when(appFacade.findRunnableChatApp(7L)).thenReturn(Optional.of(app));
+        when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
+        stubTurnAndReplyFor("问题");
+
+        service.send(7L, null, "问题", member);
+
+        verify(store).appendAssistant(anyLong(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(),
+                eq(List.of()));
+        verifyNoInteractions(knowledgeFacade);
+    }
+
+    @Test
+    void send_retrieveThrows_degradesWithEmptySources() {
+        var app = runnableChatAppBoundTo(List.of(100L));
+        when(appFacade.findRunnableChatApp(7L)).thenReturn(Optional.of(app));
+        when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
+        stubTurnAndReplyFor("问题");
+        when(knowledgeFacade.retrieve(any(), any())).thenThrow(new RuntimeException("embedding 未配"));
+
+        service.send(7L, null, "问题", member);
+
+        verify(store).appendAssistant(anyLong(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(),
+                eq(List.of()));
+    }
+
+    @Test
+    void send_hitEmpty_capturesEmptySources() {
+        var app = runnableChatAppBoundTo(List.of(100L));
+        when(appFacade.findRunnableChatApp(7L)).thenReturn(Optional.of(app));
+        when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
+        stubTurnAndReplyFor("问题");
+        when(knowledgeFacade.retrieve(any(), any())).thenReturn(List.of());
+
+        service.send(7L, null, "问题", member);
+
+        verify(store).appendAssistant(anyLong(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(),
+                eq(List.of()));
     }
 
     @Test

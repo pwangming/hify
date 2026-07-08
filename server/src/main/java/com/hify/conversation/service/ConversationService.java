@@ -3,8 +3,10 @@ package com.hify.conversation.service;
 import com.hify.app.api.AppFacade;
 import com.hify.app.api.AppRuntimeView;
 import com.hify.common.exception.BizException;
+import com.hify.conversation.config.ConversationProperties;
 import com.hify.conversation.constant.ConversationError;
 import com.hify.conversation.dto.ConversationView;
+import com.hify.conversation.dto.MessageSource;
 import com.hify.conversation.dto.MessageView;
 import com.hify.conversation.dto.SendMessageResponse;
 import com.hify.conversation.entity.Message;
@@ -45,16 +47,18 @@ public class ConversationService {
     private final ConversationStore store;
     private final QuotaGuard quotaGuard;
     private final KnowledgeFacade knowledgeFacade;
+    private final ConversationProperties props;
 
     public ConversationService(AppFacade appFacade, ProviderFacade providerFacade,
                                ChatInvoker chatInvoker, ConversationStore store, QuotaGuard quotaGuard,
-                               KnowledgeFacade knowledgeFacade) {
+                               KnowledgeFacade knowledgeFacade, ConversationProperties props) {
         this.appFacade = appFacade;
         this.providerFacade = providerFacade;
         this.chatInvoker = chatInvoker;
         this.store = store;
         this.quotaGuard = quotaGuard;
         this.knowledgeFacade = knowledgeFacade;
+        this.props = props;
     }
 
     public SendMessageResponse send(Long appId, Long conversationId, String content, CurrentUser current) {
@@ -69,11 +73,11 @@ public class ConversationService {
         try {
             // 4) 取 ChatClient（不可用抛 12002）并调用——事务外，喂历史窗口
             ChatClient chatClient = providerFacade.getChatClient(app.modelId());
-            String effectivePrompt = augmentWithKnowledge(app, content);
-            LlmReply reply = chatInvoker.invoke(chatClient, effectivePrompt, turn.window());
+            Augmented aug = augmentWithKnowledge(app, content);
+            LlmReply reply = chatInvoker.invoke(chatClient, aug.prompt(), turn.window());
             // 5) 事务B：落 assistant 消息（同事务内发 TokenUsedEvent 计量）
             Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
-                    current.userId(), appId, app.modelId(), List.of());
+                    current.userId(), appId, app.modelId(), aug.sources());
             return new SendMessageResponse(cid, toView(saved));
         } catch (RuntimeException e) {
             // 修缮轮 D2：失败清孤儿（新会话删会话+user消息；续聊只删user消息），与 sendStream 语义对齐
@@ -93,12 +97,12 @@ public class ConversationService {
         TurnContext turn = store.openTurn(appId, conversationId, current.userId(), content);
         Long cid = turn.conversationId();
         ChatClient chatClient = providerFacade.getChatClient(app.modelId());
-        String effectivePrompt = augmentWithKnowledge(app, content);
+        Augmented aug = augmentWithKnowledge(app, content);
 
         StringBuilder buf = new StringBuilder();
         int[] usage = {0, 0}; // [0]=promptTokens [1]=completionTokens，取流中最后一个非空值
 
-        Flux<StreamEvent> deltas = chatInvoker.invokeStream(chatClient, effectivePrompt, turn.window())
+        Flux<StreamEvent> deltas = chatInvoker.invokeStream(chatClient, aug.prompt(), turn.window())
                 .doOnNext(cr -> {
                     Usage u = cr.getMetadata() != null ? cr.getMetadata().getUsage() : null;
                     if (u != null) {
@@ -115,7 +119,7 @@ public class ConversationService {
 
         Mono<StreamEvent> done = Mono.<StreamEvent>fromCallable(() -> {
             Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1], // 事务B（内发 TokenUsedEvent）
-                    current.userId(), appId, app.modelId(), List.of());
+                    current.userId(), appId, app.modelId(), aug.sources());
             return new StreamEvent.Done(cid, saved.getId(), usage[0], usage[1]);
         }).subscribeOn(Schedulers.boundedElastic());
 
@@ -158,28 +162,42 @@ public class ConversationService {
      * 检索任何失败（未配 embedding 模型/供应商超时熔断）降级继续答（spec 决策 5）——只记 warn，不影响本轮对话。
      * 调用点在事务 A 之后、LLM 调用之前（事务间隙，与「事务内禁外部 IO」红线一致）。
      */
-    private String augmentWithKnowledge(AppRuntimeView app, String content) {
+    /** 检索产出：注入后的提示词 + 来源快照列表（未绑/降级/命中空时 sources 为空）。 */
+    private record Augmented(String prompt, List<MessageSource> sources) {}
+
+    private Augmented augmentWithKnowledge(AppRuntimeView app, String content) {
         if (app.datasetIds() == null || app.datasetIds().isEmpty()) {
-            return app.systemPrompt();
+            return new Augmented(app.systemPrompt(), List.of());
         }
         try {
             List<RetrievedChunk> chunks = knowledgeFacade.retrieve(app.datasetIds(), content);
             if (chunks.isEmpty()) {
-                return app.systemPrompt();
+                return new Augmented(app.systemPrompt(), List.of());
             }
             StringBuilder sb = new StringBuilder();
             if (StringUtils.hasText(app.systemPrompt())) {
                 sb.append(app.systemPrompt()).append("\n\n");
             }
             sb.append(KNOWLEDGE_PROMPT_HEADER);
+            List<MessageSource> sources = new java.util.ArrayList<>(chunks.size());
             for (int i = 0; i < chunks.size(); i++) {
-                sb.append('\n').append('[').append(i + 1).append("] ").append(chunks.get(i).content());
+                RetrievedChunk c = chunks.get(i);
+                sb.append('\n').append('[').append(i + 1).append("] ").append(c.content());
+                sources.add(new MessageSource(c.chunkId(), c.documentId(), c.documentName(),
+                        c.score(), preview(c.content())));
             }
-            return sb.toString();
+            return new Augmented(sb.toString(), List.copyOf(sources));
         } catch (Exception e) {
             log.warn("知识检索失败，本轮降级为无参考资料回答 appId={}", app.appId(), e);
-            return app.systemPrompt();
+            return new Augmented(app.systemPrompt(), List.of());
         }
+    }
+
+    /** 截断命中段为预览（不存全文）。长度取全局配置，按字符（code point 无关，中文按 char）截断。 */
+    private String preview(String content) {
+        int len = props.sourcePreviewLength();
+        if (content == null) return "";
+        return content.length() <= len ? content : content.substring(0, len);
     }
 
     private static MessageView toView(Message m) {
