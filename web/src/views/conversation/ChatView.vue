@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { DocumentCopy, EditPen } from '@element-plus/icons-vue'
+import { Document as DocumentIcon, DocumentCopy, EditPen, Link } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useConversationStore } from '@/stores/conversation'
 import type { MessageView } from '@/types/conversation'
@@ -147,6 +147,37 @@ async function onDeleteConv(id: string) {
             </div>
             <div v-else class="chat__bubble-text">{{ m.content }}</div>
             <div v-if="m.error" class="chat__bubble-error" data-test="msg-error">⚠️ {{ m.error }}</div>
+            <div
+              v-if="m.role === 'assistant' && m.sources && m.sources.length"
+              class="chat__sources"
+              data-test="msg-sources"
+            >
+              <el-collapse>
+                <el-collapse-item :name="m.id">
+                  <template #title>
+                    <span class="chat__sources-title">
+                      <el-icon><Link /></el-icon>
+                      <span>参考来源 ({{ m.sources.length }})</span>
+                    </span>
+                  </template>
+                  <div
+                    v-for="s in m.sources"
+                    :key="s.chunkId"
+                    class="chat__source-card"
+                    data-test="source-card"
+                  >
+                    <div class="chat__source-head">
+                      <span class="chat__source-doc">
+                        <el-icon><DocumentIcon /></el-icon>
+                        <span>{{ s.documentName }}</span>
+                      </span>
+                      <el-tag size="small" type="info">{{ Math.round(s.score * 100) }}%</el-tag>
+                    </div>
+                    <div class="chat__source-preview">{{ s.preview }}</div>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
           </div>
           <!-- 操作图标：气泡外，hover 显现；用户右下角（复制+编辑）、AI 左下角（复制，回答完成后可用） -->
           <div v-if="editingId !== m.id" class="chat__ops">
@@ -256,6 +287,48 @@ async function onDeleteConv(id: string) {
     color: var(--el-color-danger);
     background: var(--el-color-danger-light-9);
     border: 1px solid var(--el-color-danger-light-7);
+  }
+
+  &__sources {
+    margin-top: 6px;
+  }
+
+  &__sources-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  &__source-card {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    background: var(--el-fill-color-light);
+    border-radius: 6px;
+  }
+
+  &__source-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  &__source-doc {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  &__source-preview {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    line-height: 1.5;
   }
 
   // 操作图标区：气泡外，默认隐藏，整行 hover 时显现。

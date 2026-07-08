@@ -198,6 +198,53 @@ describe('ChatView', () => {
     expect(wrapper.findAll('[data-test="msg"]').at(-1)!.text()).toContain('你好世界')
   })
 
+  it('renders collapsible source cards for assistant message with sources', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({
+      id: '7',
+      role: 'assistant',
+      content: '答案',
+      promptTokens: 1,
+      completionTokens: 2,
+      createTime: 't',
+      sources: [
+        { chunkId: '10', documentId: '20', documentName: '手册.pdf', score: 0.82, preview: '预览A' },
+        { chunkId: '11', documentId: '21', documentName: 'FAQ.docx', score: 0.71, preview: '预览B' },
+      ],
+    })
+    await nextTick()
+
+    const block = wrapper.find('[data-test="msg-sources"]')
+    expect(block.exists()).toBe(true)
+    expect(block.text()).toContain('参考来源 (2)')
+    await block.find('.el-collapse-item__header').trigger('click')
+    await nextTick()
+    const cards = wrapper.findAll('[data-test="source-card"]')
+    expect(cards).toHaveLength(2)
+    expect(cards[0].text()).toContain('手册.pdf')
+    expect(cards[0].text()).toContain('82%')
+    expect(cards[0].text()).toContain('预览A')
+  })
+
+  it('does not render source block when no sources', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({
+      id: '8',
+      role: 'assistant',
+      content: '答案',
+      promptTokens: 1,
+      completionTokens: 2,
+      createTime: 't',
+      sources: [],
+    })
+    await nextTick()
+    expect(wrapper.find('[data-test="msg-sources"]').exists()).toBe(false)
+  })
+
   it('复制用户消息写入剪贴板', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
