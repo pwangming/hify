@@ -73,7 +73,7 @@ public class ConversationService {
             LlmReply reply = chatInvoker.invoke(chatClient, effectivePrompt, turn.window());
             // 5) 事务B：落 assistant 消息（同事务内发 TokenUsedEvent 计量）
             Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
-                    current.userId(), appId, app.modelId());
+                    current.userId(), appId, app.modelId(), List.of());
             return new SendMessageResponse(cid, toView(saved));
         } catch (RuntimeException e) {
             // 修缮轮 D2：失败清孤儿（新会话删会话+user消息；续聊只删user消息），与 sendStream 语义对齐
@@ -115,7 +115,7 @@ public class ConversationService {
 
         Mono<StreamEvent> done = Mono.<StreamEvent>fromCallable(() -> {
             Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1], // 事务B（内发 TokenUsedEvent）
-                    current.userId(), appId, app.modelId());
+                    current.userId(), appId, app.modelId(), List.of());
             return new StreamEvent.Done(cid, saved.getId(), usage[0], usage[1]);
         }).subscribeOn(Schedulers.boundedElastic());
 

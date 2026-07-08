@@ -6,6 +6,7 @@ import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.conversation.config.ConversationProperties;
 import com.hify.conversation.constant.MessageRole;
+import com.hify.conversation.dto.MessageSource;
 import com.hify.conversation.entity.Conversation;
 import com.hify.conversation.entity.Message;
 import com.hify.conversation.mapper.ConversationMapper;
@@ -94,13 +95,14 @@ public class ConversationStore {
      */
     @Transactional
     public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
-                                   Long userId, Long appId, Long modelId) {
+                                   Long userId, Long appId, Long modelId, List<MessageSource> sources) {
         Message m = new Message();
         m.setConversationId(conversationId);
         m.setRole(MessageRole.ASSISTANT.value());
         m.setContent(content);
         m.setPromptTokens(promptTokens);
         m.setCompletionTokens(completionTokens);
+        m.setSources(sources);
         messageMapper.insert(m);
         Conversation touch = new Conversation();
         touch.setId(conversationId);

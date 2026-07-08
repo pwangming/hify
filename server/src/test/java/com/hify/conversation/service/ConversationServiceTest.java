@@ -103,7 +103,7 @@ class ConversationServiceTest {
         when(store.openTurn(eq(7L), eq(null), eq(42L), eq("退货政策")))
                 .thenReturn(new TurnContext(100L, List.of(userMsg("退货政策")), 300L, true));
         when(chatInvoker.invoke(any(), any(), any())).thenReturn(new LlmReply("答案", 12, 8));
-        when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong()))
+        when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any()))
                 .thenReturn(savedAssistant());
     }
 
@@ -115,7 +115,7 @@ class ConversationServiceTest {
                 .thenReturn(new TurnContext(100L, window, 300L, true));
         when(chatInvoker.invoke(eq(chatClient), eq("你是客服"), eq(window)))
                 .thenReturn(new LlmReply("你好，我是助手", 12, 8));
-        when(store.appendAssistant(eq(100L), eq("你好，我是助手"), eq(12), eq(8), eq(42L), eq(7L), eq(5L)))
+        when(store.appendAssistant(eq(100L), eq("你好，我是助手"), eq(12), eq(8), eq(42L), eq(7L), eq(5L), any()))
                 .thenReturn(savedAssistant());
 
         SendMessageResponse resp = service.send(7L, null, "你好", member);
@@ -125,7 +125,7 @@ class ConversationServiceTest {
         order.verify(quotaGuard).check(42L, 7L);
         order.verify(store).openTurn(7L, null, 42L, "你好");
         order.verify(chatInvoker).invoke(chatClient, "你是客服", window);
-        order.verify(store).appendAssistant(100L, "你好，我是助手", 12, 8, 42L, 7L, 5L);
+        order.verify(store).appendAssistant(100L, "你好，我是助手", 12, 8, 42L, 7L, 5L, List.of());
 
         assertEquals(100L, resp.conversationId());
         assertEquals(200L, resp.message().id());
@@ -153,7 +153,7 @@ class ConversationServiceTest {
         List<Message> window = List.of(userMsg("第一句"), assistantMsg("回复一"), userMsg("第二句"));
         when(store.openTurn(any(), any(), any(), any())).thenReturn(new TurnContext(100L, window, 300L, false));
         when(chatInvoker.invoke(any(), any(), any())).thenReturn(new LlmReply("ok", 1, 1));
-        when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong())).thenReturn(savedAssistant());
+        when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any())).thenReturn(savedAssistant());
 
         service.send(7L, 100L, "第二句", member);
 
@@ -184,7 +184,7 @@ class ConversationServiceTest {
         assertEquals(ProviderError.MODEL_NOT_USABLE, ex.errorCode());
         verify(store).openTurn(7L, null, 42L, "你好"); // 事务A 已发生
         verify(store).cleanupFailedTurn(100L, 300L, true); // 新会话：删会话+user消息，与流式语义一致
-        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong());
+        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -198,7 +198,7 @@ class ConversationServiceTest {
         BizException ex = assertThrows(BizException.class, () -> service.send(7L, null, "你好", member));
         assertEquals(ProviderError.PROVIDER_UNAVAILABLE, ex.errorCode());
         verify(store).cleanupFailedTurn(100L, 300L, true);
-        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong());
+        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -342,7 +342,7 @@ class ConversationServiceTest {
                 .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好")), 300L, true));
         when(chatInvoker.invokeStream(eq(chatClient), eq("你是客服"), any()))
                 .thenReturn(reactor.core.publisher.Flux.just(chunk("你好，"), chunkWithUsage("我是助手", 12, 8)));
-        when(store.appendAssistant(eq(100L), eq("你好，我是助手"), eq(12), eq(8), eq(42L), eq(7L), eq(5L)))
+        when(store.appendAssistant(eq(100L), eq("你好，我是助手"), eq(12), eq(8), eq(42L), eq(7L), eq(5L), any()))
                 .thenReturn(savedAssistant());
 
         reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
@@ -353,7 +353,7 @@ class ConversationServiceTest {
                         && d.conversationId() == 100L && d.messageId() == 200L
                         && d.promptTokens() == 12 && d.completionTokens() == 8)
                 .verifyComplete();
-        verify(store).appendAssistant(100L, "你好，我是助手", 12, 8, 42L, 7L, 5L);
+        verify(store).appendAssistant(100L, "你好，我是助手", 12, 8, 42L, 7L, 5L, List.of());
     }
 
     @Test
@@ -374,7 +374,7 @@ class ConversationServiceTest {
                 .verify();
         // 半截失败也清理孤儿（本回合新建会话）
         verify(store).cleanupFailedTurn(100L, 300L, true);
-        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong());
+        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -393,7 +393,7 @@ class ConversationServiceTest {
                         && b.errorCode() == ProviderError.PROVIDER_UNAVAILABLE)
                 .verify();
         verify(store).cleanupFailedTurn(100L, 300L, true);
-        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong());
+        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -421,7 +421,7 @@ class ConversationServiceTest {
                 .thenReturn(new TurnContext(100L, java.util.List.of(userMsg("你好")), 300L, true));
         when(chatInvoker.invokeStream(any(), any(), any()))
                 .thenReturn(reactor.core.publisher.Flux.just(chunkWithUsage("答案", 5, 3)));
-        when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong())).thenReturn(savedAssistant());
+        when(store.appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any())).thenReturn(savedAssistant());
 
         reactor.test.StepVerifier.create(service.sendStream(7L, null, "你好", member))
                 .expectNext(new StreamEvent.Meta(100L))
@@ -445,6 +445,6 @@ class ConversationServiceTest {
                 .thenCancel()
                 .verify();
         verify(store, never()).cleanupFailedTurn(any(), any(), anyBoolean());
-        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong());
+        verify(store, never()).appendAssistant(any(), any(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong(), any());
     }
 }

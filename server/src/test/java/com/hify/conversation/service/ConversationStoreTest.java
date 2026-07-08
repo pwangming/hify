@@ -123,13 +123,14 @@ class ConversationStoreTest {
     @Test
     void appendAssistant_落assistant消息含token_并touch会话_发TokenUsedEvent() {
         ArgumentCaptor<Message> mc = ArgumentCaptor.forClass(Message.class);
-        Message saved = store.appendAssistant(100L, "你好，我是助手", 12, 8, 42L, 7L, 5L);
+        Message saved = store.appendAssistant(100L, "你好，我是助手", 12, 8, 42L, 7L, 5L, List.of());
 
         verify(messageMapper).insert((Message) mc.capture());
         assertEquals(MessageRole.ASSISTANT.value(), mc.getValue().getRole());
         assertEquals("你好，我是助手", mc.getValue().getContent());
         assertEquals(12, mc.getValue().getPromptTokens());
         assertEquals(8, mc.getValue().getCompletionTokens());
+        assertEquals(List.of(), mc.getValue().getSources());
         verify(conversationMapper).updateById(any(Conversation.class)); // touch update_time
         assertEquals(mc.getValue(), saved);
 
