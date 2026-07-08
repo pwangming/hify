@@ -792,3 +792,32 @@ mvn -f server/pom.xml test
 - [x] 前端：`useChatStream` 解析 `sources`，Pinia store 把来源挂到助手消息；ChatView 在助手气泡下用 Element Plus `el-collapse`/`el-tag` 展示折叠来源卡片（文档名、分数、预览），纯展示不可点。
 - [x] 验证：后端 `mvn -q test` 全绿（含 V20 连库往返、Modulith/ArchUnit）；前端 `pnpm vitest run && pnpm build` 全绿。
 - [x] 留账：无新留账；卡片点击/全文展开/计量/Rerank/来源反查按 spec 明确不做，后续需求再开轮。
+
+## 2026-07-08 E2E 地基 + KB 黄金旅程（Playwright）
+
+对应设计：`docs/superpowers/specs/2026-07-08-e2e-golden-journey-design.md`；对应架构文档：`docs/architecture/testing-standards.md` §5。
+
+**做了什么**：新建 `web/e2e/` 前端测试基建——`playwright.config.ts`（`webServer` 数组拉起 后端(e2e profile)+假LLM桩+前端，逐个等健康 URL）、`stub/llm-stub.mjs`（Node 原生 http，OpenAI 兼容协议，`/v1/embeddings` 固定 1024 维向量 + `/v1/chat/completions` SSE 固定答案 + `/health`）、`support/reset-db.mjs`（`pnpm e2e` 脚本里跑在 Playwright 之外，先于后端启动重置 `hify_e2e` 库）、`fixtures/kb-doc.txt`（测试文档）、`golden-journey.spec.ts`（穿 identity→provider→knowledge→app→conversation 五模块的黄金旅程，8 步：登录→建供应商→建对话/embedding 两模型→建知识库→传文档等 ready→建应用绑库→聊天看引用→刷新页面引用仍在）、`smoke.spec.ts`（种子 admin 能登录的最小冒烟）。后端新增 `server/src/main/resources/application-e2e.yml`（`e2e` profile，数据源指 `hify_e2e`，bootstrap-admin 账密 `admin`/`e2e-admin-123`）。旅程触及的 provider/knowledge/app 视图按需补了 `data-test` 钩子（无关重构未做）。
+
+**DoD 清单逐项勾选**（对齐 spec §5）：
+
+- [x] 尺子 1·故意搞错必须变红——三处均真改坏→跑→在预期断言处确认变红→改回，`git status --short` 确认工作区干净（详见下方三次变异记录，完整过程见 `.superpowers/sdd/task-5-report.md`）。
+- [x] 尺子 2·断言钉后端/DB 产出——引用断言用上传的真实文件名 + `[0,100]%` 数字分数，不断言桩那句固定答案的字面；桩全程保持「傻」，无任何针对断言的特判分支。
+- [x] 尺子 3·覆盖面声明清楚——旅程真穿 identity/provider/knowledge/app/conversation 五模块，除 admin 登录用种子账号外无一步抄近路；推迟项已写明（负样本「问无关→无引用/降级」、CI、其它旅程、跨浏览器矩阵、视觉回归）。
+- [x] `pnpm e2e` 本地一条命令跑绿：`golden-journey.spec.ts` + `smoke.spec.ts` 2 passed，dev 库 `hify` 全程未被触碰（重置只作用于 `hify_e2e`）。
+- [x] 不新增运行时依赖：`@playwright/test` 为 devDependency，桩用 Node 原生 `http`。
+- [x] `web/e2e/**` 不进 vitest 扫描范围（`vite.config.ts` 的 `test.include` 为 `src/**/__tests__/**/*.{test,spec}.ts`），vitest 单测不受影响。
+
+**三次故意搞错的实测结论**（完整改动/输出见 `.superpowers/sdd/task-5-report.md`，均已还原、`git status --short` 为空）：
+
+1. **检索真在跑（正交向量）**：把桩 `/v1/embeddings` 改成按调用计数返回正交向量（首次仍返回全 0.1 保系统设置探测通过，此后热点维度轮转），使文档分段向量与提问向量余弦相似度趋近 0、跌破检索阈值。`pnpm e2e -- golden-journey.spec.ts` → **FAIL，断在预期处**：live 阶段「msg-sources visible」（`golden-journey.spec.ts:96`）——证明检索 SQL + 阈值判断真在跑，不是摆设。
+2. **来源真落库（不写 sources）**：把 `ConversationStore.appendAssistant` 里的 `m.setSources(sources);` 注释掉。`pnpm e2e -- golden-journey.spec.ts` → **FAIL，断在预期处**：第 9 步「刷新后 msg-sources 可见」（`golden-journey.spec.ts:105`），且 live 阶段第 96 行断言**照常通过**（证明 SSE 实时展示的引用不依赖持久化）——精确证明 `message.sources` 落库这条链路被旅程覆盖，断点与变异①不同、二者互相区分。
+3. **绑定+注入真串起（解绑库）**：把旅程第 7 步创建 app 时绑定知识库的两行操作注释掉。`pnpm e2e -- golden-journey.spec.ts` → **FAIL，断在预期处**：live 阶段「msg-sources visible」（因注释行号后移落在 `golden-journey.spec.ts:97`）——证明 app↔dataset 绑定关系与 conversation 检索注入真的串联，不是前端凭空渲染。
+
+三处变异全部断在预期的具体断言行、互相区分，无「断在无关错误」或「意外仍然绿」的情况；旅程真实覆盖了检索阈值判断、sources 持久化、app↔dataset 绑定注入三条链路。复跑 `pnpm e2e -- golden-journey.spec.ts` 全部复绿（2 passed）。
+
+**验证命令**：
+- `cd web && pnpm e2e` → 全绿（旅程 8 步 + 冒烟，dev 库未被触碰）。
+- `cd web && pnpm vitest run` → 全绿，`web/e2e/**` 未被 vitest 扫到（include 只匹配 `src/**/__tests__/**`）。
+
+**留账（本轮不做，已在 testing-standards.md §5.6 声明）**：CI/GitHub Actions 集成；负样本路径（问无关问题→无引用/降级）；workflow/agent 等其它旅程；跨浏览器矩阵；视觉回归/截图比对。

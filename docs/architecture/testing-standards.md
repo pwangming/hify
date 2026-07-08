@@ -108,6 +108,73 @@ api.version=1.54
 
 ---
 
+## 五、E2E（Playwright）
+
+> 2026-07-08 起有效，随 KB 黄金旅程一轮落地。**作为后续 workflow/agent 等旅程的标准模板**——新旅程复用本节的编排/桩/断言纪律，不重新发明。
+
+### 5.1 定位
+
+E2E 抓的是**前后端契约漂移 + 跨模块旅程回归**，不是功能细节（细节由 server 的 `mvn test` 单测/切片测试、web 的 vitest 组件测试兜底）。全部落在 `web/e2e/`，跑真前端 + 真后端 + 真库（独立 `hify_e2e`）+ 假 LLM 桩，唯一被替换的外部依赖是 LLM/embedding 供应商（换成确定性桩）。
+
+### 5.2 本地编排：`pnpm e2e`
+
+```
+pnpm e2e
+  └─ node e2e/support/reset-db.mjs   ① 确保 postgres 起着；drop+create database hify_e2e
+  └─ playwright test                 ② webServer 数组拉起三进程，逐个等健康 URL 就绪：
+        · 后端 cd ../server && mvn -q spring-boot:run -Dspring-boot.run.profiles=e2e
+               等 http://localhost:8080/actuator/health
+        · 桩   node e2e/stub/llm-stub.mjs
+               等 http://localhost:8090/health
+        · 前端 pnpm dev
+               等 http://localhost:5173
+        ③ 跑 e2e/**/*.spec.ts（golden-journey.spec.ts + smoke.spec.ts）
+```
+
+**顺序约束（硬性）**：库重置**必须早于后端启动**——后端启动会跑 Flyway 全量迁移 + `AdminBootstrapRunner` 按 `application-e2e.yml` 的 `hify.identity.bootstrap-admin` 种 admin 账号，晚了会种到旧库或迁移对不齐。因此重置放在 `pnpm e2e` 脚本里、**在 Playwright 进程之外**（`package.json`：`"e2e": "node e2e/support/reset-db.mjs && playwright test"`），不放 Playwright 的 `globalSetup`——`globalSetup` 与 `webServer` 的启动次序不保证先后，规避这个不确定性。
+
+配套：`server/src/main/resources/application-e2e.yml`（`e2e` profile，数据源指向 `hify_e2e`，`bootstrap-admin` 给测试账密），后端每轮全新启动（干净库→迁移→种 admin），最稳但每轮多花 20~30s 启动时间；CI 化时再谈复用/加速。
+
+### 5.3 假 LLM 桩（`web/e2e/stub/llm-stub.mjs`）
+
+Node 原生 `http` 模块起服务，零新依赖，端口 **8090**，说 OpenAI 兼容协议（`baseUrl` 约定 `http://localhost:8090/v1`）：
+
+| 接口 | 行为 |
+|---|---|
+| `POST /v1/embeddings` | 返回**固定 1024 维向量**（对齐 `vector(1024)`）。任意输入文本同一向量 → 问题与文档分段余弦相似度恒为 1 → 必过检索阈值。 |
+| `POST /v1/chat/completions` | **SSE 流式**：按 OpenAI 流式分块协议吐一句写死答案 + 末尾 usage 块 + `data:[DONE]`。 |
+| `GET /health` | 200，供 Playwright `webServer` 探活。 |
+
+**铁律：桩必须保持「傻」**——只吐通用定值，不知道断言期望什么、**不含任何针对测试用例的特判分支**。这是让断言不失真的前提：一旦桩里出现「如果是这条 case 就返回 XXX」，断言实质上是在验证桩而不是验证产品代码，检索/落库/编排等真实链路的问题会被桩悄悄掩盖。
+
+### 5.4 断言纪律：钉后端产出，不钉桩喂的值
+
+断言必须落在**后端/DB 真实产出**的数据上，而不是桩返回的固定字面值：
+
+- 引用来源断言查**上传的真实文件名** + `[0,100]` 区间内的分数（检索算出来的相似度换算值），**不**断言桩那句写死答案的文字内容。
+- 选择器一律用 `data-test`，不用 DOM 位置/文案（同「7 坑 #5」脆弱测试的规则）。
+- 断言用 Playwright web-first 自动等待（对断言本身重试），不用固定 `sleep`——固定等待会掩盖竞态、是 flaky 的头号来源。
+
+### 5.5 DoD：三把反做假尺子
+
+判定「E2E 做完整了」= 下面三把尺子全过，且尺子 1 的三处「故意搞错」都**实测**变红过（不是纸面推断）：
+
+**尺子 1 · 故意搞错必须变红**（真改坏源码/桩/旅程 → 跑 → 确认在预期断言处变红 → 改回，`git status` 确认已还原）：
+- 桩 `/v1/embeddings` 改返回正交/远离向量 → 相似度跌破阈值 → 引用卡片消失 → 断言在「msg-sources visible」处变红（证明检索 SQL + 阈值判断真在跑，不是摆设）。
+- 后端消息落库时不写 `sources` 字段 → 刷新页面后引用消失、但当次会话实时展示不受影响 → 断言在「刷新后 msg-sources 仍可见」处变红，与上一条断点位置不同（证明 `message.sources` 真落库、history 读回真渲染，且 SSE 实时展示与持久化是两条独立链路）。
+- 应用与知识库解绑（跳过绑定步骤）→ 编排层无 dataset 可检索 → 断言在「msg-sources visible」处变红（证明 app↔dataset 绑定关系与检索注入真的串联，不是前端凭空渲染）。
+
+**尺子 2 · 覆盖面声明清楚（反遗漏）**：旅程要真穿多个模块（本轮 identity/provider/knowledge/app/conversation 五个），除种子账号登录外无一步用后门抄近路；明确写清本轮推迟了什么（负样本路径、CI、其它旅程），不藏着不说。
+
+**尺子 3 · 桩的中立性**：§5.3 的「桩必须保持傻」本身也是一把尺子——评审时检查桩代码里有没有偷偷加的特判分支。
+
+### 5.6 已知边界（本轮不做，留给后续 E2E 轮次）
+
+- 只本地跑，CI/GitHub Actions 集成留下一轮。
+- 只测 happy path，负样本（如「问无关问题→无引用/降级」）未覆盖，桩已可扩展，后续几乎零成本加。
+- 单浏览器 chromium，无跨浏览器矩阵；无视觉回归/截图比对。
+- workflow/agent 等其它旅程未覆盖——但本节的编排/桩/断言/DoD 套路直接复用，新增旅程只需新增 `*.spec.ts` + 按需扩桩。
+
 ## 附：`web/` 现有测试体检（2026-06-22，28 用例 / 8 文件）
 
 总体**明显高于 AI 平均水平**：普遍用 `data-test` 选择器、断言查具体值、`beforeEach` 清状态（localStorage + pinia）避开测试污染。真正的小问题：
