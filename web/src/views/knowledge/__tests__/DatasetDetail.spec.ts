@@ -249,4 +249,9 @@ describe('DatasetDetail', () => {
     await flushPromises()
     expect(retrieveTest).not.toHaveBeenCalled()
   })
+
+  it('渲染文档状态标签带 data-test 钩子', async () => {
+    const wrapper = await mountPage()
+    expect(wrapper.find('[data-test="doc-status-20"]').text()).toContain('就绪')
+  })
 })

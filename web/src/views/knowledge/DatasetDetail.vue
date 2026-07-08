@@ -240,7 +240,8 @@ async function onRetrieveRun() {
             >
               <el-tag type="danger">{{ STATUS_LABEL.failed }}</el-tag>
             </el-tooltip>
-            <el-tag v-else :type="STATUS_TAG[(row as KbDocument).status]">
+            <el-tag v-else :type="STATUS_TAG[(row as KbDocument).status]"
+                    :data-test="`doc-status-${(row as KbDocument).id}`">
               {{ STATUS_LABEL[(row as KbDocument).status] }}
             </el-tag>
           </template>
