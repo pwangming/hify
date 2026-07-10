@@ -136,3 +136,6 @@ hify:
     # 单用户每日 Token 上限（prompt+completion 累计）。入口配额检查：今日已用 >= 此值即拦（14001/429）。
     # 防失控 Agent 循环刷爆账单，非精确计费；宽松默认，生产按供应商额度调。改配额只动这里。
     daily-token-limit-per-user: ${HIFY_USAGE_DAILY_TOKEN_LIMIT_PER_USER:2000000}
+  workflow:
+    # 单画布节点数上限：图校验用，超限报 18001
+    max-nodes: 50

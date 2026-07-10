@@ -1123,7 +1123,7 @@ git commit -m "feat(workflow): 常量/GraphDef/jsonb TypeHandler/三实体三Map
 ⑨ 无环（Kahn 拓扑排序，排完数量 < 节点数即有环）；⑩ `{{x.y}}` 引用的 x 必须是拓扑序中位于本节点之前的节点
 （执行是顺序的，"排在前面"即"输出已就绪"）——扫描 data 里所有字符串值（含嵌套 List/Map）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.hify.workflow.service.engine;
@@ -1282,12 +1282,12 @@ class GraphValidatorTest {
 }
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `mvn -f server/pom.xml test -Dtest=GraphValidatorTest`
 Expected: 编译错误（GraphValidator / WorkflowProperties 不存在）
 
-- [ ] **Step 3: 实现 WorkflowProperties + application.yml**
+- [x] **Step 3: 实现 WorkflowProperties + application.yml**
 
 `config/WorkflowProperties.java`：
 
@@ -1318,7 +1318,7 @@ public class WorkflowProperties {
     max-nodes: 50
 ```
 
-- [ ] **Step 4: 实现 GraphValidator**
+- [x] **Step 4: 实现 GraphValidator**
 
 ```java
 package com.hify.workflow.service.engine;
@@ -1505,12 +1505,12 @@ public class GraphValidator {
 }
 ```
 
-- [ ] **Step 5: 运行确认通过**
+- [x] **Step 5: 运行确认通过**
 
 Run: `mvn -f server/pom.xml test -Dtest=GraphValidatorTest`
 Expected: PASS（Tests run: 12）
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/workflow/service/engine/GraphValidator.java server/src/main/java/com/hify/workflow/config/WorkflowProperties.java server/src/main/resources/application.yml server/src/test/java/com/hify/workflow/service/engine/GraphValidatorTest.java
