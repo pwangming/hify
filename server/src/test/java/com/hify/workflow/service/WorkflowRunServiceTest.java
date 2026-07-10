@@ -148,6 +148,18 @@ class WorkflowRunServiceTest {
     }
 
     @Test
+    void 引擎抛非预期异常_run兜底置failed_异常上抛() {
+        when(store.createRun(eq(42L), eq(5L), eq(7L), anyMap())).thenReturn(runningRun(100L));
+        when(engine.execute(eq(100L), anyList(), anyMap(), any()))
+                .thenThrow(new RuntimeException("落库连接中断"));
+
+        assertThrows(RuntimeException.class, () -> service.run(42L, Map.of("query", "hi"), user));
+
+        // 不兜这条 run 会永久卡 running（僵尸自愈只在重启时跑）
+        verify(store).markRunFailed(eq(100L), eq("系统异常，执行中断"), anyLong());
+    }
+
+    @Test
     void getRun不存在_报10005() {
         when(store.getRun(999L)).thenReturn(null);
         BizException ex = assertThrows(BizException.class, () -> service.getRun(999L));

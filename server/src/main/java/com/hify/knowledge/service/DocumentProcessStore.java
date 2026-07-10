@@ -18,6 +18,8 @@ import java.util.List;
 @Service
 public class DocumentProcessStore {
 
+    private static final int BATCH_SIZE = 1000;
+
     private final KbDocumentMapper documentMapper;
     private final KbChunkMapper chunkMapper;
 
@@ -37,8 +39,10 @@ public class DocumentProcessStore {
             chunk.setContent(pieces.get(i));
             chunks.add(chunk);
         }
-        for (KbChunk chunk : chunks) {
-            chunkMapper.insert(chunk);
+        // 多值 insert 每批 ≤ 1000（database-standards §2.1）；不用静态 Db.saveBatch——多测试上下文下
+        // 会拿错 SqlSessionFactory，且 BATCH 执行器无法与本事务内的 SIMPLE 执行器共存
+        for (int from = 0; from < chunks.size(); from += BATCH_SIZE) {
+            chunkMapper.insertBatch(chunks.subList(from, Math.min(from + BATCH_SIZE, chunks.size())));
         }
         KbDocument patch = new KbDocument();
         patch.setId(doc.getId());

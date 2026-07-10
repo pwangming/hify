@@ -46,10 +46,15 @@ public class LlmNodeExecutor implements NodeExecutor {
         inputs.put("systemPrompt", systemPrompt);
         inputs.put("userPrompt", userPrompt);
 
-        ChatClient client = providerFacade.getChatClient(modelId);
-        LlmCallResult result = llmCaller.call(client, systemPrompt, userPrompt);
-        events.publishEvent(new TokenUsedEvent(ctx.userId(), ctx.appId(), modelId,
-                result.promptTokens(), result.completionTokens()));
-        return new NodeResult(inputs, Map.of("text", result.text()));
+        try {
+            ChatClient client = providerFacade.getChatClient(modelId);
+            LlmCallResult result = llmCaller.call(client, systemPrompt, userPrompt);
+            events.publishEvent(new TokenUsedEvent(ctx.userId(), ctx.appId(), modelId,
+                    result.promptTokens(), result.completionTokens()));
+            return new NodeResult(inputs, Map.of("text", result.text()));
+        } catch (Exception e) {
+            // 渲染已成功、调用才失败：渲染后的输入随异常带出，落 node_run.inputs 供排障
+            throw new NodeExecutionException(inputs, e);
+        }
     }
 }

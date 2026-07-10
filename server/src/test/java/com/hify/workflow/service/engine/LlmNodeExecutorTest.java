@@ -83,11 +83,13 @@ class LlmNodeExecutorTest {
     }
 
     @Test
-    void 模型不可用_BizException原样上抛且不发事件() {
+    void 模型不可用_抛NodeExecutionException携带渲染后inputs_cause为Biz且不发事件() {
         when(providerFacade.getChatClient(3L))
                 .thenThrow(new BizException(CommonError.DEPENDENCY_UNAVAILABLE, "模型不可用"));
-        assertThrows(BizException.class,
-                () -> executor.execute(node(Map.of("modelId", "3", "userPrompt", "hi")), ctx));
+        NodeExecutionException ex = assertThrows(NodeExecutionException.class,
+                () -> executor.execute(node(Map.of("modelId", "3", "userPrompt", "分类：{{start.query}}")), ctx));
+        assertEquals(BizException.class, ex.getCause().getClass());
+        assertEquals("分类：我要退货", ex.inputs().get("userPrompt"));   // 渲染后的输入随异常带出
         verify(events, never()).publishEvent(any());
     }
 }

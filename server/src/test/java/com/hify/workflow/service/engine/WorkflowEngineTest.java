@@ -100,6 +100,20 @@ class WorkflowEngineTest {
     }
 
     @Test
+    void NodeExecutionException_渲染后inputs落进失败日志_文案取cause() {
+        Map<String, Object> rendered = Map.of("modelId", "3", "userPrompt", "分类：hi");
+        when(llmExecutor.execute(eq(llm), any())).thenThrow(new NodeExecutionException(rendered,
+                new BizException(CommonError.DEPENDENCY_UNAVAILABLE, "模型不可用")));
+
+        EngineResult result = engine.execute(100L, List.of(start, llm, end), Map.of("query", "hi"), ctx);
+
+        assertFalse(result.succeeded());
+        assertTrue(result.errorMessage().contains("模型不可用"));
+        // 排障关键：失败也要能看到实际发出去的提示词
+        verify(store).finishNodeRun(eq(2L), eq(false), eq(rendered), isNull(), eq("模型不可用"), anyLong());
+    }
+
+    @Test
     void start输出即触发入参_可被下游引用() {
         when(llmExecutor.execute(eq(llm), any())).thenAnswer(inv -> {
             RunContext c = inv.getArgument(1);

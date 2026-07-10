@@ -13,7 +13,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** K3 留账兑现：saveChunks（Db.saveBatch 组装）与 vectorLiteral→writeEmbeddings 写真库直测。 */
+/** K3 留账兑现：saveChunks（多值 insert 分批）与 vectorLiteral→writeEmbeddings 写真库直测。 */
 class DocumentProcessStoreTest extends PgIntegrationTest {
 
     @Autowired
@@ -47,6 +47,20 @@ class DocumentProcessStoreTest extends PgIntegrationTest {
                 "select position from kb_chunk where document_id = ? and content = '段一'", Integer.class, doc.getId()));
         assertEquals(3, jdbc.queryForObject(
                 "select chunk_count from kb_document where id = ?", Integer.class, doc.getId()));
+    }
+
+    @Test
+    void saveChunks_超过单批1000时分多条SQL_全部落库() {
+        List<String> pieces = new java.util.ArrayList<>();
+        for (int i = 1; i <= 1001; i++) {
+            pieces.add("段" + i);
+        }
+        store.saveChunks(doc, pieces);   // 1000 + 1 两批
+        assertEquals(1001, jdbc.queryForObject(
+                "select count(*) from kb_chunk where document_id = ?", Integer.class, doc.getId()));
+        assertEquals(1001, jdbc.queryForObject(
+                "select position from kb_chunk where document_id = ? and content = '段1001'",
+                Integer.class, doc.getId()));
     }
 
     @Test

@@ -87,7 +87,10 @@ comment on table example is '表用途一句话';
   MyBatis foreach `in (...)`，与 `any(?)` 等价。相似度阈值在 Java 层过滤，不进 where（避免干扰
   HNSW 索引走法）。
 - **首次大批量导入：先插数据再建 HNSW 索引**（快一个量级）；日常增量直接插。
-- JDBC 连接串加 `reWriteBatchedInserts=true`，chunk 批量写入用 `Db.saveBatch`（每批 ≤ 1000）。
+- JDBC 连接串加 `reWriteBatchedInserts=true`；chunk 批量写入用**多值 insert**（MyBatis foreach 拼
+  values，一条 SQL 插 N 行，每批 ≤ 1000 行）。禁用 MP 静态 `Db.saveBatch`：静态工具在多 Spring
+  上下文下会拿错 SqlSessionFactory（测试随机挂），且其 BATCH 执行器无法与同事务内的 SIMPLE
+  执行器共存，实际不参与当前事务。（W1 终审拍板，2026-07-10）
 - **召回不足先调查询参数**：会话级 `set local hnsw.ef_search = 100`（默认 40，代价是延迟），
   禁止靠重建索引改 m/ef_construction 解决召回问题。文档大量删除后 dead tuple 会拖慢 HNSW 扫描，
   批量删除后手动 `vacuum analyze kb_chunk`。

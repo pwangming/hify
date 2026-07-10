@@ -67,7 +67,15 @@ public class WorkflowRunService {
 
         WorkflowRun run = store.createRun(appId, def.getId(), user.userId(), inputs);
         long startAt = System.currentTimeMillis();
-        EngineResult result = engine.execute(run.getId(), ordered, inputs, new RunContext(user.userId(), appId));
+        EngineResult result;
+        try {
+            result = engine.execute(run.getId(), ordered, inputs, new RunContext(user.userId(), appId));
+        } catch (RuntimeException e) {
+            // 引擎内节点失败已收敛为 EngineResult；能抛到这里的是落库等非预期异常。
+            // 兜底收尾 run 终态（僵尸自愈只在重启时跑，不兜这条会永久卡 running），再上抛走全局 500。
+            store.markRunFailed(run.getId(), "系统异常，执行中断", System.currentTimeMillis() - startAt);
+            throw e;
+        }
         long elapsed = System.currentTimeMillis() - startAt;
         if (result.succeeded()) {
             store.markRunSucceeded(run.getId(), result.outputs(), elapsed);

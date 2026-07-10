@@ -829,3 +829,11 @@ mvn -f server/pom.xml test
 - Schema 验证：`WorkflowSchemaTest` 真库确认 `workflow_def`、`workflow_run`、`workflow_node_run` 三表，`workflow_node_run` 月分区、必需索引、jsonb/check/外键与 autovacuum 参数。
 - 事务与 IO：`WorkflowEngine` 在事务外顺序驱动节点；`WorkflowRunStore` 只做短事务落库；LLM 调用集中在 `LlmNodeExecutor`，不进入 `@Transactional` 方法。
 - 收尾留账：Task 11 Step 5 的真实环境 curl 手动验收未由 Codex 执行，按计划留给人工；全量回归曾暴露既有 `DocumentProcessStore` 使用 MyBatis-Plus 静态 `Db.saveBatch` 在多 Spring 测试上下文下可能拿错 SqlSessionFactory，已改为注入的 `KbChunkMapper` 在当前事务内写入。
+
+## 2026-07-10 Workflow W1 终审修缮（Claude 复审 Codex 交付）
+
+- 复审结论：W1 主体合格（迁移/事务红线/API/测试逐条对过规范）；两处修缮 + 一处规范修订，均经用户拍板。
+- 修缮 1（拍板：换批量写法）：Codex 为修多上下文测试把 chunk 批量写从 `Db.saveBatch` 降级为逐条 insert，与 database-standards §2.1 冲突且生产性能回退。改为 `KbChunkMapper.insertBatch` **多值 insert**（foreach 拼 values，每批 ≤ 1000），留在调用方 Spring 事务内；不能用 BATCH 执行器会话——同事务内与 SIMPLE 执行器互斥（mybatis-spring 抛 Cannot change the ExecutorType）。规范 §2.1 已同步改为多值 insert 并注明禁用静态 `Db.saveBatch` 的原因；`DocumentProcessJobTest` 清掉失效的 `mockStatic(Db)` 脚手架。新增 1001 段跨批测试。
+- 修缮 2（拍板：现在修）：`WorkflowRunService.run` 给 `engine.execute` 加兜底 try-catch——落库等非预期异常时先 `markRunFailed("系统异常，执行中断")` 再上抛，否则 run 永久卡 running（僵尸自愈只在重启跑）。顺带补可观测性：LLM 调用失败经 `NodeExecutionException` 携带渲染后 inputs 落 `node_run.inputs`（排障能看到实际发出的提示词），失败文案取真实 cause。
+- 复审全量回归：`mvn -f server/pom.xml verify` → `Tests run: 517, Failures: 0, Errors: 0`，`BUILD SUCCESS`（514 + 新增 3）。
+- 留给画布轮的备忘：`GraphNode`/`GraphEdge` record 无 `position`/`sourceHandle` 字段，graph 经 Java 往返会丢未知字段——**前端接画布前必须先加这些字段**，否则画布坐标被静默丢弃。真实环境手动 curl 验收（DoD Step 5）仍待人工执行。

@@ -3,6 +3,7 @@ package com.hify.knowledge.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.hify.knowledge.dto.ChunkHit;
 import com.hify.knowledge.entity.KbChunk;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -10,9 +11,25 @@ import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
-/** kb_chunk 表访问。批量写走 Db.saveBatch（database-standards §2.1）。 */
+/** kb_chunk 表访问。批量写走多值 insert（database-standards §2.1）。 */
 @Mapper
 public interface KbChunkMapper extends BaseMapper<KbChunk> {
+
+    /**
+     * 多值批量插入（一条 SQL 插 N 行），跑在调用方的 Spring 事务里。
+     * 每批 ≤ 1000 行由调用方保证（4 参数/行 × 1000 远低于 PG 协议 65535 参数上限）。
+     * deleted/create_time/update_time 依赖 DB 默认值。
+     */
+    @Insert("""
+            <script>
+            insert into kb_chunk (document_id, dataset_id, position, content)
+            values
+            <foreach collection="chunks" item="c" separator=",">
+            (#{c.documentId}, #{c.datasetId}, #{c.position}, #{c.content})
+            </foreach>
+            </script>
+            """)
+    int insertBatch(@Param("chunks") List<KbChunk> chunks);
 
     @Select("select id, content from kb_chunk where document_id = #{documentId} "
             + "and deleted = false and embedding is null order by position")

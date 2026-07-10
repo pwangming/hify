@@ -1,7 +1,6 @@
 package com.hify.knowledge.service;
 
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.hify.common.exception.BizException;
 import com.hify.knowledge.entity.KbChunk;
 import com.hify.knowledge.entity.KbDocument;
@@ -10,23 +9,19 @@ import com.hify.knowledge.mapper.KbDocumentMapper;
 import com.hify.provider.api.ProviderFacade;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.session.Configuration;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.springframework.ai.embedding.EmbeddingModel;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -41,7 +36,6 @@ class DocumentProcessJobTest {
     private EmbeddingModel embeddingModel;
     private ReembedGate gate;
     private DocumentProcessJob job;
-    private MockedStatic<Db> dbMock;
 
     @BeforeEach
     void setUp() {
@@ -54,19 +48,12 @@ class DocumentProcessJobTest {
         embeddingModel = mock(EmbeddingModel.class);
         gate = mock(ReembedGate.class);
         job = new DocumentProcessJob(documentMapper, chunkMapper, store, providerFacade, gate, 2);
-        dbMock = mockStatic(Db.class);
-        dbMock.when(() -> Db.saveBatch(anyList(), anyInt())).thenReturn(true);
     }
 
     private void initTableInfo(Class<?> entityClass) {
         if (TableInfoHelper.getTableInfo(entityClass) == null) {
             TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new Configuration(), ""), entityClass);
         }
-    }
-
-    @AfterEach
-    void tearDown() {
-        dbMock.close();
     }
 
     private KbDocument processingDoc() {

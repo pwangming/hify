@@ -43,10 +43,13 @@ public class WorkflowEngine {
                     finalOutputs = result.outputs();
                 }
             } catch (Exception e) {
-                String reason = e instanceof BizException
-                        ? e.getMessage()
-                        : "节点执行异常：" + e.getMessage();
-                store.finishNodeRun(nodeRunId, false, null, null,
+                // NodeExecutionException 只是运载壳：inputs 取快照、失败文案看真实 cause
+                Map<String, Object> failedInputs = e instanceof NodeExecutionException nee ? nee.inputs() : null;
+                Throwable actual = e instanceof NodeExecutionException ? e.getCause() : e;
+                String reason = actual instanceof BizException
+                        ? actual.getMessage()
+                        : "节点执行异常：" + actual.getMessage();
+                store.finishNodeRun(nodeRunId, false, failedInputs, null,
                         reason, System.currentTimeMillis() - startAt);
                 return EngineResult.failure(node.id(), "节点 " + node.id() + " 失败：" + reason);
             }
