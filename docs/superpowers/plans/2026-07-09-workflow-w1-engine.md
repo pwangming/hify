@@ -121,7 +121,7 @@ CursorResult<RunSummaryView> WorkflowRunService.listRuns(Long appId, String curs
 
 **Interfaces:** 产出三张表 `workflow_def` / `workflow_run` / `workflow_node_run`（列名即后续 entity 映射依据）。
 
-- [ ] **Step 1: 写失败测试（断言表存在与关键约束）**
+- [x] **Step 1: 写失败测试（断言表存在与关键约束）**
 
 ```java
 package com.hify.workflow.mapper;
@@ -194,12 +194,12 @@ class WorkflowSchemaTest extends PgIntegrationTest {
 }
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `mvn -f server/pom.xml test -Dtest=WorkflowSchemaTest`
 Expected: FAIL（`三张表存在` 断言空列表 ≠ 期望；其余表不存在报 SQL 异常）
 
-- [ ] **Step 3: 写迁移脚本**
+- [x] **Step 3: 写迁移脚本**
 
 ```sql
 -- V21：workflow 三表（data-model.md §1）。跨模块 app_id/user_id 只存 id 不建外键（§3 条1），引用列必建索引（db-standards §2.1）。
@@ -271,12 +271,12 @@ create table workflow_node_run_2026_11 partition of workflow_node_run for values
 create table workflow_node_run_2026_12 partition of workflow_node_run for values from ('2026-12-01') to ('2027-01-01');
 ```
 
-- [ ] **Step 4: 运行确认通过**
+- [x] **Step 4: 运行确认通过**
 
 Run: `mvn -f server/pom.xml test -Dtest=WorkflowSchemaTest`
 Expected: PASS（Tests run: 5, Failures: 0, Errors: 0）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/resources/db/migration/V21__create_workflow_tables.sql server/src/test/java/com/hify/workflow/mapper/WorkflowSchemaTest.java
