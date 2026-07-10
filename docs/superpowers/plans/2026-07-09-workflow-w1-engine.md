@@ -2328,7 +2328,7 @@ git commit -m "feat(workflow): WorkflowRunStore 短事务落库 + 僵尸自愈 +
 - Consumes: Task 5/6/7 的 `RunContext`、`NodeExecutor/NodeResult`、`WorkflowRunStore`、`NodeType`。
 - Produces: 见总览契约 Task 8 行。**本类无 @Transactional**（内部经 executor 发生 LLM IO）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.hify.workflow.service.engine;
@@ -2448,12 +2448,12 @@ class WorkflowEngineTest {
 }
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `mvn -f server/pom.xml test -Dtest=WorkflowEngineTest`
 Expected: 编译错误（WorkflowEngine/EngineResult 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `EngineResult.java`：
 
@@ -2565,12 +2565,12 @@ public class WorkflowEngine {
 > 测试里 `finishNodeRun(eq(2L), eq(false), …, eq("模型不可用"), …)` 验证的是 BizException 的 message
 > 直接作为节点失败原因（不加前缀）；EngineResult 汇总时再补「节点 x 失败：」前缀写进 run。
 
-- [ ] **Step 4: 运行确认通过**
+- [x] **Step 4: 运行确认通过**
 
 Run: `mvn -f server/pom.xml test -Dtest=WorkflowEngineTest`
 Expected: PASS（Tests run: 4）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/workflow/service/engine server/src/test/java/com/hify/workflow/service/engine/WorkflowEngineTest.java
