@@ -1529,7 +1529,7 @@ git commit -m "feat(workflow): GraphValidator 十条校验+Kahn拓扑排序，ma
 - Produces: 见总览契约 Task 5 行。`render` 对引用不存在的节点/字段抛 `IllegalStateException`（运行期兜底；
   节点级存在性校验已由 GraphValidator 前置，字段级只能运行期发现）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.hify.workflow.service.engine;
@@ -1599,12 +1599,12 @@ class RunContextTest {
 }
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `mvn -f server/pom.xml test -Dtest=RunContextTest`
 Expected: 编译错误（RunContext 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```java
 package com.hify.workflow.service.engine;
@@ -1665,12 +1665,12 @@ public class RunContext {
 }
 ```
 
-- [ ] **Step 4: 运行确认通过**
+- [x] **Step 4: 运行确认通过**
 
 Run: `mvn -f server/pom.xml test -Dtest=RunContextTest`
 Expected: PASS（Tests run: 7）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/workflow/service/engine/RunContext.java server/src/test/java/com/hify/workflow/service/engine/RunContextTest.java
