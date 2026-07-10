@@ -47,6 +47,8 @@ class WorkflowRunFlowTest extends PgIntegrationTest {
     private ProviderFacade providerFacade;
     @MockitoBean
     private LlmCaller llmCaller;
+    @MockitoBean
+    private com.hify.knowledge.api.KnowledgeFacade knowledgeFacade;
 
     private Long appId;
     private final CurrentUser owner = new CurrentUser(7L, "bob", CurrentUser.ROLE_MEMBER);
@@ -124,5 +126,55 @@ class WorkflowRunFlowTest extends PgIntegrationTest {
         var page2 = runService.listRuns(appId, page1.nextCursor(), 2);
         assertEquals(1, page2.list().size());
         assertTrue(!page2.hasMore());
+    }
+
+    /** W2：start → kb → llm → end 的 RAG 链路图。 */
+    private GraphDef ragGraph() {
+        return new GraphDef(List.of(
+                new GraphNode("start", "start", Map.of("inputs", List.of(Map.of("name", "query", "required", true)))),
+                new GraphNode("kb", "knowledge-retrieval", Map.of("datasetIds", List.of(1), "query", "{{start.query}}")),
+                new GraphNode("llm_1", "llm", Map.of("modelId", "3",
+                        "userPrompt", "参考资料：{{kb.text}}\n请回答：{{start.query}}")),
+                new GraphNode("end", "end", Map.of("outputs", List.of(Map.of("name", "answer", "value", "{{llm_1.text}}"))))),
+                List.of(new GraphEdge("start", "kb"), new GraphEdge("kb", "llm_1"), new GraphEdge("llm_1", "end")));
+    }
+
+    @Test
+    void RAG链路_检索结果注入下游提示词_四节点日志齐全() {
+        when(knowledgeFacade.retrieve(eq(List.of(1L)), eq("怎么退货")))
+                .thenReturn(List.of(new com.hify.knowledge.api.RetrievedChunk(
+                        11L, 1L, "客服手册", "七天无理由退货", 0.9)));
+        when(llmCaller.call(any(), eq(null), eq("参考资料：[1] 七天无理由退货\n请回答：怎么退货")))
+                .thenReturn(new LlmCallResult("支持七天无理由退货", 20, 8));
+
+        draftService.saveDraft(appId, ragGraph(), owner);
+        RunResponse resp = runService.run(appId, Map.of("query", "怎么退货"), owner);
+
+        assertEquals("succeeded", resp.status());
+        assertEquals("支持七天无理由退货", resp.outputs().get("answer"));
+        assertEquals(List.of("start", "kb", "llm_1", "end"),
+                resp.nodeRuns().stream().map(n -> n.nodeId()).toList());
+        // kb 节点 inputs/outputs 落库如实
+        assertEquals("怎么退货", resp.nodeRuns().get(1).inputs().get("query"));
+        assertEquals(1, resp.nodeRuns().get(1).outputs().get("count"));
+        Integer nodeRows = jdbc.queryForObject(
+                "select count(*) from workflow_node_run where run_id = ?", Integer.class, resp.id());
+        assertEquals(4, nodeRows);
+    }
+
+    @Test
+    void 知识库被删_kb节点失败_run置failed_下游不执行() {
+        org.mockito.Mockito.doThrow(new com.hify.common.exception.BizException(
+                        com.hify.common.exception.CommonError.NOT_FOUND, "知识库不存在或已删除"))
+                .when(knowledgeFacade).validateDatasetIds(any());
+
+        draftService.saveDraft(appId, ragGraph(), owner);
+        RunResponse resp = runService.run(appId, Map.of("query", "怎么退货"), owner);   // 不抛异常
+
+        assertEquals("failed", resp.status());
+        assertTrue(resp.errorMessage().contains("kb"));
+        assertEquals(2, resp.nodeRuns().size());   // start + kb，llm/end 未开工
+        assertEquals("failed", resp.nodeRuns().get(1).status());
+        assertEquals("怎么退货", resp.nodeRuns().get(1).inputs().get("query"));   // 渲染后输入落库供排障
     }
 }
