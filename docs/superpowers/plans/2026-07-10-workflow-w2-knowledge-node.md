@@ -161,7 +161,7 @@ git commit -m "feat(workflow): knowledge-retrieval 节点类型与图校验（da
 - Consumes: `NodeType.KNOWLEDGE_RETRIEVAL`（Task 1）；`KnowledgeFacade.validateDatasetIds(List<Long>)` / `retrieve(List<Long>, String)` → `List<RetrievedChunk>`（record: `chunkId, documentId, documentName, content, score`）；`RunContext.render(String)`；`NodeExecutor` / `NodeResult` / `NodeExecutionException(Map, Throwable)`
 - Produces: Spring `@Component`，`type()="knowledge-retrieval"`，outputs = `{text: String, count: Integer}`，inputs = `{datasetIds: List<String>, query: 渲染后String}`。引擎按 type 自动发现（W1 既有机制），无需改 WorkflowEngine。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 新建 `KnowledgeRetrievalNodeExecutorTest.java`：
 
@@ -245,14 +245,14 @@ class KnowledgeRetrievalNodeExecutorTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd server && mvn -Dtest=KnowledgeRetrievalNodeExecutorTest test
 ```
 Expected: 编译失败「找不到符号 KnowledgeRetrievalNodeExecutor」。退出码非 0。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 新建 `KnowledgeRetrievalNodeExecutor.java`：
 
@@ -318,14 +318,14 @@ public class KnowledgeRetrievalNodeExecutor implements NodeExecutor {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 cd server && mvn -Dtest=KnowledgeRetrievalNodeExecutorTest test
 ```
 Expected: 3 条全绿，退出码 0。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/workflow/service/engine/KnowledgeRetrievalNodeExecutor.java \
