@@ -63,6 +63,9 @@ public class GraphValidator {
                 requireLlmField(n, "modelId");
                 requireLlmField(n, "userPrompt");
             }
+            if (NodeType.KNOWLEDGE_RETRIEVAL.value().equals(n.type())) {
+                requireKnowledgeRetrievalFields(n);
+            }
         }
         requireExactlyOne(nodes, NodeType.START.value());
         requireExactlyOne(nodes, NodeType.END.value());
@@ -130,6 +133,25 @@ public class GraphValidator {
                 Long.parseLong(String.valueOf(v));
             } catch (NumberFormatException e) {
                 throw invalid("llm 节点 " + n.id() + " 的 modelId 不是合法数字");
+            }
+        }
+    }
+
+    /** knowledge-retrieval 节点只做格式校验；datasetIds 存在性留到运行时（spec §2：库随时可被删，保存时校验给不了保证）。 */
+    private void requireKnowledgeRetrievalFields(GraphNode n) {
+        Object query = n.data() == null ? null : n.data().get("query");
+        if (query == null || String.valueOf(query).isBlank()) {
+            throw invalid("knowledge-retrieval 节点 " + n.id() + " 缺少 query");
+        }
+        Object raw = n.data().get("datasetIds");
+        if (!(raw instanceof Collection<?> ids) || ids.isEmpty()) {
+            throw invalid("knowledge-retrieval 节点 " + n.id() + " 缺少非空数组 datasetIds");
+        }
+        for (Object v : ids) {
+            try {
+                Long.parseLong(String.valueOf(v));
+            } catch (NumberFormatException e) {
+                throw invalid("knowledge-retrieval 节点 " + n.id() + " 的 datasetIds 含非法值：" + v);
             }
         }
     }

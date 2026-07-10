@@ -32,7 +32,7 @@
 - Consumes: 既有 `GraphValidator.invalid(String)`、`NodeType.supported(String)`
 - Produces: `NodeType.KNOWLEDGE_RETRIEVAL`（value = `"knowledge-retrieval"`）；GraphValidator 对该类型校验 `datasetIds`（非空数组、每项可 parseLong）与 `query`（必填非空）。Task 2/3 依赖此枚举值。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `GraphValidatorTest.java` 追加（沿用该文件既有的 graph 构造辅助方式；若无辅助方法则按下面完整构造）：
 
@@ -83,14 +83,14 @@ void kb节点_缺query_拒绝() {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd server && mvn -Dtest=GraphValidatorTest test
 ```
 Expected: 失败，`kb节点_合法配置_通过` 报「未知节点类型：knowledge-retrieval」（其余 4 条可能因同一异常误绿——message 恰含 datasetIds/query 字样时注意甄别，以合法用例转绿为准）。退出码非 0。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `NodeType.java` 枚举加一行（LLM 与 END 之间）：
 
@@ -133,14 +133,14 @@ Expected: 失败，`kb节点_合法配置_通过` 报「未知节点类型：kno
 
 （`java.util.Collection` 已在该文件 import 列表中。）
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 cd server && mvn -Dtest=GraphValidatorTest test
 ```
 Expected: 全绿，退出码 0。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/workflow/constant/NodeType.java \

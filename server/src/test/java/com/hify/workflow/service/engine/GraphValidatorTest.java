@@ -151,4 +151,49 @@ class GraphValidatorTest {
                 List.of(new GraphEdge("start", "llm_1"), new GraphEdge("llm_1", "end")));
         assertTrue(failMessage(g).contains("ghost"));
     }
+
+    // ==== W2: knowledge-retrieval 节点校验 ====
+
+    private GraphDef kbGraph(Map<String, Object> kbData) {
+        return new GraphDef(List.of(
+                new GraphNode("start", "start", Map.of("inputs", List.of(Map.of("name", "q", "required", true)))),
+                new GraphNode("kb", "knowledge-retrieval", kbData),
+                new GraphNode("end", "end", Map.of("outputs", List.of(Map.of("name", "r", "value", "{{kb.text}}"))))),
+                List.of(new GraphEdge("start", "kb"), new GraphEdge("kb", "end")));
+    }
+
+    @Test
+    void kb节点_合法配置_通过() {
+        List<GraphNode> ordered = validator.validateAndOrder(
+                kbGraph(Map.of("datasetIds", List.of(1, 2), "query", "{{start.q}}")));
+        assertEquals("kb", ordered.get(1).id());
+    }
+
+    @Test
+    void kb节点_缺datasetIds_拒绝() {
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(kbGraph(Map.of("query", "{{start.q}}"))));
+        assertTrue(ex.getMessage().contains("datasetIds"));
+    }
+
+    @Test
+    void kb节点_datasetIds空数组_拒绝() {
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(kbGraph(Map.of("datasetIds", List.of(), "query", "x"))));
+        assertTrue(ex.getMessage().contains("datasetIds"));
+    }
+
+    @Test
+    void kb节点_datasetIds含非数字_拒绝() {
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(kbGraph(Map.of("datasetIds", List.of("abc"), "query", "x"))));
+        assertTrue(ex.getMessage().contains("datasetIds"));
+    }
+
+    @Test
+    void kb节点_缺query_拒绝() {
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(kbGraph(Map.of("datasetIds", List.of(1)))));
+        assertTrue(ex.getMessage().contains("query"));
+    }
 }

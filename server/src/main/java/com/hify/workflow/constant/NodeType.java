@@ -6,6 +6,7 @@ import java.util.Arrays;
 public enum NodeType {
     START("start"),
     LLM("llm"),
+    KNOWLEDGE_RETRIEVAL("knowledge-retrieval"),
     END("end");
 
     private final String value;
