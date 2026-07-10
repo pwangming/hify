@@ -12,6 +12,7 @@ import com.hify.workflow.dto.GraphDef;
 import com.hify.workflow.dto.GraphEdge;
 import com.hify.workflow.dto.GraphNode;
 import com.hify.workflow.service.WorkflowDraftService;
+import com.hify.workflow.service.WorkflowRunService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -45,6 +46,8 @@ class WorkflowControllerDraftTest {
     private JwtService jwtService;
     @MockitoBean
     private WorkflowDraftService draftService;
+    @MockitoBean
+    private WorkflowRunService runService;
 
     private String memberToken() {
         return jwtService.generateToken(new CurrentUser(7L, "bob", CurrentUser.ROLE_MEMBER));
