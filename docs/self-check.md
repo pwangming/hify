@@ -838,3 +838,10 @@ mvn -f server/pom.xml test
 - 复审全量回归：`mvn -f server/pom.xml verify` → `Tests run: 517, Failures: 0, Errors: 0`，`BUILD SUCCESS`（514 + 新增 3）。
 - 留给画布轮的备忘：`GraphNode`/`GraphEdge` record 无 `position`/`sourceHandle` 字段，graph 经 Java 往返会丢未知字段——**前端接画布前必须先加这些字段**，否则画布坐标被静默丢弃。
 - 手动验收（DoD Step 5）：2026-07-10 用户用 `docs/postman/workflow-w1.postman_collection.json` 真实环境实测通过——黄金链路（建应用→存草稿→触发 succeeded→详情/游标历史）+ 三条失败路径（图非法 18001、缺必填输入 10001、模型不可用 HTTP 200 但 run=failed）。**W1 全部 DoD 闭环。**
+
+## 2026-07-10 Workflow W2 知识检索节点
+
+- 本轮范围：新增 `knowledge-retrieval` 节点类型；`GraphValidator` 校验 `datasetIds/query` 格式；`KnowledgeRetrievalNodeExecutor` 调 `KnowledgeFacade.validateDatasetIds/retrieve` 并输出 `text/count`；`WorkflowRunFlowTest` 覆盖 start → kb → llm → end RAG 黄金链路与已删库失败路径；新增 `docs/postman/workflow-w2.postman_collection.json`。
+- 拍板决策：检索失败不降级而是节点 failed；输出固定为 `text + count`；保存草稿只做格式校验、知识库存在性运行时校验；检索结果拼接留在 executor 内，不抽公共抽象。
+- 测试结果：`mvn -Dtest=GraphValidatorTest test` → 17 passed；`mvn -Dtest=KnowledgeRetrievalNodeExecutorTest test` → 3 passed；`mvn clean test -Dtest=WorkflowRunFlowTest` → 5 passed（清理 target 是为排除 Maven 增量编译残留）；`mvn verify` → `Tests run: 527, Failures: 0, Errors: 0`，退出码 0，含 `ModularityTests` 与 `LayerRulesTest`。
+- DoD 待办：用户用 W2 Postman 集合在真实服务/真实模型/真实已向量化知识库上手动跑两条路径：黄金链路 succeeded 且回答引用知识库内容；不存在库 id 保存成功但触发后 HTTP 200 + run failed + kb node_run 可排障。

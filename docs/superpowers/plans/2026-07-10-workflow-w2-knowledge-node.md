@@ -440,7 +440,7 @@ git commit -m "test(workflow): W2 RAG 黄金链路与已删库失败路径集成
 - Consumes: 运行中的本地服务 + 既有真实知识库（K 轮已建、含已向量化文档）
 - Produces: 手动验收材料（DoD Step，用户实测）。
 
-- [ ] **Step 1: 写 Postman 集合**
+- [x] **Step 1: 写 Postman 集合**
 
 以 `docs/postman/workflow-w1.postman_collection.json` 为骨架复制（保留登录/建 app 请求与 token/appId 捕获脚本、variable 约定），改名 `Hify · Workflow W2 知识检索节点`，collection 变量在 W1 基础上增加 `datasetId`（留空，验收时手填真实库 id）。请求列表改为：
 
@@ -474,18 +474,18 @@ git commit -m "test(workflow): W2 RAG 黄金链路与已删库失败路径集成
 7. `6.【失败路径】触发 → HTTP 200 但 run=failed`——同请求 5 的触发；预期 `status=failed`、`errorMessage` 含 kb 节点、nodeRuns 中 kb 节点 failed 且 inputs 里能看到渲染后的 query（排障可用性）
 8. `7.【收尾】把好草稿存回去`——同请求 4
 
-- [ ] **Step 2: 校验 JSON 合法**
+- [x] **Step 2: 校验 JSON 合法**
 
 ```bash
 python3 -m json.tool docs/postman/workflow-w2.postman_collection.json > /dev/null && echo OK
 ```
 Expected: `OK`
 
-- [ ] **Step 3: docs/self-check.md 追加 W2 自检**
+- [x] **Step 3: docs/self-check.md 追加 W2 自检**
 
 按该文件既有格式追加一节：本轮范围（NodeType/Validator/Executor/集成测试/Postman）、四个拍板决策（失败不降级、text+count、仅运行时校验存在性、executor 自己拼）、测试结果（三层各多少条、mvn verify 退出码）、DoD 待办（用户 Postman 实测两条路径）。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/postman/workflow-w2.postman_collection.json docs/self-check.md
