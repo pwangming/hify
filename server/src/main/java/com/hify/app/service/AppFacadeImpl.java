@@ -3,6 +3,7 @@ package com.hify.app.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.hify.app.api.AppFacade;
 import com.hify.app.api.AppRuntimeView;
+import com.hify.app.api.WorkflowAppView;
 import com.hify.app.constant.AppStatus;
 import com.hify.app.constant.AppType;
 import com.hify.app.entity.App;
@@ -45,5 +46,18 @@ public class AppFacadeImpl implements AppFacade {
                         .eq(AppDatasetRel::getAppId, app.getId()).orderByAsc(AppDatasetRel::getId))
                 .stream().map(AppDatasetRel::getDatasetId).toList();
         return Optional.of(new AppRuntimeView(app.getId(), app.getModelId(), systemPrompt, datasetIds));
+    }
+
+    @Override
+    public Optional<WorkflowAppView> findWorkflowApp(Long appId) {
+        if (appId == null) {
+            return Optional.empty();
+        }
+        App app = appMapper.selectById(appId);
+        if (app == null || !AppType.WORKFLOW.value().equals(app.getType())) {
+            return Optional.empty();
+        }
+        return Optional.of(new WorkflowAppView(app.getId(), app.getOwnerId(),
+                AppStatus.ENABLED.value().equals(app.getStatus())));
     }
 }

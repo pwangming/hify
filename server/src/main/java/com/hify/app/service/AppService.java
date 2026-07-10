@@ -51,7 +51,7 @@ public class AppService {
 
     @Transactional
     public AppResponse create(CreateAppRequest req, CurrentUser current) {
-        if (!AppType.CHAT.value().equals(req.type())) {
+        if (!AppType.CHAT.value().equals(req.type()) && !AppType.WORKFLOW.value().equals(req.type())) {
             throw new BizException(AppError.APP_TYPE_NOT_SUPPORTED);
         }
         assertModelUsableIfPresent(req.modelId());

@@ -82,11 +82,11 @@ class AppServiceTest {
     }
 
     @Test
-    void 创建_工作流型_拒绝16001() {
+    void 创建_工作流型_放行() {
         CreateAppRequest wf = new CreateAppRequest("流程", null, "workflow", null, null, List.of());
-        BizException ex = assertThrows(BizException.class, () -> service.create(wf, member));
-        assertEquals(AppError.APP_TYPE_NOT_SUPPORTED, ex.errorCode());
-        verify(mapper, never()).insert(any(App.class));
+        AppResponse resp = service.create(wf, member);
+        assertEquals("workflow", resp.type());
+        verify(mapper).insert(any(App.class));
     }
 
     @Test

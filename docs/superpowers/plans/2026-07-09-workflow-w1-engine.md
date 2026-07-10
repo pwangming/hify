@@ -305,7 +305,7 @@ W1 没有这个解锁，验收连 workflow 应用都建不出来。错误码 160
 - Consumes: 既有 `AppMapper`（MP BaseMapper）、`AppType.WORKFLOW.value()`、`AppStatus.ENABLED.value()`。
 - Produces: `Optional<WorkflowAppView> findWorkflowApp(Long appId)`；`WorkflowAppView(Long appId, Long ownerId, boolean enabled)`。Task 9/10 消费。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.hify.app.service;
@@ -377,12 +377,12 @@ class AppFacadeWorkflowViewTest {
 }
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `mvn -f server/pom.xml test -Dtest=AppFacadeWorkflowViewTest`
 Expected: 编译错误（`WorkflowAppView` / `findWorkflowApp` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 新建 `server/src/main/java/com/hify/app/api/WorkflowAppView.java`：
 
@@ -425,12 +425,12 @@ public record WorkflowAppView(Long appId, Long ownerId, boolean enabled) {
     }
 ```
 
-- [ ] **Step 4: 运行确认通过**
+- [x] **Step 4: 运行确认通过**
 
 Run: `mvn -f server/pom.xml test -Dtest=AppFacadeWorkflowViewTest`
 Expected: PASS（Tests run: 4）
 
-- [ ] **Step 5: 写失败测试（解锁 workflow 创建）**
+- [x] **Step 5: 写失败测试（解锁 workflow 创建）**
 
 ```java
 package com.hify.app.service;
@@ -485,12 +485,12 @@ class AppServiceCreateWorkflowTest {
 
 > 若 `AppResponse` 的 type 访问器不叫 `type()`，以实际 record 组件名为准微调断言（不改生产代码）。
 
-- [ ] **Step 6: 运行确认失败**
+- [x] **Step 6: 运行确认失败**
 
 Run: `mvn -f server/pom.xml test -Dtest=AppServiceCreateWorkflowTest`
 Expected: FAIL——`创建workflow应用_放行并落库` 抛 16001（守卫还在）
 
-- [ ] **Step 7: 解锁实现**
+- [x] **Step 7: 解锁实现**
 
 `AppService.java` create 里的守卫改为（原来只认 CHAT）：
 
@@ -510,12 +510,12 @@ Expected: FAIL——`创建workflow应用_放行并落库` 抛 16001（守卫还
 `CreateAppRequest.java` javadoc 中「type 本轮仅 'chat' 放行（service 判，workflow→16001）」改为
 「type 支持 'chat' / 'workflow'（W1 起）；其余值 service 判 16001」。
 
-- [ ] **Step 8: 运行确认通过（含既有 AppServiceTest 无回归）**
+- [x] **Step 8: 运行确认通过（含既有 AppServiceTest 无回归）**
 
 Run: `mvn -f server/pom.xml test -Dtest='AppServiceCreateWorkflowTest,AppServiceTest,AppFacadeWorkflowViewTest'`
 Expected: PASS。若 `AppServiceTest` 里有断言「workflow 被拒」的旧用例，按新行为改该断言（16001 现在只拦 bogus 类型）。
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/app server/src/test/java/com/hify/app
