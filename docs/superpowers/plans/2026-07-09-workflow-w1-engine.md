@@ -3698,7 +3698,7 @@ git commit -m "feat(workflow): 同步触发/详情/游标历史三接口 + Workf
 - Modify: `docs/architecture/api-standards.md`（§2.1 补单例子资源条款，spec 拍板 #6 的入档义务）
 - Modify: `docs/self-check.md`（追加本轮自检，记忆 self-check-per-step）
 
-- [ ] **Step 1: 写全链路集成测试（真库 + mock LLM 边界）**
+- [x] **Step 1: 写全链路集成测试（真库 + mock LLM 边界）**
 
 ```java
 package com.hify.workflow;
@@ -3831,7 +3831,7 @@ class WorkflowRunFlowTest extends PgIntegrationTest {
 }
 ```
 
-- [ ] **Step 2: 运行确认通过（新测试 + 全量回归）**
+- [x] **Step 2: 运行确认通过（新测试 + 全量回归）**
 
 Run: `mvn -f server/pom.xml test -Dtest=WorkflowRunFlowTest`
 Expected: PASS（Tests run: 3）
@@ -3840,7 +3840,7 @@ Run: `mvn -f server/pom.xml verify`
 Expected: BUILD SUCCESS，且 ModularityTests / LayerRulesTest 全绿（workflow 依赖不越白名单、DTO 不 import entity）。
 任何失败先修再进下一步。
 
-- [ ] **Step 3: api-standards.md 补单例子资源条款**
+- [x] **Step 3: api-standards.md 补单例子资源条款**
 
 在 §2.1 URL 规则的列表末尾（`- 查询/过滤/分页一律 query 参数…` 之后）追加：
 
@@ -3850,7 +3850,7 @@ Expected: BUILD SUCCESS，且 ModularityTests / LayerRulesTest 全绿（workflow
   不提供集合形态与独立 id。（W1 拍板，2026-07-09）
 ```
 
-- [ ] **Step 4: docs/self-check.md 追加本轮自检**
+- [x] **Step 4: docs/self-check.md 追加本轮自检**
 
 按文件既有格式追加一节「Workflow W1」，内容覆盖：五条 DoD 验证命令与结果、三张表与分区确认、
 ModularityTests 结果、遗留事项（若有）。
@@ -3909,7 +3909,7 @@ curl -s -X PUT "http://localhost:8080/api/v1/workflow/apps/$APP_ID/draft" \
 
 另核对：登录日志里 ZombieRunResetter/WorkflowPartitionMaintainer 的启动日志各出现一次。
 
-- [ ] **Step 6: 最终 Commit**
+- [x] **Step 6: 最终 Commit**
 
 ```bash
 git add server/src/test/java/com/hify/workflow/WorkflowRunFlowTest.java docs/architecture/api-standards.md docs/self-check.md

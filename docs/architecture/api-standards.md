@@ -34,6 +34,9 @@
 - 无法映射为 CRUD 的动作，用**子资源 POST**：`POST /apps/{id}/publish`、`POST /workflow/runs/{id}/stop`、
   `POST /datasets/{id}/retrieve`（检索测试）。动作名用动词原形，一个接口一个动作。
 - 查询/过滤/分页一律 query 参数：`GET /api/v1/app/apps?type=chat&keyword=客服&page=1&size=20`。
+- **单例子资源**：父资源下至多一个实例的从属资源（如每个工作流应用仅一份画布草稿），
+  允许单数名词路径：`GET/PUT /api/v1/workflow/apps/{appId}/draft`。GET 读、PUT 全量写，
+  不提供集合形态与独立 id。（W1 拍板，2026-07-09）
 
 ### 2.2 方法语义
 

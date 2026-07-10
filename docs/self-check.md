@@ -821,3 +821,11 @@ mvn -f server/pom.xml test
 - `cd web && pnpm vitest run` → 全绿，`web/e2e/**` 未被 vitest 扫到（include 只匹配 `src/**/__tests__/**`）。
 
 **留账（本轮不做，已在 testing-standards.md §5.6 声明）**：CI/GitHub Actions 集成；负样本路径（问无关问题→无引用/降级）；workflow/agent 等其它旅程；跨浏览器矩阵；视觉回归/截图比对。
+
+## 2026-07-10 Workflow W1 引擎闭环
+
+- DoD 验证：`mvn -f server/pom.xml test -Dtest=WorkflowRunFlowTest` → `Tests run: 3, Failures: 0, Errors: 0`，`BUILD SUCCESS`；覆盖建 workflow app、保存草稿、同步触发、run/node_run 三节点日志、历史与详情查询。
+- 全量回归：`mvn -f server/pom.xml verify` → `Tests run: 514, Failures: 0, Errors: 0`，`BUILD SUCCESS`；已包含 `ModularityTests` 与 `LayerRulesTest`。
+- Schema 验证：`WorkflowSchemaTest` 真库确认 `workflow_def`、`workflow_run`、`workflow_node_run` 三表，`workflow_node_run` 月分区、必需索引、jsonb/check/外键与 autovacuum 参数。
+- 事务与 IO：`WorkflowEngine` 在事务外顺序驱动节点；`WorkflowRunStore` 只做短事务落库；LLM 调用集中在 `LlmNodeExecutor`，不进入 `@Transactional` 方法。
+- 收尾留账：Task 11 Step 5 的真实环境 curl 手动验收未由 Codex 执行，按计划留给人工；全量回归曾暴露既有 `DocumentProcessStore` 使用 MyBatis-Plus 静态 `Db.saveBatch` 在多 Spring 测试上下文下可能拿错 SqlSessionFactory，已改为注入的 `KbChunkMapper` 在当前事务内写入。

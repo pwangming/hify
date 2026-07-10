@@ -1,6 +1,5 @@
 package com.hify.knowledge.service;
 
-import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.hify.knowledge.entity.KbChunk;
 import com.hify.knowledge.entity.KbDocument;
 import com.hify.knowledge.mapper.KbChunkMapper;
@@ -18,8 +17,6 @@ import java.util.List;
  */
 @Service
 public class DocumentProcessStore {
-
-    private static final int BATCH_SIZE = 1000;
 
     private final KbDocumentMapper documentMapper;
     private final KbChunkMapper chunkMapper;
@@ -40,7 +37,9 @@ public class DocumentProcessStore {
             chunk.setContent(pieces.get(i));
             chunks.add(chunk);
         }
-        Db.saveBatch(chunks, BATCH_SIZE);
+        for (KbChunk chunk : chunks) {
+            chunkMapper.insert(chunk);
+        }
         KbDocument patch = new KbDocument();
         patch.setId(doc.getId());
         patch.setChunkCount(pieces.size());
