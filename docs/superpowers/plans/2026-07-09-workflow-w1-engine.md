@@ -2593,7 +2593,7 @@ git commit -m "feat(workflow): WorkflowEngine 顺序驱动（start/end 内建、
 - Consumes: Task 2 的 `AppFacade.findWorkflowApp/WorkflowAppView`、Task 4 的 `GraphValidator`、Task 3 的 `WorkflowDefMapper/GraphDef`。
 - Produces: 见总览契约 Task 9 行；路由 `GET/PUT /api/v1/workflow/apps/{appId}/draft`（spec 拍板 #6 单例子资源）。
 
-- [ ] **Step 1: 写失败测试（service）**
+- [x] **Step 1: 写失败测试（service）**
 
 ```java
 package com.hify.workflow.service;
@@ -2721,12 +2721,12 @@ class WorkflowDraftServiceTest {
 }
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `mvn -f server/pom.xml test -Dtest=WorkflowDraftServiceTest`
 Expected: 编译错误（WorkflowDraftService/DraftResponse/upsertDraft 不存在）
 
-- [ ] **Step 3: 实现 Mapper upsert + DTO + Service**
+- [x] **Step 3: 实现 Mapper upsert + DTO + Service**
 
 `WorkflowDefMapper.java` 加（import `org.apache.ibatis.annotations.Insert`/`Param`）：
 
@@ -2843,7 +2843,7 @@ public class WorkflowDraftService {
 }
 ```
 
-- [ ] **Step 4: 实现 Controller（draft 部分）**
+- [x] **Step 4: 实现 Controller（draft 部分）**
 
 `controller/WorkflowController.java`：
 
@@ -2891,7 +2891,7 @@ public class WorkflowController {
 }
 ```
 
-- [ ] **Step 5: 写 Controller 测试（照抄 DatasetControllerTest 的 @WebMvcTest 模式）**
+- [x] **Step 5: 写 Controller 测试（照抄 DatasetControllerTest 的 @WebMvcTest 模式）**
 
 ```java
 package com.hify.workflow.controller;
@@ -3008,12 +3008,12 @@ class WorkflowControllerDraftTest {
 }
 ```
 
-- [ ] **Step 6: 运行确认通过**
+- [x] **Step 6: 运行确认通过**
 
 Run: `mvn -f server/pom.xml test -Dtest='WorkflowDraftServiceTest,WorkflowControllerDraftTest'`
 Expected: PASS（Tests run: 12）
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/workflow server/src/test/java/com/hify/workflow
