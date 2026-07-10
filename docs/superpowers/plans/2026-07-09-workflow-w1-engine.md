@@ -3855,7 +3855,7 @@ Expected: BUILD SUCCESS，且 ModularityTests / LayerRulesTest 全绿（workflow
 按文件既有格式追加一节「Workflow W1」，内容覆盖：五条 DoD 验证命令与结果、三张表与分区确认、
 ModularityTests 结果、遗留事项（若有）。
 
-- [ ] **Step 5: 手动验收（DoD，真实环境）**
+- [x] **Step 5: 手动验收（DoD，真实环境）**（2026-07-10 用户以 `docs/postman/workflow-w1.postman_collection.json` 实测通过：黄金链路 + 图非法 18001 + 缺输入 10001 + 模型不可用 200/failed）
 
 前提：本地 postgres 与 server 已起（dev 常规方式），库里已有可用 chat 模型（provider 轮配好的，记其 id 为 `<MODEL_ID>`；admin 账号已存在——记忆 admin-account-seeded）。依次执行并核对：
 

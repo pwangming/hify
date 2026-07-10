@@ -836,4 +836,5 @@ mvn -f server/pom.xml test
 - 修缮 1（拍板：换批量写法）：Codex 为修多上下文测试把 chunk 批量写从 `Db.saveBatch` 降级为逐条 insert，与 database-standards §2.1 冲突且生产性能回退。改为 `KbChunkMapper.insertBatch` **多值 insert**（foreach 拼 values，每批 ≤ 1000），留在调用方 Spring 事务内；不能用 BATCH 执行器会话——同事务内与 SIMPLE 执行器互斥（mybatis-spring 抛 Cannot change the ExecutorType）。规范 §2.1 已同步改为多值 insert 并注明禁用静态 `Db.saveBatch` 的原因；`DocumentProcessJobTest` 清掉失效的 `mockStatic(Db)` 脚手架。新增 1001 段跨批测试。
 - 修缮 2（拍板：现在修）：`WorkflowRunService.run` 给 `engine.execute` 加兜底 try-catch——落库等非预期异常时先 `markRunFailed("系统异常，执行中断")` 再上抛，否则 run 永久卡 running（僵尸自愈只在重启跑）。顺带补可观测性：LLM 调用失败经 `NodeExecutionException` 携带渲染后 inputs 落 `node_run.inputs`（排障能看到实际发出的提示词），失败文案取真实 cause。
 - 复审全量回归：`mvn -f server/pom.xml verify` → `Tests run: 517, Failures: 0, Errors: 0`，`BUILD SUCCESS`（514 + 新增 3）。
-- 留给画布轮的备忘：`GraphNode`/`GraphEdge` record 无 `position`/`sourceHandle` 字段，graph 经 Java 往返会丢未知字段——**前端接画布前必须先加这些字段**，否则画布坐标被静默丢弃。真实环境手动 curl 验收（DoD Step 5）仍待人工执行。
+- 留给画布轮的备忘：`GraphNode`/`GraphEdge` record 无 `position`/`sourceHandle` 字段，graph 经 Java 往返会丢未知字段——**前端接画布前必须先加这些字段**，否则画布坐标被静默丢弃。
+- 手动验收（DoD Step 5）：2026-07-10 用户用 `docs/postman/workflow-w1.postman_collection.json` 真实环境实测通过——黄金链路（建应用→存草稿→触发 succeeded→详情/游标历史）+ 三条失败路径（图非法 18001、缺必填输入 10001、模型不可用 HTTP 200 但 run=failed）。**W1 全部 DoD 闭环。**
