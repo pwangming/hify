@@ -1,7 +1,7 @@
 {
 	"info": {
 		"name": "Hify · Workflow W3b HTTP 节点",
-		"description": "【验收前必须重启 hify-server——旧进程不会加载新代码】\n\nW3b 手动验收：建 workflow 应用 → 保存 start → http → condition → llm_ok/llm_fb → end 的 HTTP 分流草稿 → 换触发输入 targetUrl 覆盖公网成功、404 分流、SSRF 拦截和脱敏详情。\n\n【使用前】\n1. 服务已启动，provider 里至少有一个可用 chat 模型。\n2. Collection Variables 设置 baseUrl、username、password。\n3. 按编号顺序跑 0→7。\n\n【变量碰撞说明】Postman 的 {{modelId}} 是集合变量；工作流里的 {{start.targetUrl}}、{{http_1.status}}、{{http_1.body}}、{{llm_ok.text}}、{{llm_fb.text}} 不在变量表里，Postman 会原样透传给服务端。不要在 Postman 里定义这些同名变量。\n\n【验收断言】公网成功：httpbin.org/json → run.succeeded，http_1 status=200，llm_fb skipped。404 分流：https://httpbin.org/status/404 → run.succeeded，http_1 节点 succeeded 且 outputs.status=404，llm_ok skipped。SSRF 拦截：127.0.0.1 → HTTP 200 但 run.failed，errorMessage 含“禁止访问”，http_1.inputs.headers.Authorization 为 ***。\n\nhttpbin.org 需外网可达；不可达时把请求 4/5 的 targetUrl 换成任何公网 JSON/404 接口。",
+		"description": "【验收前必须重启 hify-server——旧进程不会加载新代码】\n\nW3b 手动验收：建 workflow 应用 → 保存 start → http → condition → llm_ok/llm_fb → end 的 HTTP 分流草稿 → 换触发输入 targetUrl 覆盖公网成功、404 分流、SSRF 拦截和脱敏详情。\n\n【使用前】\n1. 服务已启动，provider 里至少有一个可用 chat 模型。\n2. Collection Variables 设置 baseUrl、username、password。\n3. 按编号顺序跑 0→7。\n\n【变量碰撞说明】Postman 的 {{modelId}} 是集合变量；工作流里的 {{start.targetUrl}}、{{http_1.status}}、{{http_1.body}}、{{llm_ok.text}}、{{llm_fb.text}} 不在变量表里，Postman 会原样透传给服务端。不要在 Postman 里定义这些同名变量。\n\n【验收断言】公网成功：jsonplaceholder.typicode.com/json → run.succeeded，http_1 status=200，llm_fb skipped。404 分流：https://jsonplaceholder.typicode.com/status/404 → run.succeeded，http_1 节点 succeeded 且 outputs.status=404，llm_ok skipped。SSRF 拦截：127.0.0.1 → HTTP 200 但 run.failed，errorMessage 含“禁止访问”，http_1.inputs.headers.Authorization 为 ***。\n\njsonplaceholder.typicode.com 需外网可达；不可达时把请求 4/5 的 targetUrl 换成任何公网 JSON/404 接口。\n\n【2026-07-11 换目标站】httpbin.org 长期过载整站 503（验收实测），成功/404 路径改用 jsonplaceholder.typicode.com；不可达时换任何公网 JSON 接口（URL 是触发输入，草稿不用改）。",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -260,7 +260,7 @@
 				},
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"inputs\": {\n    \"targetUrl\": \"https://httpbin.org/json\"\n  }\n}"
+					"raw": "{\n  \"inputs\": {\n    \"targetUrl\": \"https://jsonplaceholder.typicode.com/todos/1\"\n  }\n}"
 				}
 			}
 		},
@@ -309,7 +309,7 @@
 				},
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"inputs\": {\n    \"targetUrl\": \"https://httpbin.org/status/404\"\n  }\n}"
+					"raw": "{\n  \"inputs\": {\n    \"targetUrl\": \"https://jsonplaceholder.typicode.com/todos/999999\"\n  }\n}"
 				}
 			}
 		},
