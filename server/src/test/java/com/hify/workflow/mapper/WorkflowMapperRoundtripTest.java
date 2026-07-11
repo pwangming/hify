@@ -15,6 +15,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /** 三实体经 MP + TypeHandler 的真库读写往返：graph/inputs/outputs jsonb 不失真；分区表插入能回填自增 id。 */
 class WorkflowMapperRoundtripTest extends PgIntegrationTest {
@@ -45,6 +46,24 @@ class WorkflowMapperRoundtripTest extends PgIntegrationTest {
         assertEquals("llm", loaded.nodes().get(1).type());
         assertEquals("{{start.query}}", loaded.nodes().get(1).data().get("userPrompt"));
         assertEquals("end", loaded.edges().get(1).target());
+    }
+
+    @Test
+    void position与sourceHandle_jsonb往返不丢() {
+        GraphDef graph = new GraphDef(
+                List.of(new GraphNode("start", "start", Map.of(), Map.of("x", 100, "y", 200)),
+                        new GraphNode("end", "end", Map.of(), null)),
+                List.of(new GraphEdge("start", "end", "true")));
+        WorkflowDef def = new WorkflowDef();
+        def.setAppId(1L);
+        def.setVersion(1);
+        def.setGraph(graph);
+        defMapper.insert(def);
+
+        GraphDef loaded = defMapper.selectById(def.getId()).getGraph();
+        assertEquals(100, ((Number) loaded.nodes().get(0).position().get("x")).intValue());
+        assertNull(loaded.nodes().get(1).position());
+        assertEquals("true", loaded.edges().get(0).sourceHandle());
     }
 
     @Test
