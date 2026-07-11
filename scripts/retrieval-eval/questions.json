@@ -1,0 +1,34 @@
+{
+  "shouldHit": [
+    { "query": "入职满三年年假有几天？", "expectedDoc": "attendance-leave.md" },
+    { "query": "迟到会有什么处理？", "expectedDoc": "attendance-leave.md" },
+    { "query": "生病请假需要提交什么证明材料？", "expectedDoc": "attendance-leave.md" },
+    { "query": "加班之后想换成休息时间，怎么操作？", "expectedDoc": "attendance-leave.md" },
+    { "query": "出差住宿一晚最多能报销多少钱？", "expectedDoc": "travel-expense.md" },
+    { "query": "出差申请要提前几天提交？", "expectedDoc": "travel-expense.md" },
+    { "query": "坐高铁可以选一等座吗？", "expectedDoc": "travel-expense.md" },
+    { "query": "报销的钱大概什么时候能到账？", "expectedDoc": "travel-expense.md" },
+    { "query": "办公室 Wi-Fi 的名称是什么？", "expectedDoc": "network-vpn.md" },
+    { "query": "公司 VPN 用的是哪个客户端软件？", "expectedDoc": "network-vpn.md" },
+    { "query": "在家想访问公司内网的代码仓库要怎么弄？", "expectedDoc": "network-vpn.md" },
+    { "query": "网络连不上应该先做哪些排查？", "expectedDoc": "network-vpn.md" },
+    { "query": "买的东西不喜欢，多少天内可以退货？", "expectedDoc": "product-return.md" },
+    { "query": "产品的保修期是多久？", "expectedDoc": "product-return.md" },
+    { "query": "退款多长时间能退回到账户？", "expectedDoc": "product-return.md" },
+    { "query": "哪些情况下不能退货？", "expectedDoc": "product-return.md" }
+  ],
+  "shouldMiss": [
+    { "query": "今天天气怎么样？" },
+    { "query": "1 加 1 等于几？" },
+    { "query": "特斯拉今天的股价是多少？" },
+    { "query": "给我讲个笑话吧" },
+    { "query": "量子纠缠是什么原理？" },
+    { "query": "珠穆朗玛峰有多高？" },
+    { "query": "上届世界杯是哪个队夺冠的？" },
+    { "query": "红烧肉怎么做才好吃？" },
+    { "query": "明天会下雨吗？" },
+    { "query": "推荐一部好看的科幻电影" },
+    { "query": "太阳系一共有几颗行星？" },
+    { "query": "唐朝是哪一年建立的？" }
+  ]
+}
