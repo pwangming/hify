@@ -49,6 +49,8 @@ class WorkflowRunFlowTest extends PgIntegrationTest {
     private LlmCaller llmCaller;
     @MockitoBean
     private com.hify.knowledge.api.KnowledgeFacade knowledgeFacade;
+    @MockitoBean
+    private com.hify.infra.outbound.OutboundHttpClient outboundHttpClient;
 
     private Long appId;
     private final CurrentUser owner = new CurrentUser(7L, "bob", CurrentUser.ROLE_MEMBER);
@@ -236,5 +238,62 @@ class WorkflowRunFlowTest extends PgIntegrationTest {
         // 条件节点 inputs 落了实际比较值（排障可用性）
         var ifRun = resp.nodeRuns().stream().filter(n -> "if_1".equals(n.nodeId())).findFirst().orElseThrow();
         assertEquals("0", ifRun.inputs().get("left"));
+    }
+
+    /** W3b：start → http → if(status==200) → llm_ok / llm_fb → end 的分流图。 */
+    private GraphDef httpBranchGraph() {
+        return new GraphDef(List.of(
+                new GraphNode("start", "start", Map.of("inputs", List.of(Map.of("name", "uid", "required", true)))),
+                new GraphNode("http_1", "http", Map.of("method", "GET",
+                        "url", "https://api.example.com/u/{{start.uid}}")),
+                new GraphNode("if_1", "condition", Map.of("left", "{{http_1.status}}", "operator", "==", "right", "200")),
+                new GraphNode("llm_ok", "llm", Map.of("modelId", "3", "userPrompt", "总结用户信息：{{http_1.body}}")),
+                new GraphNode("llm_fb", "llm", Map.of("modelId", "3", "userPrompt", "接口异常（{{http_1.status}}），礼貌致歉")),
+                new GraphNode("end", "end", Map.of("outputs", List.of(
+                        Map.of("name", "answer", "value", "{{llm_ok.text}}{{llm_fb.text}}"))))),
+                List.of(new GraphEdge("start", "http_1"), new GraphEdge("http_1", "if_1"),
+                        new GraphEdge("if_1", "llm_ok", "true"),
+                        new GraphEdge("if_1", "llm_fb", "false"),
+                        new GraphEdge("llm_ok", "end"), new GraphEdge("llm_fb", "end")));
+    }
+
+    @Test
+    void HTTP两百_body注入下游_走成功路() {
+        when(outboundHttpClient.send(eq("GET"), eq("https://api.example.com/u/u1"), any(), any()))
+                .thenReturn(new com.hify.infra.outbound.OutboundResponse(
+                        200, "{\"name\":\"张三\"}", Map.of()));
+        when(llmCaller.call(any(), any(), eq("总结用户信息：{\"name\":\"张三\"}")))
+                .thenReturn(new LlmCallResult("用户是张三", 10, 5));
+
+        draftService.saveDraft(appId, httpBranchGraph(), owner);
+        RunResponse resp = runService.run(appId, Map.of("uid", "u1"), owner);
+
+        assertEquals("succeeded", resp.status());
+        assertEquals("用户是张三", resp.outputs().get("answer"));
+        var byId = resp.nodeRuns().stream()
+                .collect(java.util.stream.Collectors.toMap(n -> n.nodeId(), n -> n.status()));
+        assertEquals("succeeded", byId.get("llm_ok"));
+        assertEquals("skipped", byId.get("llm_fb"));
+    }
+
+    @Test
+    void HTTP五百_status分流走兜底路_节点不失败() {
+        when(outboundHttpClient.send(eq("GET"), any(), any(), any()))
+                .thenReturn(new com.hify.infra.outbound.OutboundResponse(500, "boom", Map.of()));
+        when(llmCaller.call(any(), any(), eq("接口异常（500），礼貌致歉")))
+                .thenReturn(new LlmCallResult("抱歉，服务暂时不可用", 8, 4));
+
+        draftService.saveDraft(appId, httpBranchGraph(), owner);
+        RunResponse resp = runService.run(appId, Map.of("uid", "u1"), owner);
+
+        assertEquals("succeeded", resp.status());   // 非 2xx 不是失败（spec 拍板）
+        assertEquals("抱歉，服务暂时不可用", resp.outputs().get("answer"));
+        var byId = resp.nodeRuns().stream()
+                .collect(java.util.stream.Collectors.toMap(n -> n.nodeId(), n -> n.status()));
+        assertEquals("succeeded", byId.get("http_1"));   // http 节点本身成功
+        assertEquals("skipped", byId.get("llm_ok"));
+        // http 节点 outputs 落库如实
+        var httpRun = resp.nodeRuns().stream().filter(n -> "http_1".equals(n.nodeId())).findFirst().orElseThrow();
+        assertEquals(500, ((Number) httpRun.outputs().get("status")).intValue());
     }
 }
