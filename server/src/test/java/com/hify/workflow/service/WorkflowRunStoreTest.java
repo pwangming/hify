@@ -49,6 +49,21 @@ class WorkflowRunStoreTest extends PgIntegrationTest {
     }
 
     @Test
+    void createSkippedNodeRun_落库status为skipped_无输入输出_耗时0() {
+        WorkflowRun run = store.createRun(1L, 1L, 7L, Map.of());
+
+        store.createSkippedNodeRun(run.getId(), "llm_b", "llm");
+
+        var rows = store.listNodeRuns(run.getId());
+        assertEquals(1, rows.size());
+        assertEquals("skipped", rows.get(0).getStatus());
+        assertEquals("llm_b", rows.get(0).getNodeId());
+        assertNull(rows.get(0).getInputs());
+        assertNull(rows.get(0).getOutputs());
+        assertEquals(0L, rows.get(0).getElapsedMs());
+    }
+
+    @Test
     void run终态_成功带outputs_失败带原因() {
         WorkflowRun ok = store.createRun(42L, 1L, 7L, Map.of());
         store.markRunSucceeded(ok.getId(), Map.of("answer", "退款类"), 800L);

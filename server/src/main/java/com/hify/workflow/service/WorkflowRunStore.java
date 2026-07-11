@@ -83,6 +83,18 @@ public class WorkflowRunStore {
         nodeRunMapper.updateById(patch);
     }
 
+    /** 未选中分支上的节点：直接落终态 skipped（spec §3），无输入输出、耗时 0。 */
+    @Transactional
+    public void createSkippedNodeRun(Long runId, String nodeId, String nodeType) {
+        WorkflowNodeRun nodeRun = new WorkflowNodeRun();
+        nodeRun.setRunId(runId);
+        nodeRun.setNodeId(nodeId);
+        nodeRun.setNodeType(nodeType);
+        nodeRun.setStatus(RunStatus.SKIPPED.value());
+        nodeRun.setElapsedMs(0L);
+        nodeRunMapper.insert(nodeRun);
+    }
+
     /** 启动自愈：遗留 running 全部置 failed。返回重置总条数（run + node_run）。 */
     @Transactional
     public int resetZombies() {

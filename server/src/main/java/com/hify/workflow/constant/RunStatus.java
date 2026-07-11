@@ -4,7 +4,8 @@ package com.hify.workflow.constant;
 public enum RunStatus {
     RUNNING("running"),
     SUCCEEDED("succeeded"),
-    FAILED("failed");
+    FAILED("failed"),
+    SKIPPED("skipped");
 
     private final String value;
 
