@@ -32,7 +32,7 @@
 **Interfaces:**
 - Produces: `OutboundProperties`（getConnectTimeoutMs/getReadTimeoutMs/getMaxResponseBytes，int）；`SsrfValidator.validate(String host)`——命中禁区抛 `BizException(PARAM_INVALID)`，解析失败抛 `BizException(PARAM_INVALID)`；包级构造 `SsrfValidator(Function<String, InetAddress[]> resolver)` 供测试注入假解析。Task 2 消费。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 新建 `SsrfValidatorTest.java`：
 
@@ -115,14 +115,14 @@ class SsrfValidatorTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd server && mvn -Dtest=SsrfValidatorTest test
 ```
 Expected: 编译失败「找不到符号 SsrfValidator」。退出码非 0。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 新建 `OutboundProperties.java`：
 
@@ -230,14 +230,14 @@ public class SsrfValidator {
       max-response-bytes: ${HIFY_OUTBOUND_HTTP_MAX_RESPONSE_BYTES:65536}
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 cd server && mvn -Dtest=SsrfValidatorTest test
 ```
 Expected: 8 条全绿，退出码 0。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/infra/outbound/OutboundProperties.java \
