@@ -1,0 +1,398 @@
+{
+	"info": {
+		"name": "Hify · Workflow W3b HTTP 节点",
+		"description": "【验收前必须重启 hify-server——旧进程不会加载新代码】\n\nW3b 手动验收：建 workflow 应用 → 保存 start → http → condition → llm_ok/llm_fb → end 的 HTTP 分流草稿 → 换触发输入 targetUrl 覆盖公网成功、404 分流、SSRF 拦截和脱敏详情。\n\n【使用前】\n1. 服务已启动，provider 里至少有一个可用 chat 模型。\n2. Collection Variables 设置 baseUrl、username、password。\n3. 按编号顺序跑 0→7。\n\n【变量碰撞说明】Postman 的 {{modelId}} 是集合变量；工作流里的 {{start.targetUrl}}、{{http_1.status}}、{{http_1.body}}、{{llm_ok.text}}、{{llm_fb.text}} 不在变量表里，Postman 会原样透传给服务端。不要在 Postman 里定义这些同名变量。\n\n【验收断言】公网成功：httpbin.org/json → run.succeeded，http_1 status=200，llm_fb skipped。404 分流：https://httpbin.org/status/404 → run.succeeded，http_1 节点 succeeded 且 outputs.status=404，llm_ok skipped。SSRF 拦截：127.0.0.1 → HTTP 200 但 run.failed，errorMessage 含“禁止访问”，http_1.inputs.headers.Authorization 为 ***。\n\nhttpbin.org 需外网可达；不可达时把请求 4/5 的 targetUrl 换成任何公网 JSON/404 接口。",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080"
+		},
+		{
+			"key": "token",
+			"value": ""
+		},
+		{
+			"key": "username",
+			"value": ""
+		},
+		{
+			"key": "password",
+			"value": ""
+		},
+		{
+			"key": "modelId",
+			"value": ""
+		},
+		{
+			"key": "appId",
+			"value": ""
+		},
+		{
+			"key": "runId",
+			"value": ""
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "0. 登录",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+							"const json = pm.response.json();",
+							"pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+							"pm.collectionVariables.set('token', json.data.token);"
+						]
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/identity/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"identity",
+						"login"
+					]
+				},
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+				}
+			}
+		},
+		{
+			"name": "1. 查可用 chat 模型",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+							"const json = pm.response.json();",
+							"pm.test('至少一个可用模型', () => pm.expect(json.data).to.be.an('array').and.not.empty);",
+							"pm.collectionVariables.set('modelId', json.data[0].id);",
+							"console.log('modelId =', json.data[0].id, json.data[0].name);"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/provider/models?type=chat",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"provider",
+						"models"
+					],
+					"query": [
+						{
+							"key": "type",
+							"value": "chat"
+						}
+					]
+				}
+			}
+		},
+		{
+			"name": "2. 创建 workflow 应用",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+							"const json = pm.response.json();",
+							"pm.test('type=workflow', () => pm.expect(json.data.type).to.eql('workflow'));",
+							"pm.collectionVariables.set('appId', json.data.id);"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/app/apps",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"app",
+						"apps"
+					]
+				},
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"W3b验收-HTTP节点-{{$timestamp}}\",\n  \"type\": \"workflow\"\n}"
+				}
+			}
+		},
+		{
+			"name": "3. 保存 HTTP 分流草稿",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+							"const json = pm.response.json();",
+							"pm.test('返回 6 节点 graph', () => pm.expect(json.data.graph.nodes).to.have.lengthOf(6));",
+							"pm.test('包含 http 节点', () => pm.expect(json.data.graph.nodes.some(n => n.type === 'http')).to.eql(true));"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/draft",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"workflow",
+						"apps",
+						"{{appId}}",
+						"draft"
+					]
+				},
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"graph\": {\n    \"nodes\": [\n      {\n        \"id\": \"start\",\n        \"type\": \"start\",\n        \"data\": {\n          \"inputs\": [\n            {\n              \"name\": \"targetUrl\",\n              \"required\": true\n            }\n          ]\n        }\n      },\n      {\n        \"id\": \"http_1\",\n        \"type\": \"http\",\n        \"data\": {\n          \"method\": \"GET\",\n          \"url\": \"{{start.targetUrl}}\",\n          \"headers\": {\n            \"Authorization\": \"Bearer test-token-for-masking\"\n          }\n        }\n      },\n      {\n        \"id\": \"if_1\",\n        \"type\": \"condition\",\n        \"data\": {\n          \"left\": \"{{http_1.status}}\",\n          \"operator\": \"==\",\n          \"right\": \"200\"\n        }\n      },\n      {\n        \"id\": \"llm_ok\",\n        \"type\": \"llm\",\n        \"data\": {\n          \"modelId\": \"{{modelId}}\",\n          \"userPrompt\": \"用一句话总结这段 JSON 的内容：{{http_1.body}}\"\n        }\n      },\n      {\n        \"id\": \"llm_fb\",\n        \"type\": \"llm\",\n        \"data\": {\n          \"modelId\": \"{{modelId}}\",\n          \"userPrompt\": \"接口返回了异常状态码 {{http_1.status}}，请礼貌地告知用户稍后再试\"\n        }\n      },\n      {\n        \"id\": \"end\",\n        \"type\": \"end\",\n        \"data\": {\n          \"outputs\": [\n            {\n              \"name\": \"answer\",\n              \"value\": \"{{llm_ok.text}}{{llm_fb.text}}\"\n            }\n          ]\n        }\n      }\n    ],\n    \"edges\": [\n      {\n        \"source\": \"start\",\n        \"target\": \"http_1\"\n      },\n      {\n        \"source\": \"http_1\",\n        \"target\": \"if_1\"\n      },\n      {\n        \"source\": \"if_1\",\n        \"target\": \"llm_ok\",\n        \"sourceHandle\": \"true\"\n      },\n      {\n        \"source\": \"if_1\",\n        \"target\": \"llm_fb\",\n        \"sourceHandle\": \"false\"\n      },\n      {\n        \"source\": \"llm_ok\",\n        \"target\": \"end\"\n      },\n      {\n        \"source\": \"llm_fb\",\n        \"target\": \"end\"\n      }\n    ]\n  }\n}"
+				}
+			}
+		},
+		{
+			"name": "4. 触发·公网成功",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+							"const json = pm.response.json();",
+							"pm.test('run succeeded', () => pm.expect(json.data.status).to.eql('succeeded'));",
+							"const http = json.data.nodeRuns.find(n => n.nodeId === 'http_1');",
+							"const fb = json.data.nodeRuns.find(n => n.nodeId === 'llm_fb');",
+							"pm.test('http_1 status=200', () => pm.expect(http.outputs.status).to.eql(200));",
+							"pm.test('llm_fb skipped', () => pm.expect(fb.status).to.eql('skipped'));",
+							"pm.test('answer 非空', () => pm.expect(json.data.outputs.answer).to.be.a('string').and.not.empty);",
+							"pm.collectionVariables.set('runId', json.data.id);"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/runs",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"workflow",
+						"apps",
+						"{{appId}}",
+						"runs"
+					]
+				},
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"inputs\": {\n    \"targetUrl\": \"https://httpbin.org/json\"\n  }\n}"
+				}
+			}
+		},
+		{
+			"name": "5. 触发·404 分流",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+							"const json = pm.response.json();",
+							"pm.test('run succeeded', () => pm.expect(json.data.status).to.eql('succeeded'));",
+							"const http = json.data.nodeRuns.find(n => n.nodeId === 'http_1');",
+							"const ok = json.data.nodeRuns.find(n => n.nodeId === 'llm_ok');",
+							"pm.test('http_1 succeeded status=404', () => { pm.expect(http.status).to.eql('succeeded'); pm.expect(http.outputs.status).to.eql(404); });",
+							"pm.test('llm_ok skipped', () => pm.expect(ok.status).to.eql('skipped'));",
+							"pm.test('answer 非空', () => pm.expect(json.data.outputs.answer).to.be.a('string').and.not.empty);",
+							"pm.collectionVariables.set('runId', json.data.id);"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/runs",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"workflow",
+						"apps",
+						"{{appId}}",
+						"runs"
+					]
+				},
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"inputs\": {\n    \"targetUrl\": \"https://httpbin.org/status/404\"\n  }\n}"
+				}
+			}
+		},
+		{
+			"name": "6. 触发·SSRF 拦截",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+							"const json = pm.response.json();",
+							"pm.test('run failed', () => pm.expect(json.data.status).to.eql('failed'));",
+							"pm.test('errorMessage 含禁止访问', () => pm.expect(json.data.errorMessage).to.include('禁止访问'));",
+							"const http = json.data.nodeRuns.find(n => n.nodeId === 'http_1');",
+							"pm.test('http_1 failed 且 Authorization 脱敏', () => { pm.expect(http.status).to.eql('failed'); pm.expect(http.inputs.headers.Authorization).to.eql('***'); });",
+							"pm.collectionVariables.set('runId', json.data.id);"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/runs",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"workflow",
+						"apps",
+						"{{appId}}",
+						"runs"
+					]
+				},
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"inputs\": {\n    \"targetUrl\": \"http://127.0.0.1:8080/actuator/health\"\n  }\n}"
+				}
+			}
+		},
+		{
+			"name": "7. 运行详情查脱敏",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+							"const json = pm.response.json();",
+							"pm.test('run id matches', () => pm.expect(String(json.data.id)).to.eql(String(pm.collectionVariables.get('runId'))));",
+							"const http = json.data.nodeRuns.find(n => n.nodeId === 'http_1');",
+							"pm.test('http_1 inputs.Authorization=***', () => pm.expect(http.inputs.headers.Authorization).to.eql('***'));"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/workflow/runs/{{runId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"workflow",
+						"runs",
+						"{{runId}}"
+					]
+				}
+			}
+		}
+	]
+}

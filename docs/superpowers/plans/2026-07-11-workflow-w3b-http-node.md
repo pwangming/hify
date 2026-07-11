@@ -1005,7 +1005,7 @@ git commit -m "test(workflow): W3b HTTP 节点分流全链路集成测试（200/
 - Create: `docs/postman/workflow-w3b.postman_collection.json`
 - Modify: `docs/self-check.md`（追加 W3b 一节）
 
-- [ ] **Step 1: deployment.md §5 SSRF 条目末尾追加**
+- [x] **Step 1: deployment.md §5 SSRF 条目末尾追加**
 
 ```markdown
   一期拍板（2026-07-11，W3b spec）：3xx 一律**不跟随**（status+Location 原样返回节点输出，
@@ -1014,7 +1014,7 @@ git commit -m "test(workflow): W3b HTTP 节点分流全链路集成测试（200/
   评估可接受，二期对外开放时收紧）。
 ```
 
-- [ ] **Step 2: 写 Postman 集合**
+- [x] **Step 2: 写 Postman 集合**
 
 以 `docs/postman/workflow-w3a.postman_collection.json` 为骨架复制（保留登录/查模型/建应用与变量捕获脚本），改名 `Hify · Workflow W3b HTTP 节点`。**集合描述第一条照旧**：`【验收前必须重启 hify-server——旧进程不会加载新代码】`。**关键设计：草稿的 url 写成 `{{start.targetUrl}}` 模板，一份草稿测全部路径（触发输入换 URL 即可）**。请求列表：
 
@@ -1051,18 +1051,18 @@ git commit -m "test(workflow): W3b HTTP 节点分流全链路集成测试（200/
 
 集合说明另注明：httpbin.org 需外网可达，不可达时换任何公网 JSON 接口。
 
-- [ ] **Step 3: 校验 JSON 合法**
+- [x] **Step 3: 校验 JSON 合法**
 
 ```bash
 python3 -m json.tool docs/postman/workflow-w3b.postman_collection.json > /dev/null && echo OK
 ```
 Expected: `OK`
 
-- [ ] **Step 4: self-check 入档**
+- [x] **Step 4: self-check 入档**
 
 按 `docs/self-check.md` 既有格式追加 W3b 一节：范围（infra/outbound 地基 + http 节点）、四个拍板决策（非 2xx 不失败 / 不跟随重定向 / 白名单推迟 / JDK HttpClient）、DNS pinning 留账、测试数据（各层条数、`mvn verify` 退出码）、DoD 待办（Postman 四条路径，先重启服务）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/architecture/deployment.md docs/postman/workflow-w3b.postman_collection.json docs/self-check.md
