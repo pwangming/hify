@@ -729,7 +729,7 @@ function useWorkflowGraph(appId: string): {
 }
 ```
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `web/src/views/workflow/composables/__tests__/useWorkflowGraph.spec.ts`：
 
@@ -817,12 +817,12 @@ describe('useWorkflowGraph', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认红**
+- [x] **Step 2: 跑测试确认红**
 
 Run: `cd web && pnpm vitest run src/views/workflow/composables/__tests__/useWorkflowGraph.spec.ts`
 Expected: FAIL——`Cannot find module .../useWorkflowGraph`。
 
-- [ ] **Step 3: 实现 useWorkflowGraph.ts**
+- [x] **Step 3: 实现 useWorkflowGraph.ts**
 
 ```ts
 import { computed, ref } from 'vue'
@@ -898,12 +898,12 @@ export function useWorkflowGraph(appId: string) {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认绿 + typecheck**
+- [x] **Step 4: 跑测试确认绿 + typecheck**
 
 Run: `cd web && pnpm vitest run src/views/workflow/composables/__tests__/useWorkflowGraph.spec.ts && pnpm typecheck`
 Expected: 5 passed；vue-tsc 无错。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/composables/useWorkflowGraph.ts \
