@@ -196,4 +196,84 @@ class GraphValidatorTest {
                 () -> validator.validateAndOrder(kbGraph(Map.of("datasetIds", List.of(1)))));
         assertTrue(ex.getMessage().contains("query"));
     }
+
+    // ==== W3a: condition 节点校验 ====
+
+    /** start → if_1 →(true) llm_a / (false) llm_b → end 的标准分支图，kbData 换成入参。 */
+    private GraphDef condGraph(Map<String, Object> condData, List<GraphEdge> edges) {
+        return new GraphDef(List.of(
+                new GraphNode("start", "start", Map.of("inputs", List.of(Map.of("name", "q", "required", true)))),
+                new GraphNode("if_1", "condition", condData),
+                new GraphNode("llm_a", "llm", Map.of("modelId", "3", "userPrompt", "A:{{start.q}}")),
+                new GraphNode("llm_b", "llm", Map.of("modelId", "3", "userPrompt", "B:{{start.q}}")),
+                new GraphNode("end", "end", Map.of("outputs", List.of(
+                        Map.of("name", "r", "value", "{{llm_a.text}}{{llm_b.text}}"))))),
+                edges);
+    }
+
+    private List<GraphEdge> goodCondEdges() {
+        return List.of(new GraphEdge("start", "if_1"),
+                new GraphEdge("if_1", "llm_a", "true"),
+                new GraphEdge("if_1", "llm_b", "false"),
+                new GraphEdge("llm_a", "end"), new GraphEdge("llm_b", "end"));
+    }
+
+    private Map<String, Object> goodCondData() {
+        return Map.of("left", "{{start.q}}", "operator", "==", "right", "yes");
+    }
+
+    @Test
+    void condition_合法分支图_通过() {
+        List<GraphNode> ordered = validator.validateAndOrder(condGraph(goodCondData(), goodCondEdges()));
+        assertEquals(5, ordered.size());
+    }
+
+    @Test
+    void condition_缺operator_拒绝() {
+        BizException ex = assertThrows(BizException.class, () -> validator.validateAndOrder(
+                condGraph(Map.of("left", "a", "right", "b"), goodCondEdges())));
+        assertTrue(ex.getMessage().contains("operator"));
+    }
+
+    @Test
+    void condition_operator不在白名单_拒绝() {
+        BizException ex = assertThrows(BizException.class, () -> validator.validateAndOrder(
+                condGraph(Map.of("left", "a", "operator", "=~", "right", "b"), goodCondEdges())));
+        assertTrue(ex.getMessage().contains("=~"));
+    }
+
+    @Test
+    void condition_出边不是两条_拒绝() {
+        List<GraphEdge> edges = List.of(new GraphEdge("start", "if_1"),
+                new GraphEdge("if_1", "llm_a", "true"),
+                new GraphEdge("llm_a", "end"),
+                new GraphEdge("if_1", "llm_b", "false"),
+                new GraphEdge("if_1", "end", "true"),   // 第三条出边
+                new GraphEdge("llm_b", "end"));
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(condGraph(goodCondData(), edges)));
+        assertTrue(ex.getMessage().contains("两条出边"));
+    }
+
+    @Test
+    void condition_handle不是true_false各一_拒绝() {
+        List<GraphEdge> edges = List.of(new GraphEdge("start", "if_1"),
+                new GraphEdge("if_1", "llm_a", "true"),
+                new GraphEdge("if_1", "llm_b", "true"),   // 两条都是 true
+                new GraphEdge("llm_a", "end"), new GraphEdge("llm_b", "end"));
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(condGraph(goodCondData(), edges)));
+        assertTrue(ex.getMessage().contains("sourceHandle"));
+    }
+
+    @Test
+    void 普通节点出边带handle_拒绝() {
+        List<GraphEdge> edges = List.of(new GraphEdge("start", "if_1", "true"),   // start 出边带 handle
+                new GraphEdge("if_1", "llm_a", "true"),
+                new GraphEdge("if_1", "llm_b", "false"),
+                new GraphEdge("llm_a", "end"), new GraphEdge("llm_b", "end"));
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(condGraph(goodCondData(), edges)));
+        assertTrue(ex.getMessage().contains("sourceHandle"));
+    }
 }

@@ -7,6 +7,7 @@ public enum NodeType {
     START("start"),
     LLM("llm"),
     KNOWLEDGE_RETRIEVAL("knowledge-retrieval"),
+    CONDITION("condition"),
     END("end");
 
     private final String value;

@@ -32,6 +32,10 @@ public class GraphValidator {
     /** {{nodeId.field}}，与 RunContext.render 同一语法。 */
     static final Pattern VAR = Pattern.compile("\\{\\{\\s*([\\w-]+)\\.([\\w-]+)\\s*}}");
 
+    /** condition 节点 operator 白名单（spec §2），与 ConditionEvaluator 支持的一致。 */
+    static final Set<String> CONDITION_OPERATORS =
+            Set.of("==", "!=", ">", ">=", "<", "<=", "contains", "notContains");
+
     private final WorkflowProperties props;
 
     public GraphValidator(WorkflowProperties props) {
@@ -66,6 +70,9 @@ public class GraphValidator {
             if (NodeType.KNOWLEDGE_RETRIEVAL.value().equals(n.type())) {
                 requireKnowledgeRetrievalFields(n);
             }
+            if (NodeType.CONDITION.value().equals(n.type())) {
+                requireConditionFields(n);
+            }
         }
         requireExactlyOne(nodes, NodeType.START.value());
         requireExactlyOne(nodes, NodeType.END.value());
@@ -81,6 +88,27 @@ public class GraphValidator {
             next.computeIfAbsent(e.source(), k -> new ArrayList<>()).add(e.target());
             prev.computeIfAbsent(e.target(), k -> new ArrayList<>()).add(e.source());
             inDegree.merge(e.target(), 1, Integer::sum);
+        }
+
+        // 分支出边规则：condition 恰好两条出边且 handle 为 true/false 各一；普通节点出边不得带 handle
+        for (GraphNode n : nodes) {
+            List<GraphEdge> outs = edges.stream().filter(e -> n.id().equals(e.source())).toList();
+            if (NodeType.CONDITION.value().equals(n.type())) {
+                if (outs.size() != 2) {
+                    throw invalid("condition 节点 " + n.id() + " 必须恰好两条出边，当前 " + outs.size() + " 条");
+                }
+                Set<String> handles = new HashSet<>();
+                outs.forEach(e -> handles.add(e.sourceHandle()));
+                if (!handles.equals(Set.of("true", "false"))) {
+                    throw invalid("condition 节点 " + n.id() + " 的出边 sourceHandle 必须为 true/false 各一条");
+                }
+            } else {
+                for (GraphEdge e : outs) {
+                    if (e.sourceHandle() != null) {
+                        throw invalid("非 condition 节点 " + n.id() + " 的出边不得带 sourceHandle");
+                    }
+                }
+            }
         }
 
         // 连通性：从 start 正向可达 ∩ 到 end 反向可达，缺一即游离
@@ -153,6 +181,20 @@ public class GraphValidator {
             } catch (NumberFormatException e) {
                 throw invalid("knowledge-retrieval 节点 " + n.id() + " 的 datasetIds 含非法值：" + v);
             }
+        }
+    }
+
+    /** condition 节点字段校验；left/right 的变量引用合法性走既有引用拓扑序校验，此处只查必填与白名单。 */
+    private void requireConditionFields(GraphNode n) {
+        for (String field : List.of("left", "operator", "right")) {
+            Object v = n.data() == null ? null : n.data().get(field);
+            if (v == null || String.valueOf(v).isBlank()) {
+                throw invalid("condition 节点 " + n.id() + " 缺少 " + field);
+            }
+        }
+        String op = String.valueOf(n.data().get("operator"));
+        if (!CONDITION_OPERATORS.contains(op)) {
+            throw invalid("condition 节点 " + n.id() + " 的 operator 非法：" + op);
         }
     }
 
