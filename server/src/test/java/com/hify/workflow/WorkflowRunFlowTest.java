@@ -1,5 +1,6 @@
 package com.hify.workflow;
 
+import com.hify.common.exception.BizException;
 import com.hify.infra.security.CurrentUser;
 import com.hify.provider.api.ProviderFacade;
 import com.hify.support.PgIntegrationTest;
@@ -23,6 +24,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -128,6 +130,22 @@ class WorkflowRunFlowTest extends PgIntegrationTest {
         var page2 = runService.listRuns(appId, page1.nextCursor(), 2);
         assertEquals(1, page2.list().size());
         assertTrue(!page2.hasMore());
+    }
+
+    @Test
+    void 半成品草稿可保存_触发运行才报18001() {
+        // 画布 C1：保存只做底线校验；完整校验（llm 必填/须有 end/连通性）后移到触发运行
+        GraphDef draft = new GraphDef(List.of(
+                new GraphNode("start", "start", Map.of()),
+                new GraphNode("llm_1", "llm", Map.of())),
+                List.of());
+
+        draftService.saveDraft(appId, draft, owner);
+        assertEquals(2, draftService.getDraft(appId).graph().nodes().size());   // 读回一致
+
+        BizException ex = assertThrows(BizException.class,
+                () -> runService.run(appId, Map.of(), owner));
+        assertEquals(18001, ex.errorCode().code());
     }
 
     /** W2：start → kb → llm → end 的 RAG 链路图。 */
