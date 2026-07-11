@@ -1213,7 +1213,7 @@ git commit -m "feat(web/workflow): 画布节点组件（按类型渲染连接点
 - Consumes: Task 5 `useWorkflowGraph`；Task 6 两组件与 `application/hify-node` 拖拽键；`getApp`(api/app)；`formatDateTime`(utils/datetime)；`useUserStore`。
 - Produces: 路由 `name: 'WorkflowEditor'`, path `/apps/:appId/workflow`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `web/src/views/workflow/__tests__/WorkflowEditor.spec.ts`。要点：stub 掉 `<VueFlow>`（happy-dom 不跑真画布，断言传入的受控 props），mock 路由与 api：
 
@@ -1352,12 +1352,12 @@ describe('WorkflowEditor', () => {
 
 注意：`useUserStore().user` 的字段以 `stores/user.ts` 实际类型为准（与 `AppList.spec.ts` 的写法保持一致，如有 `role` 枚举差异照抄该文件）。
 
-- [ ] **Step 2: 跑测试确认红**
+- [x] **Step 2: 跑测试确认红**
 
 Run: `cd web && pnpm vitest run src/views/workflow/__tests__/WorkflowEditor.spec.ts`
 Expected: FAIL——`WorkflowEditor.vue` 不存在。
 
-- [ ] **Step 3: 实现 WorkflowEditor.vue**
+- [x] **Step 3: 实现 WorkflowEditor.vue**
 
 ```vue
 <script setup lang="ts">
@@ -1542,7 +1542,7 @@ onBeforeRouteLeave(async () => {
 
 **已知兼容点**：`v-model:nodes` / `v-model:edges` 是 @vue-flow/core 1.x 的受控绑定。若装出的版本对该写法报「unknown prop / 不回写」，等价替代（同为官方受控 API，逻辑不变）：改 `:nodes` + `:edges` 传入、`:apply-default="false"`、监听 `@nodes-change` / `@edges-change` 并用 `applyNodeChanges` / `applyEdgeChanges`（`@vue-flow/core` 导出）把变更写回 `graph.nodes` / `graph.edges`。测试不受影响（stub 只断言 `nodes`/`edges` props）。
 
-- [ ] **Step 4: 加路由**
+- [x] **Step 4: 加路由**
 
 `web/src/router/index.ts` 在 `/apps/:appId/chat` 路由对象之后插入：
 
@@ -1555,17 +1555,17 @@ onBeforeRouteLeave(async () => {
   },
 ```
 
-- [ ] **Step 5: 跑测试确认绿 + typecheck**
+- [x] **Step 5: 跑测试确认绿 + typecheck**
 
 Run: `cd web && pnpm vitest run src/views/workflow/ && pnpm typecheck`
 Expected: WorkflowEditor 6 passed（连同 Task 4/5/6 的用例全绿）；vue-tsc 无错（`nodeTypes` 若类型不匹配，用 `as NodeTypesObject`——从 `@vue-flow/core` 导入该类型——收窄，不用 any）。
 
-- [ ] **Step 6: 手动冒烟（dev 环境）**
+- [x] **Step 6: 手动冒烟（dev 环境）**
 
 Run: `cd web && pnpm dev`（后端与库已在本机跑着）
 用已有 workflow 应用（Postman 建过的）访问 `http://localhost:5173/apps/<id>/workflow`：画布渲染节点与连线、可拖动、Controls 缩放可用。截图确认后关掉。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add web/src/views/workflow/WorkflowEditor.vue web/src/router/index.ts \

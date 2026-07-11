@@ -36,6 +36,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, title: '试聊' },
   },
   {
+    path: '/apps/:appId/workflow',
+    name: 'WorkflowEditor',
+    component: () => import('@/views/workflow/WorkflowEditor.vue'),
+    meta: { requiresAuth: true, title: '工作流编排' },
+  },
+  {
     path: '/admin/provider',
     name: 'ProviderList',
     component: () => import('@/views/admin/provider/ProviderList.vue'),
