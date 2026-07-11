@@ -675,7 +675,7 @@ git commit -m "feat(workflow): http 节点类型与图校验（method 白名单/
 - Consumes: `OutboundHttpClient.send(method, url, headers, body)` → `OutboundResponse(status, body, headers)`（Task 2）；`NodeType.HTTP`（Task 3）；`RunContext.render`
 - Produces: Spring `@Component`，`type()="http"`，outputs=`{status: Integer, body: String, headers: Map}`，inputs=`{method, url(渲染后), headers(渲染后+脱敏), body(渲染后)}`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 新建 `HttpNodeExecutorTest.java`：
 
@@ -788,14 +788,14 @@ class HttpNodeExecutorTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd server && mvn -Dtest=HttpNodeExecutorTest test
 ```
 Expected: 编译失败「找不到符号 HttpNodeExecutor」。退出码非 0。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 新建 `HttpNodeExecutor.java`：
 
@@ -879,14 +879,14 @@ public class HttpNodeExecutor implements NodeExecutor {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 cd server && mvn -Dtest=HttpNodeExecutorTest test
 ```
 Expected: 5 条全绿，退出码 0。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/workflow/service/engine/HttpNodeExecutor.java \
