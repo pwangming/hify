@@ -177,4 +177,64 @@ class WorkflowRunFlowTest extends PgIntegrationTest {
         assertEquals("failed", resp.nodeRuns().get(1).status());
         assertEquals("怎么退货", resp.nodeRuns().get(1).inputs().get("query"));   // 渲染后输入落库供排障
     }
+
+    /** W3a：start → kb → if(count>0) → llm_hit / llm_miss → end 的分支图。 */
+    private GraphDef branchGraph() {
+        return new GraphDef(List.of(
+                new GraphNode("start", "start", Map.of("inputs", List.of(Map.of("name", "query", "required", true)))),
+                new GraphNode("kb", "knowledge-retrieval", Map.of("datasetIds", List.of(1), "query", "{{start.query}}")),
+                new GraphNode("if_1", "condition", Map.of("left", "{{kb.count}}", "operator", ">", "right", "0")),
+                new GraphNode("llm_hit", "llm", Map.of("modelId", "3", "userPrompt", "根据资料回答：{{kb.text}}")),
+                new GraphNode("llm_miss", "llm", Map.of("modelId", "3", "userPrompt", "礼貌告知没查到：{{start.query}}")),
+                new GraphNode("end", "end", Map.of("outputs", List.of(
+                        Map.of("name", "answer", "value", "{{llm_hit.text}}{{llm_miss.text}}"))))),
+                List.of(new GraphEdge("start", "kb"), new GraphEdge("kb", "if_1"),
+                        new GraphEdge("if_1", "llm_hit", "true"),
+                        new GraphEdge("if_1", "llm_miss", "false"),
+                        new GraphEdge("llm_hit", "end"), new GraphEdge("llm_miss", "end")));
+    }
+
+    @Test
+    void 分支_kb命中_走精答路_兜底路skipped() {
+        when(knowledgeFacade.retrieve(any(), any())).thenReturn(List.of(
+                new com.hify.knowledge.api.RetrievedChunk(11L, 1L, "手册", "七天无理由退货", 0.9)));
+        when(llmCaller.call(any(), any(), eq("根据资料回答：[1] 七天无理由退货")))
+                .thenReturn(new LlmCallResult("支持七天退货", 10, 5));
+
+        draftService.saveDraft(appId, branchGraph(), owner);
+        RunResponse resp = runService.run(appId, Map.of("query", "怎么退货"), owner);
+
+        assertEquals("succeeded", resp.status());
+        assertEquals("支持七天退货", resp.outputs().get("answer"));   // 跳过侧渲染空串
+        assertEquals(6, resp.nodeRuns().size());   // 全节点都有记录（含 skipped）
+        var byId = resp.nodeRuns().stream()
+                .collect(java.util.stream.Collectors.toMap(n -> n.nodeId(), n -> n.status()));
+        assertEquals("succeeded", byId.get("llm_hit"));
+        assertEquals("skipped", byId.get("llm_miss"));
+        // 真库兜底：skipped 行确实过了 V22 check
+        Integer skippedRows = jdbc.queryForObject(
+                "select count(*) from workflow_node_run where run_id = ? and status = 'skipped'",
+                Integer.class, resp.id());
+        assertEquals(1, skippedRows);
+    }
+
+    @Test
+    void 分支_kb未命中_走兜底路_精答路skipped() {
+        when(knowledgeFacade.retrieve(any(), any())).thenReturn(List.of());
+        when(llmCaller.call(any(), any(), eq("礼貌告知没查到：怎么退货")))
+                .thenReturn(new LlmCallResult("抱歉没有找到相关资料", 8, 4));
+
+        draftService.saveDraft(appId, branchGraph(), owner);
+        RunResponse resp = runService.run(appId, Map.of("query", "怎么退货"), owner);
+
+        assertEquals("succeeded", resp.status());
+        assertEquals("抱歉没有找到相关资料", resp.outputs().get("answer"));
+        var byId = resp.nodeRuns().stream()
+                .collect(java.util.stream.Collectors.toMap(n -> n.nodeId(), n -> n.status()));
+        assertEquals("skipped", byId.get("llm_hit"));
+        assertEquals("succeeded", byId.get("llm_miss"));
+        // 条件节点 inputs 落了实际比较值（排障可用性）
+        var ifRun = resp.nodeRuns().stream().filter(n -> "if_1".equals(n.nodeId())).findFirst().orElseThrow();
+        assertEquals("0", ifRun.inputs().get("left"));
+    }
 }
