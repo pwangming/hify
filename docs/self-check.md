@@ -845,3 +845,10 @@ mvn -f server/pom.xml test
 - 拍板决策：检索失败不降级而是节点 failed；输出固定为 `text + count`；保存草稿只做格式校验、知识库存在性运行时校验；检索结果拼接留在 executor 内，不抽公共抽象。
 - 测试结果：`mvn -Dtest=GraphValidatorTest test` → 17 passed；`mvn -Dtest=KnowledgeRetrievalNodeExecutorTest test` → 3 passed；`mvn clean test -Dtest=WorkflowRunFlowTest` → 5 passed（清理 target 是为排除 Maven 增量编译残留）；`mvn verify` → `Tests run: 527, Failures: 0, Errors: 0`，退出码 0，含 `ModularityTests` 与 `LayerRulesTest`。
 - DoD 待办：用户用 W2 Postman 集合在真实服务/真实模型/真实已向量化知识库上手动跑两条路径：黄金链路 succeeded 且回答引用知识库内容；不存在库 id 保存成功但触发后 HTTP 200 + run failed + kb node_run 可排障。
+
+## 2026-07-11 Workflow W3a 条件分支节点
+
+- 本轮范围：新增 V22 放宽 `workflow_node_run.status` check 为 `running/succeeded/failed/skipped`；`GraphEdge.sourceHandle` 与 `GraphNode.position` jsonb 往返保真；新增 `condition` 节点类型、`ConditionEvaluator`、`ConditionNodeExecutor`；`GraphValidator` 增加 condition 字段/operator/出边 handle 规则；`WorkflowEngine` 增加拓扑序 + 活边判定，未选中路径落 `skipped` node_run，跳过节点引用渲染为空串；`WorkflowRunFlowTest` 增加命中/未命中两方向真库集成测试；新增 `docs/postman/workflow-w3a.postman_collection.json`。
+- 五个拍板决策：condition 只做单条比较；只做二路 `true/false` 分支；未选中路径节点必须落 `skipped` 记录；引用被跳过节点字段时渲染为空串；执行模型保留拓扑序遍历，在每个节点执行前做活边判定。
+- 测试结果：`mvn -Dtest=ConditionEvaluatorTest test` → 7 passed；`mvn -Dtest=GraphValidatorTest test` → 23 passed；`mvn -Dtest=ConditionNodeExecutorTest test` → 3 passed；`mvn -Dtest='WorkflowEngineBranchTest,WorkflowRunServiceTest,GraphValidatorTest' test`（需提升权限允许 Mockito attach）→ 36 passed；`mvn -Dtest=WorkflowRunFlowTest test` 普通沙箱因无 Docker 失败，提升权限后在全量回归中覆盖；`mvn verify` 普通沙箱因 Mockito attach 失败，提升权限后 → `Tests run: 551, Failures: 0, Errors: 0`，退出码 0，含 `ModularityTests` 与 `LayerRulesTest`。
+- DoD 待办：用户用 W3a Postman 集合在真实服务/真实模型/真实已向量化知识库上手动跑三条路径，验收前必须重启服务：命中方向 succeeded 且 `llm_miss=skipped`；未命中方向 succeeded 且 `llm_hit=skipped`、`if_1.inputs.left="0"`；失败路径文本进数字比较 → HTTP 200 + run failed + `if_1` node_run 可见实际比较值。

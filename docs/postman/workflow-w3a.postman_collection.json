@@ -1,0 +1,162 @@
+{
+ "info": {
+  "name": "Hify · Workflow W3a 条件分支",
+  "description": "【验收前必须重启 hify-server——旧进程不会加载新代码（W2 实测踩坑）】\n\nW3a 手动验收：建 workflow 应用 → 保存 start → kb → condition → llm_hit/llm_miss → end 的分支草稿 → 分别触发命中/未命中方向；再保存文本进数字比较的坏草稿 → 触发失败路径。\n\n【使用前】\n1. 服务已启动，provider 里至少有一个可用 chat 模型。\n2. Collection Variables 设置 baseUrl、username、password，并手填 datasetId（真实存在且已向量化的知识库 id）。\n3. 按编号顺序跑 0→8。\n\n【变量碰撞说明】Postman 的 {{datasetId}}/{{modelId}} 是集合变量；工作流里的 {{start.query}}、{{kb.text}}、{{kb.count}}、{{llm_hit.text}}、{{llm_miss.text}} 不在变量表里，Postman 会原样透传给服务端。不要在 Postman 里定义这些同名变量。\n\n【验收断言】命中方向：run.status=succeeded，答案来自资料，llm_miss 为 skipped。未命中方向：run.status=succeeded，答案为兜底，llm_hit 为 skipped，if_1.inputs.left 为 \"0\"。失败路径：HTTP 200 但 run.status=failed，if_1 failed，node_run.inputs 可见实际比较值，errorMessage 含“数值比较”。",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "variable": [
+  { "key": "baseUrl", "value": "http://localhost:8080" },
+  { "key": "token", "value": "" },
+  { "key": "username", "value": "" },
+  { "key": "password", "value": "" },
+  { "key": "modelId", "value": "" },
+  { "key": "appId", "value": "" },
+  { "key": "runId", "value": "" },
+  { "key": "datasetId", "value": "" }
+ ],
+ "auth": {
+  "type": "bearer",
+  "bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+ },
+ "item": [
+  {
+   "name": "0. 登录",
+   "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+    "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+    "const json = pm.response.json();",
+    "pm.test('code=200', () => pm.expect(json.code).to.eql(200));",
+    "pm.collectionVariables.set('token', json.data.token);"
+   ] } } ],
+   "request": {
+    "auth": { "type": "noauth" },
+    "method": "POST",
+    "header": [ { "key": "Content-Type", "value": "application/json" } ],
+    "url": { "raw": "{{baseUrl}}/api/v1/identity/login", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "identity", "login" ] },
+    "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}" }
+   }
+  },
+  {
+   "name": "1. 查可用 chat 模型",
+   "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+    "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+    "const json = pm.response.json();",
+    "pm.test('至少一个可用模型', () => pm.expect(json.data).to.be.an('array').and.not.empty);",
+    "pm.collectionVariables.set('modelId', json.data[0].id);",
+    "console.log('modelId =', json.data[0].id, json.data[0].name);"
+   ] } } ],
+   "request": {
+    "method": "GET",
+    "url": { "raw": "{{baseUrl}}/api/v1/provider/models?type=chat", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "provider", "models" ], "query": [ { "key": "type", "value": "chat" } ] }
+   }
+  },
+  {
+   "name": "2. 创建 workflow 应用",
+   "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+    "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+    "const json = pm.response.json();",
+    "pm.test('type=workflow', () => pm.expect(json.data.type).to.eql('workflow'));",
+    "pm.collectionVariables.set('appId', json.data.id);"
+   ] } } ],
+   "request": {
+    "method": "POST",
+    "header": [ { "key": "Content-Type", "value": "application/json" } ],
+    "url": { "raw": "{{baseUrl}}/api/v1/app/apps", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "app", "apps" ] },
+    "body": { "mode": "raw", "raw": "{\n  \"name\": \"W3a验收-条件分支-{{$timestamp}}\",\n  \"type\": \"workflow\"\n}" }
+   }
+  },
+  {
+   "name": "3. 保存分支草稿",
+   "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+    "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+    "const json = pm.response.json();",
+    "pm.test('返回 6 节点 graph', () => pm.expect(json.data.graph.nodes).to.have.lengthOf(6));"
+   ] } } ],
+   "request": {
+    "method": "PUT",
+    "header": [ { "key": "Content-Type", "value": "application/json" } ],
+    "url": { "raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/draft", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "workflow", "apps", "{{appId}}", "draft" ] },
+    "body": { "mode": "raw", "raw": "{\n  \"graph\": {\n    \"nodes\": [\n      {\"id\": \"start\", \"type\": \"start\", \"data\": {\"inputs\": [{\"name\": \"query\", \"required\": true}]}},\n      {\"id\": \"kb\", \"type\": \"knowledge-retrieval\", \"data\": {\"datasetIds\": [{{datasetId}}], \"query\": \"{{start.query}}\"}},\n      {\"id\": \"if_1\", \"type\": \"condition\", \"data\": {\"left\": \"{{kb.count}}\", \"operator\": \">\", \"right\": \"0\"}},\n      {\"id\": \"llm_hit\", \"type\": \"llm\", \"data\": {\"modelId\": \"{{modelId}}\", \"systemPrompt\": \"只根据参考资料回答\", \"userPrompt\": \"参考资料：{{kb.text}}\\n\\n问题：{{start.query}}\"}},\n      {\"id\": \"llm_miss\", \"type\": \"llm\", \"data\": {\"modelId\": \"{{modelId}}\", \"userPrompt\": \"知识库没有查到相关内容，请礼貌告知用户无法回答：{{start.query}}\"}},\n      {\"id\": \"end\", \"type\": \"end\", \"data\": {\"outputs\": [{\"name\": \"answer\", \"value\": \"{{llm_hit.text}}{{llm_miss.text}}\"}]}}\n    ],\n    \"edges\": [\n      {\"source\": \"start\", \"target\": \"kb\"},\n      {\"source\": \"kb\", \"target\": \"if_1\"},\n      {\"source\": \"if_1\", \"target\": \"llm_hit\", \"sourceHandle\": \"true\"},\n      {\"source\": \"if_1\", \"target\": \"llm_miss\", \"sourceHandle\": \"false\"},\n      {\"source\": \"llm_hit\", \"target\": \"end\"},\n      {\"source\": \"llm_miss\", \"target\": \"end\"}\n    ]\n  }\n}" }
+   }
+  },
+  {
+   "name": "4. 触发·命中方向（问知识库里有的问题）",
+   "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+    "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+    "const json = pm.response.json();",
+    "pm.test('run succeeded', () => pm.expect(json.data.status).to.eql('succeeded'));",
+    "const miss = json.data.nodeRuns.find(n => n.nodeId === 'llm_miss');",
+    "pm.test('llm_miss skipped', () => pm.expect(miss.status).to.eql('skipped'));",
+    "pm.collectionVariables.set('runId', json.data.id);"
+   ] } } ],
+   "request": {
+    "method": "POST",
+    "header": [ { "key": "Content-Type", "value": "application/json" } ],
+    "url": { "raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/runs", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "workflow", "apps", "{{appId}}", "runs" ] },
+    "body": { "mode": "raw", "raw": "{\n  \"inputs\": {\n    \"query\": \"<改成知识库里真实内容的问题>\"\n  }\n}" }
+   }
+  },
+  {
+   "name": "5. 触发·未命中方向（问无关问题）",
+   "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+    "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+    "const json = pm.response.json();",
+    "pm.test('run succeeded', () => pm.expect(json.data.status).to.eql('succeeded'));",
+    "const hit = json.data.nodeRuns.find(n => n.nodeId === 'llm_hit');",
+    "const cond = json.data.nodeRuns.find(n => n.nodeId === 'if_1');",
+    "pm.test('llm_hit skipped', () => pm.expect(hit.status).to.eql('skipped'));",
+    "pm.test('if_1 left=0', () => pm.expect(cond.inputs.left).to.eql('0'));"
+   ] } } ],
+   "request": {
+    "method": "POST",
+    "header": [ { "key": "Content-Type", "value": "application/json" } ],
+    "url": { "raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/runs", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "workflow", "apps", "{{appId}}", "runs" ] },
+    "body": { "mode": "raw", "raw": "{\n  \"inputs\": {\n    \"query\": \"今天天气怎么样\"\n  }\n}" }
+   }
+  },
+  {
+   "name": "6.【失败路径准备】存数字比较遇非数字的草稿",
+   "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+    "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+    "const json = pm.response.json();",
+    "pm.test('保存成功，运行时才求值', () => pm.expect(json.code).to.eql(200));"
+   ] } } ],
+   "request": {
+    "method": "PUT",
+    "header": [ { "key": "Content-Type", "value": "application/json" } ],
+    "url": { "raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/draft", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "workflow", "apps", "{{appId}}", "draft" ] },
+    "body": { "mode": "raw", "raw": "{\n  \"graph\": {\n    \"nodes\": [\n      {\"id\": \"start\", \"type\": \"start\", \"data\": {\"inputs\": [{\"name\": \"query\", \"required\": true}]}},\n      {\"id\": \"kb\", \"type\": \"knowledge-retrieval\", \"data\": {\"datasetIds\": [{{datasetId}}], \"query\": \"{{start.query}}\"}},\n      {\"id\": \"if_1\", \"type\": \"condition\", \"data\": {\"left\": \"{{kb.text}}\", \"operator\": \">\", \"right\": \"0\"}},\n      {\"id\": \"llm_hit\", \"type\": \"llm\", \"data\": {\"modelId\": \"{{modelId}}\", \"userPrompt\": \"参考资料：{{kb.text}}\"}},\n      {\"id\": \"llm_miss\", \"type\": \"llm\", \"data\": {\"modelId\": \"{{modelId}}\", \"userPrompt\": \"兜底：{{start.query}}\"}},\n      {\"id\": \"end\", \"type\": \"end\", \"data\": {\"outputs\": [{\"name\": \"answer\", \"value\": \"{{llm_hit.text}}{{llm_miss.text}}\"}]}}\n    ],\n    \"edges\": [\n      {\"source\": \"start\", \"target\": \"kb\"},\n      {\"source\": \"kb\", \"target\": \"if_1\"},\n      {\"source\": \"if_1\", \"target\": \"llm_hit\", \"sourceHandle\": \"true\"},\n      {\"source\": \"if_1\", \"target\": \"llm_miss\", \"sourceHandle\": \"false\"},\n      {\"source\": \"llm_hit\", \"target\": \"end\"},\n      {\"source\": \"llm_miss\", \"target\": \"end\"}\n    ]\n  }\n}" }
+   }
+  },
+  {
+   "name": "7.【失败路径】触发 → HTTP 200 但 run=failed",
+   "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+    "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+    "const json = pm.response.json();",
+    "pm.test('run failed', () => pm.expect(json.data.status).to.eql('failed'));",
+    "pm.test('errorMessage 含数值比较', () => pm.expect(json.data.errorMessage).to.include('数值比较'));",
+    "const cond = json.data.nodeRuns.find(n => n.nodeId === 'if_1');",
+    "pm.test('if_1 failed 且 inputs.left 可见', () => { pm.expect(cond.status).to.eql('failed'); pm.expect(cond.inputs.left).to.be.a('string').and.not.empty; });"
+   ] } } ],
+   "request": {
+    "method": "POST",
+    "header": [ { "key": "Content-Type", "value": "application/json" } ],
+    "url": { "raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/runs", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "workflow", "apps", "{{appId}}", "runs" ] },
+    "body": { "mode": "raw", "raw": "{\n  \"inputs\": {\n    \"query\": \"<改成知识库里真实内容的问题>\"\n  }\n}" }
+   }
+  },
+  {
+   "name": "8.【收尾】把好草稿存回去",
+   "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+    "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+    "const json = pm.response.json();",
+    "pm.test('condition left 恢复 kb.count', () => pm.expect(json.data.graph.nodes[2].data.left).to.eql('{{kb.count}}'));"
+   ] } } ],
+   "request": {
+    "method": "PUT",
+    "header": [ { "key": "Content-Type", "value": "application/json" } ],
+    "url": { "raw": "{{baseUrl}}/api/v1/workflow/apps/{{appId}}/draft", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "workflow", "apps", "{{appId}}", "draft" ] },
+    "body": { "mode": "raw", "raw": "{\n  \"graph\": {\n    \"nodes\": [\n      {\"id\": \"start\", \"type\": \"start\", \"data\": {\"inputs\": [{\"name\": \"query\", \"required\": true}]}},\n      {\"id\": \"kb\", \"type\": \"knowledge-retrieval\", \"data\": {\"datasetIds\": [{{datasetId}}], \"query\": \"{{start.query}}\"}},\n      {\"id\": \"if_1\", \"type\": \"condition\", \"data\": {\"left\": \"{{kb.count}}\", \"operator\": \">\", \"right\": \"0\"}},\n      {\"id\": \"llm_hit\", \"type\": \"llm\", \"data\": {\"modelId\": \"{{modelId}}\", \"systemPrompt\": \"只根据参考资料回答\", \"userPrompt\": \"参考资料：{{kb.text}}\\n\\n问题：{{start.query}}\"}},\n      {\"id\": \"llm_miss\", \"type\": \"llm\", \"data\": {\"modelId\": \"{{modelId}}\", \"userPrompt\": \"知识库没有查到相关内容，请礼貌告知用户无法回答：{{start.query}}\"}},\n      {\"id\": \"end\", \"type\": \"end\", \"data\": {\"outputs\": [{\"name\": \"answer\", \"value\": \"{{llm_hit.text}}{{llm_miss.text}}\"}]}}\n    ],\n    \"edges\": [\n      {\"source\": \"start\", \"target\": \"kb\"},\n      {\"source\": \"kb\", \"target\": \"if_1\"},\n      {\"source\": \"if_1\", \"target\": \"llm_hit\", \"sourceHandle\": \"true\"},\n      {\"source\": \"if_1\", \"target\": \"llm_miss\", \"sourceHandle\": \"false\"},\n      {\"source\": \"llm_hit\", \"target\": \"end\"},\n      {\"source\": \"llm_miss\", \"target\": \"end\"}\n    ]\n  }\n}" }
+   }
+  }
+ ]
+}
