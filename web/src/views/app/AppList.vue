@@ -7,7 +7,7 @@ import {
 } from '@/api/app'
 import { listChatModels } from '@/api/provider'
 import { listDatasets } from '@/api/knowledge'
-import type { App, AppForm } from '@/types/app'
+import type { App, AppForm, AppType } from '@/types/app'
 import type { ModelOption } from '@/types/model'
 import type { Dataset } from '@/types/knowledge'
 import { useUserStore } from '@/stores/user'
@@ -23,6 +23,9 @@ const router = useRouter()
 
 function openChat(app: App) {
   router.push(`/apps/${app.id}/chat`)
+}
+function openDesign(app: App) {
+  router.push(`/apps/${app.id}/workflow`)
 }
 
 const apps = ref<App[]>([])
@@ -104,6 +107,8 @@ const form = reactive<AppForm>({
   config: { systemPrompt: '' },
   datasetIds: [],
 })
+// 应用类型：创建时可选，编辑时锁定为行的既有类型（后端不支持改型）
+const formType = ref<AppType>('chat')
 
 // 模型选择器选项（成员侧「可用」chat 模型），每次打开弹窗刷新一次。
 const modelOptions = ref<ModelOption[]>([])
@@ -165,6 +170,7 @@ const rules: FormRules<AppForm> = {
 
 function openCreate() {
   editingId.value = null
+  formType.value = 'chat'
   form.name = ''
   form.description = ''
   form.modelId = null
@@ -177,6 +183,7 @@ function openCreate() {
 }
 function openEdit(row: App) {
   editingId.value = row.id
+  formType.value = row.type
   form.name = row.name
   form.description = row.description ?? ''
   form.modelId = row.modelId
@@ -197,7 +204,7 @@ async function submitForm() {
   if (form.description.length > DESC_MAX) return
   try {
     if (editingId.value === null) {
-      await createApp({ ...form })
+      await createApp({ ...form }, formType.value)
       ElMessage.success('应用已创建')
     } else {
       await updateApp(editingId.value, { ...form })
@@ -230,7 +237,11 @@ async function submitForm() {
       <el-table v-loading="loading" :data="apps" data-test="app-table">
         <el-table-column prop="name" label="名称" />
         <el-table-column label="类型">
-          <template #default><el-tag>对话</el-tag></template>
+          <template #default="{ row }">
+            <el-tag :type="(row as App).type === 'workflow' ? 'warning' : 'primary'">
+              {{ (row as App).type === 'workflow' ? '工作流' : '对话' }}
+            </el-tag>
+          </template>
         </el-table-column>
         <el-table-column label="模型">
           <template #default="{ row }">
@@ -262,12 +273,21 @@ async function submitForm() {
           <template #default="{ row }">
             <div class="app-list__ops">
               <el-button
+                v-if="(row as App).type === 'chat'"
                 size="small"
                 type="primary"
                 :data-test="`chat-${(row as App).id}`"
                 :disabled="!(row as App).modelUsable || (row as App).status === 'disabled'"
                 @click="openChat(row as App)"
                 >试聊</el-button
+              >
+              <el-button
+                v-else
+                size="small"
+                type="primary"
+                :data-test="`design-${(row as App).id}`"
+                @click="openDesign(row as App)"
+                >编排</el-button
               >
               <template v-if="canModify(row as App)">
                 <el-button
@@ -321,7 +341,11 @@ async function submitForm() {
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="类型">
-          <el-tag>对话应用</el-tag>
+          <el-radio-group v-if="editingId === null" v-model="formType" data-test="form-type">
+            <el-radio value="chat">对话应用</el-radio>
+            <el-radio value="workflow">工作流应用</el-radio>
+          </el-radio-group>
+          <el-tag v-else>{{ formType === 'workflow' ? '工作流应用' : '对话应用' }}</el-tag>
         </el-form-item>
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" data-test="form-name" maxlength="50" />
@@ -329,7 +353,7 @@ async function submitForm() {
         <el-form-item label="描述">
           <el-input v-model="form.description" data-test="form-desc" maxlength="200" />
         </el-form-item>
-        <el-form-item label="模型">
+        <el-form-item v-if="formType === 'chat'" label="模型">
           <el-select
             v-model="form.modelId"
             data-test="form-model"
@@ -346,7 +370,7 @@ async function submitForm() {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="关联知识库">
+        <el-form-item v-if="formType === 'chat'" label="关联知识库">
           <el-select
             v-model="form.datasetIds"
             data-test="form-datasets"
@@ -365,7 +389,7 @@ async function submitForm() {
           </el-select>
           <div class="app-list__hint">绑定后，该应用回答会参考所选知识库内容</div>
         </el-form-item>
-        <el-form-item label="系统提示词">
+        <el-form-item v-if="formType === 'chat'" label="系统提示词">
           <el-input
             v-model="form.config.systemPrompt"
             data-test="form-prompt"

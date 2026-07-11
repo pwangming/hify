@@ -14,9 +14,9 @@ export function getApp(id: string) {
   return request.get<App>(`${BASE}/${id}`)
 }
 
-/** 新建（本轮固定对话型）。后端：POST /api/v1/app/apps */
-export function createApp(body: AppForm) {
-  return request.post<App>(BASE, { ...body, type: 'chat' })
+/** 新建。type 缺省 chat；画布轮起支持 workflow。后端：POST /api/v1/app/apps */
+export function createApp(body: AppForm, type: AppType = 'chat') {
+  return request.post<App>(BASE, { ...body, type })
 }
 
 /** 全量更新。后端：PUT .../{id} */

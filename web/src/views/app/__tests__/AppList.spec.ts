@@ -36,6 +36,7 @@ const OTHERS: App = { ...MINE, id: '2', name: '他人应用', ownerId: '999' }
 const WITH_MODEL: App = { ...MINE, id: '3', name: '带模型应用', modelId: '5', modelName: 'GPT-4o', modelUsable: false }
 const NAMED: App = { ...MINE, id: '4', name: '命名应用', modelId: '5', modelName: 'GPT-4o', modelUsable: true }
 const BOUND: App = { ...MINE, id: '6', name: '绑库应用', datasetIds: ['9'] }
+const WF: App = { ...MINE, id: '8', name: '工单流', type: 'workflow' }
 const DS = {
   id: '9', name: '客服知识库', description: null, ownerId: '7',
   createTime: '2026-07-02T10:00:00+08:00', updateTime: '2026-07-02T10:00:00+08:00',
@@ -110,7 +111,7 @@ describe('AppList', () => {
     await flushPromises()
     await wrapper.find('[data-test="form-submit"]').trigger('click')
     await flushPromises()
-    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ modelId: '5' }))
+    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ modelId: '5' }), 'chat')
   })
 
   it('创建：不选模型 → createApp body modelId 为 null', async () => {
@@ -122,7 +123,7 @@ describe('AppList', () => {
     wrapper.find('[data-test="form-name"]').setValue('无模型应用')
     await wrapper.find('[data-test="form-submit"]').trigger('click')
     await flushPromises()
-    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ modelId: null }))
+    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ modelId: null }), 'chat')
   })
 
   it('编辑：回填已选模型 id', async () => {
@@ -230,6 +231,44 @@ describe('AppList', () => {
     wrapper.find('[data-test="form-name"]').setValue('新应用')
     await wrapper.find('[data-test="form-submit"]').trigger('click')
     await flushPromises()
-    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ datasetIds: [] }))
+    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ datasetIds: [] }), 'chat')
+  })
+
+  it('workflow 行：类型列显示「工作流」、主按钮为编排并跳画布、无试聊', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([WF]))
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('工作流')
+    expect(wrapper.find('[data-test="chat-8"]').exists()).toBe(false)
+    await wrapper.find('[data-test="design-8"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/apps/8/workflow')
+  })
+
+  it('创建弹窗选「工作流」→ createApp 带 type=workflow，且不显示模型/知识库/提示词字段', async () => {
+    vi.mocked(createApp).mockResolvedValue(WF)
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="create-open"]').trigger('click')
+    // 选类型=工作流（radio 的 label 值即 AppType）
+    const radio = wrapper.findComponent({ name: 'ElRadioGroup' })
+    await radio.vm.$emit('update:modelValue', 'workflow')
+    await flushPromises()
+    expect(wrapper.find('[data-test="form-model"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="form-datasets"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="form-prompt"]').exists()).toBe(false)
+    await wrapper.find('[data-test="form-name"]').setValue('工单流')
+    await wrapper.find('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createApp).toHaveBeenCalledWith(expect.objectContaining({ name: '工单流' }), 'workflow')
+  })
+
+  it('编辑 workflow 应用：弹窗不显示模型/知识库/提示词字段', async () => {
+    vi.mocked(listApps).mockResolvedValue(page([WF]))
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="edit-8"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="form-model"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="form-prompt"]').exists()).toBe(false)
   })
 })

@@ -34,6 +34,10 @@ describe('app api', () => {
     createApp(FORM)
     expect(request.post).toHaveBeenCalledWith('/app/apps', { ...FORM, type: 'chat', datasetIds: [] })
   })
+  it('createApp 传 workflow → body 带 type=workflow', () => {
+    createApp(FORM, 'workflow')
+    expect(request.post).toHaveBeenCalledWith('/app/apps', { ...FORM, type: 'workflow' })
+  })
   it('updateApp → PUT /app/apps/{id} + body', () => {
     updateApp('10', FORM)
     expect(request.put).toHaveBeenCalledWith('/app/apps/10', FORM)
