@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -275,5 +276,53 @@ class GraphValidatorTest {
         BizException ex = assertThrows(BizException.class,
                 () -> validator.validateAndOrder(condGraph(goodCondData(), edges)));
         assertTrue(ex.getMessage().contains("sourceHandle"));
+    }
+
+    // ==== W3b: http 节点校验 ====
+
+    private GraphDef httpGraph(Map<String, Object> httpData) {
+        return new GraphDef(List.of(
+                new GraphNode("start", "start", Map.of("inputs", List.of(Map.of("name", "q", "required", true)))),
+                new GraphNode("http_1", "http", httpData),
+                new GraphNode("end", "end", Map.of("outputs", List.of(Map.of("name", "r", "value", "{{http_1.body}}"))))),
+                List.of(new GraphEdge("start", "http_1"), new GraphEdge("http_1", "end")));
+    }
+
+    @Test
+    void http节点_合法配置_通过_method大小写不敏感() {
+        assertDoesNotThrow(() -> validator.validateAndOrder(httpGraph(
+                Map.of("method", "get", "url", "https://api.example.com/x?q={{start.q}}"))));
+        assertDoesNotThrow(() -> validator.validateAndOrder(httpGraph(Map.of(
+                "method", "POST", "url", "https://api.example.com/x",
+                "headers", Map.of("Content-Type", "application/json"), "body", "{\"q\":\"{{start.q}}\"}"))));
+    }
+
+    @Test
+    void http节点_缺method_拒绝() {
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(httpGraph(Map.of("url", "https://a.com"))));
+        assertTrue(ex.getMessage().contains("method"));
+    }
+
+    @Test
+    void http节点_method不在白名单_拒绝() {
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(httpGraph(Map.of("method", "PATCH", "url", "https://a.com"))));
+        assertTrue(ex.getMessage().contains("PATCH"));
+    }
+
+    @Test
+    void http节点_缺url_拒绝() {
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(httpGraph(Map.of("method", "GET"))));
+        assertTrue(ex.getMessage().contains("url"));
+    }
+
+    @Test
+    void http节点_headers非map_拒绝() {
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateAndOrder(httpGraph(Map.of(
+                        "method", "GET", "url", "https://a.com", "headers", "Authorization: x"))));
+        assertTrue(ex.getMessage().contains("headers"));
     }
 }

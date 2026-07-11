@@ -36,6 +36,9 @@ public class GraphValidator {
     static final Set<String> CONDITION_OPERATORS =
             Set.of("==", "!=", ">", ">=", "<", "<=", "contains", "notContains");
 
+    /** http 节点 method 白名单（spec §2）。 */
+    static final Set<String> HTTP_METHODS = Set.of("GET", "POST", "PUT", "DELETE");
+
     private final WorkflowProperties props;
 
     public GraphValidator(WorkflowProperties props) {
@@ -72,6 +75,9 @@ public class GraphValidator {
             }
             if (NodeType.CONDITION.value().equals(n.type())) {
                 requireConditionFields(n);
+            }
+            if (NodeType.HTTP.value().equals(n.type())) {
+                requireHttpFields(n);
             }
         }
         requireExactlyOne(nodes, NodeType.START.value());
@@ -195,6 +201,25 @@ public class GraphValidator {
         String op = String.valueOf(n.data().get("operator"));
         if (!CONDITION_OPERATORS.contains(op)) {
             throw invalid("condition 节点 " + n.id() + " 的 operator 非法：" + op);
+        }
+    }
+
+    /** http 节点字段校验；url 的 scheme 与 SSRF 属运行时校验（url 可含模板变量，保存时只查必填）。 */
+    private void requireHttpFields(GraphNode n) {
+        Object method = n.data() == null ? null : n.data().get("method");
+        if (method == null || String.valueOf(method).isBlank()) {
+            throw invalid("http 节点 " + n.id() + " 缺少 method");
+        }
+        if (!HTTP_METHODS.contains(String.valueOf(method).toUpperCase())) {
+            throw invalid("http 节点 " + n.id() + " 的 method 非法：" + method);
+        }
+        Object url = n.data().get("url");
+        if (url == null || String.valueOf(url).isBlank()) {
+            throw invalid("http 节点 " + n.id() + " 缺少 url");
+        }
+        Object headers = n.data().get("headers");
+        if (headers != null && !(headers instanceof Map)) {
+            throw invalid("http 节点 " + n.id() + " 的 headers 必须是对象");
         }
     }
 

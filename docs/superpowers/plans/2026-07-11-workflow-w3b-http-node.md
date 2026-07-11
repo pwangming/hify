@@ -535,7 +535,7 @@ git commit -m "feat(infra): 出站 HTTP 客户端（Redirect.NEVER/双超时/响
 **Interfaces:**
 - Produces: `NodeType.HTTP`（value=`"http"`）；validator 规则：method 必填且（大小写不敏感）∈ GET/POST/PUT/DELETE、url 必填非空、headers 若存在须为 Map。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `GraphValidatorTest.java` 追加：
 
@@ -591,14 +591,14 @@ void http节点_headers非map_拒绝() {
 
 （若该测试类未静态导入 `assertDoesNotThrow`，补 `import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;`。）
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd server && mvn -Dtest=GraphValidatorTest test
 ```
 Expected: 合法用例报「未知节点类型：http」。退出码非 0。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `NodeType.java`（CONDITION 与 END 之间加一行）：
 
@@ -647,14 +647,14 @@ Expected: 合法用例报「未知节点类型：http」。退出码非 0。
     }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 cd server && mvn -Dtest=GraphValidatorTest test
 ```
 Expected: 全绿（W1/W2/W3a 既有用例不回归），退出码 0。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/workflow/constant/NodeType.java \
