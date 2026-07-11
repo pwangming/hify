@@ -69,7 +69,8 @@ public class WorkflowRunService {
         long startAt = System.currentTimeMillis();
         EngineResult result;
         try {
-            result = engine.execute(run.getId(), ordered, inputs, new RunContext(user.userId(), appId));
+            result = engine.execute(run.getId(), ordered, def.getGraph().edges(),
+                    inputs, new RunContext(user.userId(), appId));
         } catch (RuntimeException e) {
             // 引擎内节点失败已收敛为 EngineResult；能抛到这里的是落库等非预期异常。
             // 兜底收尾 run 终态（僵尸自愈只在重启时跑，不兜这条会永久卡 running），再上抛走全局 500。

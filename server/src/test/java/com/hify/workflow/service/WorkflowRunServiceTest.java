@@ -113,7 +113,7 @@ class WorkflowRunServiceTest {
     @Test
     void 成功链路_配额先查_引擎执行_终态succeeded() {
         when(store.createRun(eq(42L), eq(5L), eq(7L), anyMap())).thenReturn(runningRun(100L));
-        when(engine.execute(eq(100L), anyList(), anyMap(), any()))
+        when(engine.execute(eq(100L), anyList(), anyList(), anyMap(), any()))
                 .thenReturn(EngineResult.success(Map.of("answer", "退款类")));
         WorkflowRun done = runningRun(100L);
         done.setStatus("succeeded");
@@ -132,7 +132,7 @@ class WorkflowRunServiceTest {
     @Test
     void 引擎失败_终态failed_正常返回不抛异常() {
         when(store.createRun(eq(42L), eq(5L), eq(7L), anyMap())).thenReturn(runningRun(100L));
-        when(engine.execute(eq(100L), anyList(), anyMap(), any()))
+        when(engine.execute(eq(100L), anyList(), anyList(), anyMap(), any()))
                 .thenReturn(EngineResult.failure("llm_1", "节点 llm_1 失败：模型不可用"));
         WorkflowRun failed = runningRun(100L);
         failed.setStatus("failed");
@@ -150,7 +150,7 @@ class WorkflowRunServiceTest {
     @Test
     void 引擎抛非预期异常_run兜底置failed_异常上抛() {
         when(store.createRun(eq(42L), eq(5L), eq(7L), anyMap())).thenReturn(runningRun(100L));
-        when(engine.execute(eq(100L), anyList(), anyMap(), any()))
+        when(engine.execute(eq(100L), anyList(), anyList(), anyMap(), any()))
                 .thenThrow(new RuntimeException("落库连接中断"));
 
         assertThrows(RuntimeException.class, () -> service.run(42L, Map.of("query", "hi"), user));

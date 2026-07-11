@@ -1,7 +1,9 @@
 package com.hify.workflow.service.engine;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 
 /**
@@ -13,6 +15,7 @@ public class RunContext {
     private final Long userId;
     private final Long appId;
     private final Map<String, Map<String, Object>> outputs = new HashMap<>();
+    private final Set<String> skipped = new HashSet<>();
 
     public RunContext(Long userId, Long appId) {
         this.userId = userId;
@@ -25,6 +28,11 @@ public class RunContext {
 
     public void putOutput(String nodeId, Map<String, Object> out) {
         outputs.put(nodeId, out == null ? Map.of() : out);
+    }
+
+    /** 标记节点被分支跳过：其字段引用渲染为空串（spec §3 汇合语义）。 */
+    public void markSkipped(String nodeId) {
+        skipped.add(nodeId);
     }
 
     public Map<String, Object> getOutput(String nodeId) {
@@ -41,6 +49,10 @@ public class RunContext {
         while (m.find()) {
             String nodeId = m.group(1);
             String field = m.group(2);
+            if (skipped.contains(nodeId)) {
+                m.appendReplacement(sb, "");
+                continue;
+            }
             Map<String, Object> out = outputs.get(nodeId);
             if (out == null) {
                 throw new IllegalStateException("变量引用的节点无输出：" + nodeId);
