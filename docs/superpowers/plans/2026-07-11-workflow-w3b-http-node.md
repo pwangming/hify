@@ -260,7 +260,7 @@ git commit -m "feat(infra): 出站配置与 SSRF 校验器（DNS 解析后全 IP
 - Consumes: `SsrfValidator.validate(String)`、`OutboundProperties`（Task 1）
 - Produces: `record OutboundResponse(int status, String body, Map<String, String> headers)`；`OutboundResponse send(String method, String url, Map<String, String> headers, String body)`——method 已由调用方保证在 GET/POST/PUT/DELETE 白名单；URL scheme 非 http/https 或含受限头抛 `BizException(PARAM_INVALID)`；网络 IO 失败/超时抛 `BizException(DEPENDENCY_UNAVAILABLE)`；任何 HTTP 响应（含 3xx/4xx/5xx）正常返回。Task 4 消费。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 新建 `OutboundHttpClientTest.java`（纯 JUnit 不起 Spring；`mock(SsrfValidator.class)` 的 validate 默认 no-op，绕过 127.0.0.1 拦截以连本地桩）：
 
@@ -387,14 +387,14 @@ class OutboundHttpClientTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd server && mvn -Dtest=OutboundHttpClientTest test
 ```
 Expected: 编译失败「找不到符号 OutboundHttpClient/OutboundResponse」。退出码非 0。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 新建 `OutboundResponse.java`：
 
@@ -507,14 +507,14 @@ public class OutboundHttpClient {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 cd server && mvn -Dtest=OutboundHttpClientTest test
 ```
 Expected: 8 条全绿，退出码 0。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/infra/outbound/OutboundResponse.java \
