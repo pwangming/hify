@@ -115,9 +115,11 @@ hify:
     # 每次 embedding API 调用打包的分段数（千问 v4 单次上限 10；OpenAI 可更大但统一按最小公倍走）。
     embedding-batch-size: ${HIFY_KNOWLEDGE_EMBEDDING_BATCH_SIZE:10}
     # K4 向量检索全局参数（spec 决策 4：全局固定不做应用级）：取几段 / 相似度阈值（1-余弦距离，低于丢弃）
+    # 阈值 0.4 系 2026-07-11 评估拍板（模型「向量解析」，误命中 0 区间 0.35~0.50 取中偏下留双向余量）；
+    # 换 embedding 模型/改分段参数后用 scripts/retrieval-eval/ 重测再定
     retrieval:
       top-k: ${HIFY_KNOWLEDGE_RETRIEVAL_TOP_K:4}
-      score-threshold: ${HIFY_KNOWLEDGE_RETRIEVAL_SCORE_THRESHOLD:0.3}
+      score-threshold: ${HIFY_KNOWLEDGE_RETRIEVAL_SCORE_THRESHOLD:0.4}
   provider:
     crypto:
       # 供应商 API Key 加密主密钥（AES-256-GCM，经 SHA-256 派生 32 字节密钥）。

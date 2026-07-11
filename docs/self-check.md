@@ -861,3 +861,13 @@ mvn -f server/pom.xml test
 - SSRF 与 DNS pinning：发请求前对 DNS 解析后的全部 IP 校验，拦截 loopback/RFC1918/link-local/any/组播/IPv6 ULA，容器服务名由私网解析结果覆盖；一期不做 DNS pinning，校验与连接之间的 rebinding 窗口按内网部署+受信团队威胁模型接受，二期对外开放时收紧。
 - 测试结果：`mvn -Dtest=SsrfValidatorTest test` → 8 passed；`mvn -Dtest=OutboundHttpClientTest test` 普通沙箱因本地 socket 监听失败，提升权限后 → 8 passed；`mvn -Dtest=GraphValidatorTest test` → 28 passed；`mvn -Dtest=HttpNodeExecutorTest test` 普通沙箱因 Mockito agent attach 失败，提升权限后 → 5 passed；`mvn -Dtest=WorkflowRunFlowTest test` 普通沙箱因 Docker socket 失败，提升权限后 → 9 passed；`mvn verify` 提升权限后 → `Tests run: 579, Failures: 0, Errors: 0`，退出码 0，含 `ModularityTests` 与 `LayerRulesTest`。
 - DoD 待办：用户用 W3b Postman 集合在真实服务/真实模型上手动跑四条路径，验收前必须重启服务：公网成功 `httpbin.org/json` → succeeded 且 `llm_fb=skipped`；404 分流 → succeeded、`http_1.outputs.status=404` 且 `llm_ok=skipped`；SSRF 拦截 `127.0.0.1` → HTTP 200 + run failed + errorMessage 含“禁止访问”；详情中 `http_1.inputs.headers.Authorization=***`。
+
+## 2026-07-11 检索阈值调优（评估集 + score-threshold 0.3→0.4）
+
+- 本轮范围：新顶层 `scripts/retrieval-eval/`（4 篇合成语料 1508~1530 字符 + 16 应命中/12 不应命中问题集 + `report.mjs` 指标纯函数含 9 个 node:test 单测 + `eval.mjs` 编排 CLI + README）；CLAUDE.md 仓库布局补 `scripts/` 一行；评估拍板后 `score-threshold` 默认 0.3→0.4。零 npm 依赖、后端仅改 yml 默认值与一处测试注释、零迁移。
+- 四个拍板决策（spec 入档）：可复跑评估集（非只手工调数字）；语料随 repo 走；手跑工具不进 mvn test/CI；一次检索（topK=10, threshold=0）离线扫 11 档阈值，embedding 调用数=题数 28。
+- Codex 执行：两次按红线停报，均为**计划缺口**而非执行偏差——① 语料长度未达自校验下限（计划写 1500 字实落 663~848，扩写修复）；② `node --test <目录>` 形态在 Node 24 失效（本机复现后改显式指定测试文件）。终审逐字节比对 9 个落盘文件与计划「原样写入」块全部一致，提交/文件构成与计划一一对应，零删弱零夹带。
+- 评估结果（模型「向量解析」，2026-07-11）：现值 0.30 有 8.3% 误命中（0.25/0.20 达 25%/75%，W3a 症状坐实）；0.35~0.50 四档误命中 0、召回 93.8%（15/16）；分隔带宽（不应命中最高 0.33 vs 应命中期望文档中位 0.62）。拍板 **0.40**：距误命中天花板 +0.07、距召回掉档的 0.55 有 0.15，双向留余量。
+- 怎么自证：`node --test scripts/retrieval-eval/report.test.mjs` → 9/9 pass 退出码 0；真实环境 `eval.mjs` 一条命令出报告且评估库自动清理；改 yml 后 `mvn verify` → 579/0/0 退出码 0（surefire 报告聚合，非 grep BUILD SUCCESS）。
+- 待人工手验（改 yml 后需**重启服务**）：① 真实知识库命中测试问 2~3 个无关问题 → 0 命中，相关问题仍命中（防矫枉过正）；② conversation 绑库应用问无关问题 → 无引用卡片、正常降级回答；③ 可选：W3a 工作流未命中方向用真实库重验 count=0 分流；④ DoD 剩余：评估脚本重跑一次（防重名）+ `--keep` 跑一次到前端复查后手动删库。
+- 留账：评估语料为合成，代表性有限（已由真实库抽查兜底）；per-dataset 阈值、topK 调优、Rerank/混合检索仍不做（spec 边界）；报告头模型名取自 admin 设置的显示名。

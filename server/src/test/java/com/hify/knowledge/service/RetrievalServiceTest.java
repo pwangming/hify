@@ -37,7 +37,7 @@ class RetrievalServiceTest {
         datasetMapper = mock(DatasetMapper.class);
         providerFacade = mock(ProviderFacade.class);
         embeddingModel = mock(EmbeddingModel.class);
-        // 全局默认 topK=4、阈值=0.3（对应 yml 缺省）
+        // 测试自备 topK=4、阈值=0.3（只测过滤逻辑，不与 yml 缺省绑定；现行缺省见 application.yml 注释）
         service = new RetrievalService(chunkMapper, datasetMapper, providerFacade, 4, 0.3);
     }
 
