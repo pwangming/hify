@@ -79,6 +79,7 @@ hify/
 ├── server/              # Spring Boot 模块化单体（包结构见 code-organization.md）
 ├── web/                 # Vue 3 前端（独立 pnpm 工程，同仓库；构建产物进 nginx 镜像）
 ├── deploy/              # nginx 配置、.env.example（真实 .env 不入库）
+├── scripts/             # 手跑工具脚本，不进 CI（retrieval-eval/ 检索阈值评估集）
 ├── docker-compose.yml
 └── docs/architecture/   # 设计文档（见下索引）
 ```
