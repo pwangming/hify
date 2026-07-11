@@ -73,13 +73,28 @@ class WorkflowDraftServiceTest {
     }
 
     @Test
-    void 非法图_报18001且不落库() {
-        GraphDef illegal = new GraphDef(List.of(
-                new GraphNode("start", "start", Map.of())), List.of());
+    void 结构损坏图_报18001且不落库() {
+        // 节点 id 重复 = 结构性损坏，底线校验仍拒（区别于「没配完」的半成品）
+        GraphDef broken = new GraphDef(List.of(
+                new GraphNode("a", "llm", Map.of()),
+                new GraphNode("a", "llm", Map.of())), List.of());
         BizException ex = assertThrows(BizException.class,
-                () -> service.saveDraft(42L, illegal, owner));
+                () -> service.saveDraft(42L, broken, owner));
         assertEquals(18001, ex.errorCode().code());
         verify(defMapper, never()).upsertDraft(any(), any());
+    }
+
+    @Test
+    void 半成品图_可保存() {
+        // 画布 C1：llm 未配任何字段、无 end、无连线，保存必须放行（完整校验后移到触发运行）
+        GraphDef draft = new GraphDef(List.of(
+                new GraphNode("start", "start", Map.of()),
+                new GraphNode("llm_1", "llm", Map.of())), List.of());
+        when(defMapper.selectOne(any())).thenReturn(new WorkflowDef());
+
+        service.saveDraft(42L, draft, owner);
+
+        verify(defMapper).upsertDraft(eq(42L), any(GraphDef.class));
     }
 
     @Test

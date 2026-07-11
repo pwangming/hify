@@ -14,8 +14,7 @@ import com.hify.workflow.service.engine.GraphValidator;
 import org.springframework.stereotype.Service;
 
 /**
- * 草稿定义读写。W1 每 app 恒一条 version=1（spec 拍板 #3）；保存前过 GraphValidator，
- * 不合法的图拒绝入库。权限：读全员，写 owner 或 Admin（api-standards §6）。
+ * 草稿定义读写。W1 每 app 恒一条 version=1（spec 拍板 #3）；保存前过 GraphValidator.validateBasics 底线校验（半成品可存，画布 C1）；全量校验在触发运行时。权限：读全员，写 owner 或 Admin（api-standards §6）。
  */
 @Service
 public class WorkflowDraftService {
@@ -43,7 +42,7 @@ public class WorkflowDraftService {
         if (!user.isAdmin() && !user.userId().equals(app.ownerId())) {
             throw new BizException(CommonError.FORBIDDEN, "仅创建者或管理员可编辑工作流");
         }
-        validator.validateAndOrder(graph);
+        validator.validateBasics(graph);
         defMapper.upsertDraft(appId, graph);
         WorkflowDef saved = findDef(appId);
         return new DraftResponse(saved.getGraph(), saved.getUpdateTime());

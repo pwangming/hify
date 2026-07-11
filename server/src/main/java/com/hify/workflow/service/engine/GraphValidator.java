@@ -23,7 +23,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 画布图校验 + 拓扑排序（保存草稿与触发运行共用，spec §4）。
+ * 画布图校验 + 拓扑排序：保存草稿走 validateBasics 底线校验，触发运行走 validateAndOrder 全量校验（画布 C1 spec §2）。
  * 变量引用规则按执行语义定义：引用的节点必须排在拓扑序中本节点之前（顺序执行=前面的输出必已就绪）。
  */
 @Component
@@ -45,27 +45,43 @@ public class GraphValidator {
         this.props = props;
     }
 
-    public List<GraphNode> validateAndOrder(GraphDef graph) {
+    /** 保存草稿的底线校验：只保证「存进去还能读出来」，不管图配没配完（画布 C1 spec §2）。 */
+    public void validateBasics(GraphDef graph) {
         if (graph == null || graph.nodes() == null || graph.nodes().isEmpty()) {
             throw invalid("至少需要一个节点");
         }
         List<GraphNode> nodes = graph.nodes();
-        List<GraphEdge> edges = graph.edges() == null ? List.of() : graph.edges();
         if (nodes.size() > props.getMaxNodes()) {
             throw invalid("节点数超过上限 " + props.getMaxNodes());
         }
-
-        Map<String, GraphNode> byId = new LinkedHashMap<>();
+        Set<String> ids = new HashSet<>();
         for (GraphNode n : nodes) {
             if (n.id() == null || n.id().isBlank()) {
                 throw invalid("存在缺少 id 的节点");
             }
-            if (byId.put(n.id(), n) != null) {
+            if (!ids.add(n.id())) {
                 throw invalid("节点 id 重复：" + n.id());
             }
             if (!NodeType.supported(n.type())) {
                 throw invalid("未知节点类型：" + n.type());
             }
+        }
+        List<GraphEdge> edges = graph.edges() == null ? List.of() : graph.edges();
+        for (GraphEdge e : edges) {
+            if (!ids.contains(e.source()) || !ids.contains(e.target())) {
+                throw invalid("连线引用不存在的节点：" + e.source() + " → " + e.target());
+            }
+        }
+    }
+
+    public List<GraphNode> validateAndOrder(GraphDef graph) {
+        validateBasics(graph);
+        List<GraphNode> nodes = graph.nodes();
+        List<GraphEdge> edges = graph.edges() == null ? List.of() : graph.edges();
+
+        Map<String, GraphNode> byId = new LinkedHashMap<>();
+        for (GraphNode n : nodes) {
+            byId.put(n.id(), n);
             if (NodeType.LLM.value().equals(n.type())) {
                 requireLlmField(n, "modelId");
                 requireLlmField(n, "userPrompt");
@@ -88,9 +104,6 @@ public class GraphValidator {
         Map<String, Integer> inDegree = new HashMap<>();
         byId.keySet().forEach(id -> inDegree.put(id, 0));
         for (GraphEdge e : edges) {
-            if (!byId.containsKey(e.source()) || !byId.containsKey(e.target())) {
-                throw invalid("连线引用不存在的节点：" + e.source() + " → " + e.target());
-            }
             next.computeIfAbsent(e.source(), k -> new ArrayList<>()).add(e.target());
             prev.computeIfAbsent(e.target(), k -> new ArrayList<>()).add(e.source());
             inDegree.merge(e.target(), 1, Integer::sum);

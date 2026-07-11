@@ -325,4 +325,60 @@ class GraphValidatorTest {
                         "method", "GET", "url", "https://a.com", "headers", "Authorization: x"))));
         assertTrue(ex.getMessage().contains("headers"));
     }
+
+    // —— 画布 C1：保存草稿的底线校验（validateBasics）——
+
+    @Test
+    void 底线校验_半成品图放行() {
+        // llm 缺 modelId/userPrompt、无 end、无连线——都是「没配完」而非结构损坏，草稿必须可存
+        GraphDef draft = new GraphDef(List.of(
+                start(),
+                new GraphNode("llm_1", "llm", Map.of())),
+                List.of());
+        assertDoesNotThrow(() -> validator.validateBasics(draft));
+    }
+
+    @Test
+    void 底线校验_空图或null_报18001() {
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateBasics(new GraphDef(List.of(), List.of())));
+        assertEquals(18001, ex.errorCode().code());
+        assertThrows(BizException.class, () -> validator.validateBasics(null));
+    }
+
+    @Test
+    void 底线校验_节点id重复_报18001() {
+        GraphDef graph = new GraphDef(List.of(
+                new GraphNode("a", "llm", Map.of()),
+                new GraphNode("a", "http", Map.of())),
+                List.of());
+        BizException ex = assertThrows(BizException.class, () -> validator.validateBasics(graph));
+        assertTrue(ex.getMessage().contains("id 重复"));
+    }
+
+    @Test
+    void 底线校验_未知节点类型_报18001() {
+        GraphDef graph = new GraphDef(List.of(new GraphNode("x", "magic", Map.of())), List.of());
+        BizException ex = assertThrows(BizException.class, () -> validator.validateBasics(graph));
+        assertTrue(ex.getMessage().contains("未知节点类型"));
+    }
+
+    @Test
+    void 底线校验_边引用不存在节点_报18001() {
+        GraphDef graph = new GraphDef(List.of(start()),
+                List.of(new GraphEdge("start", "ghost")));
+        BizException ex = assertThrows(BizException.class, () -> validator.validateBasics(graph));
+        assertTrue(ex.getMessage().contains("连线引用不存在的节点"));
+    }
+
+    @Test
+    void 底线校验_超节点数上限_报18001() {
+        List<GraphNode> nodes = new ArrayList<>();
+        for (int i = 0; i <= 50; i++) {
+            nodes.add(new GraphNode("n" + i, "llm", Map.of()));
+        }
+        BizException ex = assertThrows(BizException.class,
+                () -> validator.validateBasics(new GraphDef(nodes, List.of())));
+        assertTrue(ex.getMessage().contains("上限"));
+    }
 }
