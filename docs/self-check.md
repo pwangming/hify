@@ -871,3 +871,11 @@ mvn -f server/pom.xml test
 - 怎么自证：`node --test scripts/retrieval-eval/report.test.mjs` → 9/9 pass 退出码 0；真实环境 `eval.mjs` 一条命令出报告且评估库自动清理；改 yml 后 `mvn verify` → 579/0/0 退出码 0（surefire 报告聚合，非 grep BUILD SUCCESS）。
 - 待人工手验（改 yml 后需**重启服务**）：① 真实知识库命中测试问 2~3 个无关问题 → 0 命中，相关问题仍命中（防矫枉过正）；② conversation 绑库应用问无关问题 → 无引用卡片、正常降级回答；③ 可选：W3a 工作流未命中方向用真实库重验 count=0 分流；④ DoD 剩余：评估脚本重跑一次（防重名）+ `--keep` 跑一次到前端复查后手动删库。
 - 留账：评估语料为合成，代表性有限（已由真实库抽查兜底）；per-dataset 阈值、topK 调优、Rerank/混合检索仍不做（spec 边界）；报告头模型名取自 admin 设置的显示名。
+
+## 2026-07-12 Workflow 画布 C1（画布地基+保存）
+
+- 本轮范围：后端 `GraphValidator` 拆 `validateBasics`（保存草稿底线校验）/`validateAndOrder`（运行全量校验，行为不变）；前端装 @vue-flow/core+background+controls，新增 `/apps/:appId/workflow` 画布页（受控 Vue Flow、左栏拖拽、连线、保存/离开守卫、非 owner 只读）、GraphDef↔VueFlow 纯转换层（边 id 确定性生成/网格兜底/往返保真/节点 id 自增）、AppList 支持创建 workflow 应用与编排入口。零迁移、零新错误码。
+- 拍板决策（spec 入档）：三子轮 C1→C2→C3；保存校验放宽；左栏拖拽+右侧抽屉（抽屉归 C2）；手动保存不自动保存；预置 start/end 不预连线。
+- 测试结果：`mvn -f server/pom.xml verify` → `Tests run: 587, Failures: 0, Errors: 0`，退出码 0，含 `ModularityTests` 与 `LayerRulesTest`；`cd web && pnpm test && pnpm typecheck && pnpm build && pnpm lint` → Vitest 38 files / 276 tests passed，typecheck/build/lint 退出码 0；`cd web && pnpm e2e` → 2 passed，退出码 0。
+- DoD 待人工验收（重启服务后）：spec §8 七条。
+- 留账：C2 配置抽屉/未配齐标红；C3 运行调试；运行历史页推迟发布轮；E2E workflow 旅程推迟。
