@@ -928,7 +928,7 @@ git commit -m "feat(web/workflow): 画布状态 composable（加载/保存/dirty
   - `NodePalette.vue`：无 props；每个条目 `draggable`，dragstart 时 `dataTransfer.setData('application/hify-node', type)`。
   - 拖拽数据键约定：**`application/hify-node`**（Task 7 的 drop 端使用同一常量）。
 
-- [ ] **Step 1: 写失败测试（CanvasNode）**
+- [x] **Step 1: 写失败测试（CanvasNode）**
 
 `web/src/views/workflow/components/__tests__/CanvasNode.spec.ts`：
 
@@ -985,7 +985,7 @@ describe('CanvasNode', () => {
 })
 ```
 
-- [ ] **Step 2: 写失败测试（NodePalette）**
+- [x] **Step 2: 写失败测试（NodePalette）**
 
 `web/src/views/workflow/components/__tests__/NodePalette.spec.ts`：
 
@@ -1016,12 +1016,12 @@ describe('NodePalette', () => {
 })
 ```
 
-- [ ] **Step 3: 跑测试确认红**
+- [x] **Step 3: 跑测试确认红**
 
 Run: `cd web && pnpm vitest run src/views/workflow/components/__tests__/`
 Expected: FAIL——两个组件模块不存在。
 
-- [ ] **Step 4: 实现 CanvasNode.vue**
+- [x] **Step 4: 实现 CanvasNode.vue**
 
 ```vue
 <script setup lang="ts">
@@ -1110,7 +1110,7 @@ const meta = computed(() => META[props.type] ?? { label: props.type, icon: Link 
 </style>
 ```
 
-- [ ] **Step 5: 实现 NodePalette.vue**
+- [x] **Step 5: 实现 NodePalette.vue**
 
 ```vue
 <script setup lang="ts">
@@ -1188,12 +1188,12 @@ function onDragStart(event: DragEvent, type: WorkflowNodeType) {
 </style>
 ```
 
-- [ ] **Step 6: 跑测试确认绿 + typecheck**
+- [x] **Step 6: 跑测试确认绿 + typecheck**
 
 Run: `cd web && pnpm vitest run src/views/workflow/components/__tests__/ && pnpm typecheck`
 Expected: 6 passed；vue-tsc 无错。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add web/src/views/workflow/components/
