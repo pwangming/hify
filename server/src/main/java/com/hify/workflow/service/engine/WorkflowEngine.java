@@ -33,15 +33,6 @@ public class WorkflowEngine {
         this.store = store;
     }
 
-    public EngineResult execute(Long runId, List<GraphNode> ordered,
-                                Map<String, Object> inputs, RunContext ctx) {
-        List<GraphEdge> lineEdges = new ArrayList<>();
-        for (int i = 0; i < ordered.size() - 1; i++) {
-            lineEdges.add(new GraphEdge(ordered.get(i).id(), ordered.get(i + 1).id()));
-        }
-        return execute(runId, ordered, lineEdges, inputs, ctx);
-    }
-
     public EngineResult execute(Long runId, List<GraphNode> ordered, List<GraphEdge> edges,
                                 Map<String, Object> inputs, RunContext ctx) {
         Map<String, List<GraphEdge>> incoming = new HashMap<>();

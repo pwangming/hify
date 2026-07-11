@@ -2,6 +2,7 @@ package com.hify.workflow.service.engine;
 
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
+import com.hify.workflow.dto.GraphEdge;
 import com.hify.workflow.dto.GraphNode;
 import com.hify.workflow.service.WorkflowRunStore;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,8 @@ class WorkflowEngineTest {
             Map.of("modelId", "3", "userPrompt", "{{start.query}}"));
     private final GraphNode end = new GraphNode("end", "end",
             Map.of("outputs", List.of(Map.of("name", "answer", "value", "{{llm_1.text}}"))));
+    private final List<GraphEdge> edges =
+            List.of(new GraphEdge("start", "llm_1"), new GraphEdge("llm_1", "end"));
 
     @BeforeEach
     void setUp() {
@@ -58,7 +61,7 @@ class WorkflowEngineTest {
             return new NodeResult(Map.of("userPrompt", "我要退货"), Map.of("text", "退款类"));
         });
 
-        EngineResult result = engine.execute(100L, List.of(start, llm, end), Map.of("query", "我要退货"), ctx);
+        EngineResult result = engine.execute(100L, List.of(start, llm, end), edges, Map.of("query", "我要退货"), ctx);
 
         assertTrue(result.succeeded());
         assertEquals("退款类", result.outputs().get("answer"));
@@ -77,7 +80,7 @@ class WorkflowEngineTest {
         when(llmExecutor.execute(eq(llm), any()))
                 .thenThrow(new BizException(CommonError.DEPENDENCY_UNAVAILABLE, "模型不可用"));
 
-        EngineResult result = engine.execute(100L, List.of(start, llm, end), Map.of("query", "hi"), ctx);
+        EngineResult result = engine.execute(100L, List.of(start, llm, end), edges, Map.of("query", "hi"), ctx);
 
         assertFalse(result.succeeded());
         assertEquals("llm_1", result.failedNodeId());
@@ -92,7 +95,7 @@ class WorkflowEngineTest {
         when(llmExecutor.execute(eq(llm), any()))
                 .thenThrow(new IllegalStateException("变量引用的字段不存在：start.q"));
 
-        EngineResult result = engine.execute(100L, List.of(start, llm, end), Map.of("query", "hi"), ctx);
+        EngineResult result = engine.execute(100L, List.of(start, llm, end), edges, Map.of("query", "hi"), ctx);
 
         assertFalse(result.succeeded());
         assertTrue(result.errorMessage().contains("节点执行异常"));
@@ -105,7 +108,7 @@ class WorkflowEngineTest {
         when(llmExecutor.execute(eq(llm), any())).thenThrow(new NodeExecutionException(rendered,
                 new BizException(CommonError.DEPENDENCY_UNAVAILABLE, "模型不可用")));
 
-        EngineResult result = engine.execute(100L, List.of(start, llm, end), Map.of("query", "hi"), ctx);
+        EngineResult result = engine.execute(100L, List.of(start, llm, end), edges, Map.of("query", "hi"), ctx);
 
         assertFalse(result.succeeded());
         assertTrue(result.errorMessage().contains("模型不可用"));
@@ -121,7 +124,7 @@ class WorkflowEngineTest {
             return new NodeResult(Map.of(), Map.of("text", c.render("{{start.query}}")));
         });
 
-        EngineResult result = engine.execute(100L, List.of(start, llm, end), Map.of("query", "我要退货"), ctx);
+        EngineResult result = engine.execute(100L, List.of(start, llm, end), edges, Map.of("query", "我要退货"), ctx);
 
         assertTrue(result.succeeded());
         assertEquals("我要退货", result.outputs().get("answer"));
