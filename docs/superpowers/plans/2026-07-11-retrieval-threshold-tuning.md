@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - 本轮**后端/前端代码零改动**（不动 server/、web/ 下任何文件）；只创建 `scripts/retrieval-eval/**` 与修改 `CLAUDE.md` 一处
-- 脚本是**手跑调参工具**：不进 mvn test、不进 CI、不进 vitest；唯一自动化测试是 `node --test scripts/retrieval-eval/`（在仓库根目录跑，看退出码判定）
+- 脚本是**手跑调参工具**：不进 mvn test、不进 CI、不进 vitest；唯一自动化测试是 `node --test scripts/retrieval-eval/report.test.mjs`（在仓库根目录跑，看退出码判定）
 - 账密不硬编码入仓库：`HIFY_EVAL_USER`/`HIFY_EVAL_PASSWORD` 环境变量必填，缺失时报错退出；`HIFY_BASE_URL` 默认 `http://localhost:8080`
 - 指标按**生产口径**：只用每题排名前 4（`PROD_TOP_K=4`）的分数参与召回/误命中判定；采分 `topK=10` 仅为多看分布
 - 候选阈值 0.20 → 0.70 步长 0.05 共 11 档，浮点用整数运算再除避免精度尾巴
@@ -432,7 +432,7 @@ test('renderReport 含模型名、11 行数据与推荐结论', () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run（仓库根目录）: `node --test scripts/retrieval-eval/`
+Run（仓库根目录）: `node --test scripts/retrieval-eval/report.test.mjs`
 Expected: FAIL——`Cannot find module ... report.mjs`，退出码非 0。
 
 - [ ] **Step 3: 实现 report.mjs**
@@ -552,7 +552,7 @@ export function renderReport(report, meta) {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run（仓库根目录）: `node --test scripts/retrieval-eval/`
+Run（仓库根目录）: `node --test scripts/retrieval-eval/report.test.mjs`
 Expected: 9 个测试全部 pass，退出码 0。
 
 - [ ] **Step 5: Commit**
@@ -728,7 +728,7 @@ main().catch((e) => {
 Run（仓库根目录）:
 
 ```bash
-node --check scripts/retrieval-eval/eval.mjs && node --test scripts/retrieval-eval/
+node --check scripts/retrieval-eval/eval.mjs && node --test scripts/retrieval-eval/report.test.mjs
 ```
 
 Expected: `--check` 无输出；9 个测试 pass，退出码 0。
@@ -795,7 +795,7 @@ HIFY_EVAL_USER=admin HIFY_EVAL_PASSWORD=xxx node scripts/retrieval-eval/eval.mjs
 指标纯函数（`report.mjs`）有 node:test 单测：
 
 ```bash
-node --test scripts/retrieval-eval/
+node --test scripts/retrieval-eval/report.test.mjs
 ```
 ````
 
