@@ -14,6 +14,7 @@ import type { WorkflowNodeType } from '@/types/workflow'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
 import CanvasNode from './components/CanvasNode.vue'
+import NodeConfigDrawer from './components/NodeConfigDrawer.vue'
 import NodePalette from './components/NodePalette.vue'
 import { useWorkflowGraph } from './composables/useWorkflowGraph'
 
@@ -43,6 +44,15 @@ const nodeTypes = {
 const canEdit = computed(
   () => userStore.isAdmin || app.value?.ownerId === userStore.user?.id,
 )
+
+/** 抽屉选中态：id 存 ref，节点从 nodes 现取——节点被删时自动回落 null 关抽屉。 */
+const selectedId = ref<string | null>(null)
+const selectedNode = computed(
+  () => graph.nodes.value.find((n) => n.id === selectedId.value) ?? null,
+)
+function onNodeClick(e: { node: { id: string } }) {
+  selectedId.value = e.node.id
+}
 
 onMounted(async () => {
   try {
@@ -126,10 +136,20 @@ onBeforeRouteLeave(async () => {
           v-model:edges="graph.edges.value"
           :node-types="nodeTypes"
           @connect="onConnect"
+          @node-click="onNodeClick"
+          @pane-click="selectedId = null"
         >
           <Background />
           <Controls />
         </VueFlow>
+        <NodeConfigDrawer
+          :node="selectedNode"
+          :nodes="graph.nodes.value"
+          :edges="graph.edges.value"
+          :can-edit="canEdit"
+          @close="selectedId = null"
+          @update="graph.updateNodeData"
+        />
       </div>
     </div>
   </div>

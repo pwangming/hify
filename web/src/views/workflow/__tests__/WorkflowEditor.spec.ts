@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import { getApp } from '@/api/app'
@@ -62,7 +63,7 @@ function mountEditor() {
   return mount(WorkflowEditor, {
     global: {
       plugins: [ElementPlus],
-      stubs: { NodePalette: true },
+      stubs: { NodePalette: true, NodeConfigDrawer: true },
     },
   })
 }
@@ -126,5 +127,47 @@ describe('WorkflowEditor', () => {
     await flushPromises()
     expect(leaveGuard).not.toBeNull()
     expect(await leaveGuard!()).toBe(true)
+  })
+
+  it('点节点 → 抽屉收到该节点；点空白 → 关闭', async () => {
+    const w = mountEditor()
+    await flushPromises()
+    const vf = w.findComponent({ name: 'VueFlow' })
+    vf.vm.$emit('node-click', { node: { id: 'start' } })
+    await nextTick()
+    const drawer = w.findComponent({ name: 'NodeConfigDrawer' })
+    expect(drawer.props('node')).toMatchObject({ id: 'start', type: 'start' })
+    expect(drawer.props('canEdit')).toBe(true)
+    vf.vm.$emit('pane-click')
+    await nextTick()
+    expect(drawer.props('node')).toBeNull()
+  })
+
+  it('抽屉 update → 节点 data 写回，保存提交新配置', async () => {
+    vi.mocked(saveDraft).mockResolvedValue(DRAFT)
+    const w = mountEditor()
+    await flushPromises()
+    const vf = w.findComponent({ name: 'VueFlow' })
+    vf.vm.$emit('node-click', { node: { id: 'start' } })
+    await nextTick()
+    const drawer = w.findComponent({ name: 'NodeConfigDrawer' })
+    drawer.vm.$emit('update', 'start', { inputs: [{ name: 'q' }] })
+    await nextTick()
+    await w.find('[data-test="wf-save"]').trigger('click')
+    await flushPromises()
+    expect(saveDraft).toHaveBeenCalledWith('42', expect.objectContaining({
+      nodes: expect.arrayContaining([
+        expect.objectContaining({ id: 'start', data: { inputs: [{ name: 'q' }] } }),
+      ]),
+    }))
+  })
+
+  it('抽屉打开时删除选中节点 → node 回落 null（抽屉关闭）', async () => {
+    const w = mountEditor()
+    await flushPromises()
+    const vf = w.findComponent({ name: 'VueFlow' })
+    vf.vm.$emit('node-click', { node: { id: 'ghost' } })
+    await nextTick()
+    expect(w.findComponent({ name: 'NodeConfigDrawer' }).props('node')).toBeNull()
   })
 })

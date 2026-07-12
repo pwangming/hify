@@ -2133,7 +2133,7 @@ git commit -m "feat(web/workflow): 画布节点未配齐警示徽章+tooltip"
 **Interfaces:**
 - Consumes: `NodeConfigDrawer`（Task 13）、`graph.updateNodeData`（Task 4）
 
-- [ ] **Step 1: 追加失败用例**
+- [x] **Step 1: 追加失败用例**
 
 在既有 `WorkflowEditor.spec.ts`：`mountEditor` 的 stubs 加 `NodeConfigDrawer: true`；文件头部 `import { nextTick } from 'vue'`。追加：
 
@@ -2182,12 +2182,12 @@ it('抽屉打开时删除选中节点 → node 回落 null（抽屉关闭）', a
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/__tests__/WorkflowEditor.spec.ts`
 Expected: 新增 3 个用例 FAIL（NodeConfigDrawer 未挂），既有用例仍 PASS
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `WorkflowEditor.vue` 改动点：
 
@@ -2233,12 +2233,12 @@ template：`<VueFlow>` 标签加两个事件：
 
 （`ref` 已在既有 import 里；`computed` 同。）
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/__tests__/WorkflowEditor.spec.ts`
 Expected: PASS（既有+新增全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/WorkflowEditor.vue web/src/views/workflow/__tests__/WorkflowEditor.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
