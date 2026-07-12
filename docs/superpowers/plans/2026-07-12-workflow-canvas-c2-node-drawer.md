@@ -1638,7 +1638,7 @@ git commit -m "feat(web/workflow): start 节点输入声明表单"
 - Consumes: `EndNodeData` / `EndOutputDecl`、`useVarInsert`
 - Produces: props/emits 同通用契约，expose `insertVar`（特殊：无行时自动新增一行再插入其 value，spec §4）；根元素 `data-test="form-end"`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -1690,12 +1690,12 @@ describe('EndForm', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/EndForm.spec.ts`
 Expected: FAIL（组件不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```vue
 <script setup lang="ts">
@@ -1792,12 +1792,12 @@ defineExpose({ insertVar })
 </style>
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/EndForm.spec.ts`
 Expected: PASS（4 个用例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/components/forms/EndForm.vue web/src/views/workflow/components/forms/__tests__/EndForm.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
