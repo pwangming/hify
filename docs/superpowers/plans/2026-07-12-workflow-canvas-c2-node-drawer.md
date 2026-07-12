@@ -483,7 +483,7 @@ git commit -m "feat(web/workflow): updateNodeData 合并写回节点配置"
 **Interfaces:**
 - Produces: `interface InsertTarget { get(): string; set(v: string): void; el?(): HTMLInputElement | HTMLTextAreaElement | null | undefined }`；`useVarInsert(defaultKey: () => string)` 返回 `{ register(key, target), onFocus(key), insert(text), focusedKey }`——所有含变量字段的表单（Task 7~12）复用
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -542,12 +542,12 @@ describe('useVarInsert', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/composables/__tests__/useVarInsert.spec.ts`
 Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```ts
 import { ref } from 'vue'
@@ -590,12 +590,12 @@ export function useVarInsert(defaultKey: () => string) {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/composables/__tests__/useVarInsert.spec.ts`
 Expected: PASS（5 个用例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/composables/useVarInsert.ts web/src/views/workflow/composables/__tests__/useVarInsert.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
