@@ -219,7 +219,7 @@ git commit -m "feat(web/workflow): StartForm 输入声明补必填勾选"
   - `useWorkflowRun(appId: string, deps: { dirty: Readonly<Ref<boolean>>; canSave: Readonly<Ref<boolean>>; save: () => Promise<void> })` 返回 `{ running: Ref<boolean>, lastRun: Ref<RunResponse | null>, nodeRunMap: ComputedRef<Record<string, NodeRunView>>, lastInputs: Ref<Record<string, string>>, triggerRun(inputs: Record<string, string>): Promise<void> }`
   - `NODE_RUNS_KEY: InjectionKey<ComputedRef<Record<string, NodeRunView>>>`（CanvasNode 注入用）
 
-- [ ] **Step 1: 写失败测试**——`useWorkflowRun.spec.ts` 全文：
+- [x] **Step 1: 写失败测试**——`useWorkflowRun.spec.ts` 全文：
 
 ```ts
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -327,12 +327,12 @@ describe('useWorkflowRun', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/composables/__tests__/useWorkflowRun.spec.ts`
 Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: 实现**——`useWorkflowRun.ts` 全文：
+- [x] **Step 3: 实现**——`useWorkflowRun.ts` 全文：
 
 ```ts
 import { computed, ref, watch, type ComputedRef, type InjectionKey, type Ref } from 'vue'
@@ -390,12 +390,12 @@ export function useWorkflowRun(
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/composables/__tests__/useWorkflowRun.spec.ts`
 Expected: PASS（7 例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/composables/useWorkflowRun.ts web/src/views/workflow/composables/__tests__/useWorkflowRun.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c3-run-debug.md
