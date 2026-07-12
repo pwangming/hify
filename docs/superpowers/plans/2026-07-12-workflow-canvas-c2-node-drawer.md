@@ -905,7 +905,7 @@ git commit -m "feat(web/workflow): condition 节点配置表单"
 - Consumes: `LlmNodeData`、`listChatModels`（`@/api/provider`，返回 `ModelOption[]`：`{ id, name, type, providerName }`）、`useVarInsert`
 - Produces: props/emits 同通用契约，expose `insertVar`；根元素 `data-test="form-llm"`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -967,12 +967,12 @@ describe('LlmForm', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/LlmForm.spec.ts`
 Expected: FAIL（组件不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```vue
 <script setup lang="ts">
@@ -1062,12 +1062,12 @@ defineExpose({ insertVar: insert, selectOptions })
 </template>
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/LlmForm.spec.ts`
 Expected: PASS（4 个用例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/components/forms/LlmForm.vue web/src/views/workflow/components/forms/__tests__/LlmForm.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
