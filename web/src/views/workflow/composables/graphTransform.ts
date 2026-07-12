@@ -1,4 +1,4 @@
-import type { GraphDef, GraphNodePosition, WorkflowNodeType } from '@/types/workflow'
+import type { GraphDef, GraphNodePosition, WorkflowNodeData, WorkflowNodeType } from '@/types/workflow'
 
 /**
  * GraphDef（后端 jsonb 形态）↔ Vue Flow nodes/edges 的纯转换层。
@@ -10,7 +10,7 @@ export interface FlowNode {
   id: string
   type: WorkflowNodeType
   position: GraphNodePosition
-  data: Record<string, unknown>
+  data: WorkflowNodeData
   deletable: boolean
 }
 

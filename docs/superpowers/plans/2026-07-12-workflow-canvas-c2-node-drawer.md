@@ -35,7 +35,7 @@
 
 纯类型改动无运行时行为，本 Task 以 typecheck 代替失败测试。
 
-- [ ] **Step 1: 修改 types/workflow.ts**
+- [x] **Step 1: 修改 types/workflow.ts**
 
 把 `GraphNode` 的 `data: Record<string, unknown>` 替换为按类型的联合。在 `WorkflowNodeType` 定义之后插入：
 
@@ -109,7 +109,7 @@ export interface GraphNode {
 }
 ```
 
-- [ ] **Step 2: graphTransform.ts 的 FlowNode.data 同步收窄**
+- [x] **Step 2: graphTransform.ts 的 FlowNode.data 同步收窄**
 
 ```ts
 // import 行改为
@@ -119,12 +119,12 @@ import type { GraphDef, GraphNodePosition, WorkflowNodeData, WorkflowNodeType } 
   data: WorkflowNodeData
 ```
 
-- [ ] **Step 3: typecheck + 全量测试确认无涟漪**
+- [x] **Step 3: typecheck + 全量测试确认无涟漪**
 
 Run: `pnpm typecheck && pnpm test`
 Expected: 全绿（既有 spec 的 data 字面量已用真实字段名 `modelId`/`left` 等，应无错；若个别字面量报错，改成合法字段名而非加 as 断言）
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/src/types/workflow.ts web/src/views/workflow/composables/graphTransform.ts web/src/views/workflow/composables/useWorkflowGraph.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
