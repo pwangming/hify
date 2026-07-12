@@ -11,8 +11,8 @@ const NAME_RE = /^[\w-]+$/
 function rows(): StartInputDecl[] {
   return props.data.inputs ?? []
 }
-function updateRow(i: number, name: string) {
-  emit('update', { inputs: rows().map((r, idx) => (idx === i ? { name } : r)) })
+function updateRow(i: number, patch: Partial<StartInputDecl>) {
+  emit('update', { inputs: rows().map((r, idx) => (idx === i ? { ...r, ...patch } : r)) })
 }
 function addRow() {
   emit('update', { inputs: [...rows(), { name: '' }] })
@@ -31,9 +31,15 @@ function removeRow(i: number) {
           <el-input
             :model-value="row.name"
             placeholder="变量名，如 city"
-            @update:model-value="updateRow(i, $event)"
+            @update:model-value="updateRow(i, { name: $event })"
           />
         </div>
+        <el-checkbox
+          data-test="start-input-required"
+          :model-value="row.required ?? false"
+          label="必填"
+          @update:model-value="updateRow(i, { required: $event === true })"
+        />
         <el-button data-test="start-input-remove" :icon="Delete" text @click="removeRow(i)" />
         <div
           v-if="row.name !== '' && !NAME_RE.test(row.name)"

@@ -35,4 +35,22 @@ describe('StartForm', () => {
     const ok = mountForm({ inputs: [{ name: 'city_1' }] })
     expect(ok.find('[data-test="start-input-warn"]').exists()).toBe(false)
   })
+
+  it('勾选必填 → 写回 required=true 且保留名字', async () => {
+    const w = mount(StartForm, {
+      props: { data: { inputs: [{ name: 'city' }] }, disabled: false },
+      global: { plugins: [ElementPlus] },
+    })
+    await w.find('[data-test="start-input-required"] input').setValue(true)
+    expect(w.emitted('update')![0][0]).toEqual({ inputs: [{ name: 'city', required: true }] })
+  })
+
+  it('改名字 → 保留已有 required 标记', async () => {
+    const w = mount(StartForm, {
+      props: { data: { inputs: [{ name: 'city', required: true }] }, disabled: false },
+      global: { plugins: [ElementPlus] },
+    })
+    await w.find('[data-test="start-input-name"] input').setValue('q')
+    expect(w.emitted('update')![0][0]).toEqual({ inputs: [{ name: 'q', required: true }] })
+  })
 })

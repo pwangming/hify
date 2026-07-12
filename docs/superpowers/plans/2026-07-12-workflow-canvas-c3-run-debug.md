@@ -146,7 +146,7 @@ git commit -m "feat(web/workflow): 运行类型+专用超时+runWorkflow API"
 - Consumes: `StartInputDecl.required?: boolean`（Task 1）。
 - Produces: StartForm 每行多一个 `data-test="start-input-required"` 的 el-checkbox；`update` 事件的 patch 里 inputs 行保留/写入 `required`。改名字不再丢 required（现状 `updateRow` 只写 `{ name }` 会丢字段，必须改成合并补丁）。
 
-- [ ] **Step 1: 写失败测试**——`StartForm.spec.ts` 追加（沿该文件既有 mount 写法；若已有本地 mount 辅助则复用）：
+- [x] **Step 1: 写失败测试**——`StartForm.spec.ts` 追加（沿该文件既有 mount 写法；若已有本地 mount 辅助则复用）：
 
 ```ts
   it('勾选必填 → 写回 required=true 且保留名字', async () => {
@@ -168,12 +168,12 @@ git commit -m "feat(web/workflow): 运行类型+专用超时+runWorkflow API"
   })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/StartForm.spec.ts`
 Expected: FAIL（找不到 `start-input-required`；改名字用例丢 required）
 
-- [ ] **Step 3: 实现**——`StartForm.vue` 的 `updateRow` 改为合并补丁，模板每行加勾选：
+- [x] **Step 3: 实现**——`StartForm.vue` 的 `updateRow` 改为合并补丁，模板每行加勾选：
 
 ```ts
 function updateRow(i: number, patch: Partial<StartInputDecl>) {
@@ -193,12 +193,12 @@ function updateRow(i: number, patch: Partial<StartInputDecl>) {
 />
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/StartForm.spec.ts`
 Expected: PASS（既有用例 + 新 2 例全绿——既有「改名字」用例若断言了 `{ name }` 整行替换，按合并语义更新断言）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/components/forms/StartForm.vue web/src/views/workflow/components/forms/__tests__/StartForm.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c3-run-debug.md
