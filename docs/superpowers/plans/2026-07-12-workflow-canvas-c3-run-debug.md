@@ -414,7 +414,7 @@ git commit -m "feat(web/workflow): useWorkflowRun 运行状态机（自动保存
 - Consumes: `StartInputDecl`（Task 1）。
 - Produces: props `{ visible: boolean; decls: StartInputDecl[]; initial: Record<string, string> }`，emits `update:visible: [boolean]`、`submit: [Record<string, string>]`。必填项空值提交被拦并显示行内错误；每次打开按 decls 重建模型并用 initial 预填。
 
-- [ ] **Step 1: 写失败测试**——`RunInputsDialog.spec.ts` 全文（el-dialog 沿 NodeConfigDrawer 的本地 stub 手法）：
+- [x] **Step 1: 写失败测试**——`RunInputsDialog.spec.ts` 全文（el-dialog 沿 NodeConfigDrawer 的本地 stub 手法）：
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -474,12 +474,12 @@ describe('RunInputsDialog', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/components/__tests__/RunInputsDialog.spec.ts`
 Expected: FAIL（组件不存在）
 
-- [ ] **Step 3: 实现**——`RunInputsDialog.vue` 全文：
+- [x] **Step 3: 实现**——`RunInputsDialog.vue` 全文：
 
 ```vue
 <script setup lang="ts">
@@ -543,12 +543,12 @@ function onSubmit() {
 </template>
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/components/__tests__/RunInputsDialog.spec.ts`
 Expected: PASS（4 例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/components/RunInputsDialog.vue web/src/views/workflow/components/__tests__/RunInputsDialog.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c3-run-debug.md
