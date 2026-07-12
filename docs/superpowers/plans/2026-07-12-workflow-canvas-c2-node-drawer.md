@@ -1253,7 +1253,7 @@ git commit -m "feat(web/workflow): knowledge-retrieval 节点配置表单"
 - Consumes: `HttpNodeData`、`HTTP_METHODS`（Task 2）、`useVarInsert`
 - Produces: props/emits 同通用契约，expose `insertVar`；根元素 `data-test="form-http"`。headers 用**本地行状态**（key 编辑中可重复/为空），写回时过滤空 key、重复 key 后写赢（spec §8）——因此 Task 13 抽屉必须给表单 `:key="node.id"`（切节点重建实例，本地行状态才不串）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -1305,12 +1305,12 @@ describe('HttpForm', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/HttpForm.spec.ts`
 Expected: FAIL（组件不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```vue
 <script setup lang="ts">
@@ -1467,12 +1467,12 @@ defineExpose({ insertVar: insert })
 </style>
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/HttpForm.spec.ts`
 Expected: PASS（5 个用例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/components/forms/HttpForm.vue web/src/views/workflow/components/forms/__tests__/HttpForm.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
