@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import NodeConfigDrawer from '@/views/workflow/components/NodeConfigDrawer.vue'
+import type { NodeRunView } from '@/types/workflow'
 import type { FlowEdge, FlowNode } from '@/views/workflow/composables/graphTransform'
 
 vi.mock('@/api/provider', () => ({ listChatModels: vi.fn().mockResolvedValue([]) }))
@@ -42,6 +43,12 @@ function mountDrawer(node: FlowNode | null, canEdit = true) {
 describe('NodeConfigDrawer', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  const NODE_RUN: NodeRunView = {
+    id: '1', nodeId: 'if_1', nodeType: 'condition', status: 'succeeded',
+    inputs: { left: '3' }, outputs: { hit: true },
+    errorMessage: null, elapsedMs: '5', createTime: '2026-07-12T10:00:00+08:00',
+  }
+
   it('node 为 null 不渲染', () => {
     expect(mountDrawer(null).find('[data-test="drawer"]').exists()).toBe(false)
   })
@@ -81,5 +88,33 @@ describe('NodeConfigDrawer', () => {
     const w = mountDrawer(NODES[2], false)
     await flushPromises()
     expect(w.find('[data-test="cond-left"] input').attributes('disabled')).toBeDefined()
+  })
+
+  it('无 nodeRun：不渲染 tabs（现状不变）', async () => {
+    const w = mountDrawer(NODES[2])
+    await flushPromises()
+    expect(w.find('[data-test="drawer-tabs"]').exists()).toBe(false)
+    expect(w.find('[data-test="form-condition"]').exists()).toBe(true)
+  })
+
+  it('有 nodeRun：渲染双 tab 且默认落「运行」，运行面板拿到记录', async () => {
+    const w = mount(NodeConfigDrawer, {
+      props: { node: NODES[2], nodes: NODES, edges: EDGES, canEdit: true, nodeRun: NODE_RUN },
+      global: { plugins: [ElementPlus], stubs: { ElDrawer: DrawerStub, transition: false } },
+    })
+    await flushPromises()
+    expect(w.find('[data-test="drawer-tabs"]').exists()).toBe(true)
+    expect(w.find('[data-test="node-run-panel"]').exists()).toBe(true)
+    expect(w.find('[data-test="node-run-outputs"]').text()).toContain('"hit": true')
+  })
+
+  it('有 nodeRun 时切到「配置」tab 仍可编辑表单', async () => {
+    const w = mount(NodeConfigDrawer, {
+      props: { node: NODES[2], nodes: NODES, edges: EDGES, canEdit: true, nodeRun: NODE_RUN },
+      global: { plugins: [ElementPlus], stubs: { ElDrawer: DrawerStub, transition: false } },
+    })
+    await flushPromises()
+    await w.findAll('.el-tabs__item')[0].trigger('click')
+    expect(w.find('[data-test="form-condition"]').exists()).toBe(true)
   })
 })

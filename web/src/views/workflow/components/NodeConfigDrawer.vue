@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, type Component } from 'vue'
-import type { WorkflowNodeData, WorkflowNodeType } from '@/types/workflow'
+import { computed, ref, watch, type Component } from 'vue'
+import type { NodeRunView, WorkflowNodeData, WorkflowNodeType } from '@/types/workflow'
 import type { FlowEdge, FlowNode } from '../composables/graphTransform'
 import { upstreamVars } from '../composables/useUpstreamVars'
+import NodeRunPanel from './NodeRunPanel.vue'
 import VariablePanel from './VariablePanel.vue'
 import StartForm from './forms/StartForm.vue'
 import LlmForm from './forms/LlmForm.vue'
@@ -11,12 +12,16 @@ import ConditionForm from './forms/ConditionForm.vue'
 import HttpForm from './forms/HttpForm.vue'
 import EndForm from './forms/EndForm.vue'
 
-const props = defineProps<{
-  node: FlowNode | null
-  nodes: FlowNode[]
-  edges: FlowEdge[]
-  canEdit: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    node: FlowNode | null
+    nodes: FlowNode[]
+    edges: FlowEdge[]
+    canEdit: boolean
+    nodeRun?: NodeRunView | null
+  }>(),
+  { nodeRun: null },
+)
 const emit = defineEmits<{ close: []; update: [id: string, patch: WorkflowNodeData] }>()
 
 const FORMS: Record<WorkflowNodeType, Component> = {
@@ -49,6 +54,14 @@ const vars = computed(() =>
 const showVars = computed(() => props.node != null && props.node.type !== 'start')
 
 const formRef = ref<{ insertVar?: (text: string) => void } | null>(null)
+const activeTab = ref<'config' | 'run'>('config')
+watch(
+  () => [props.node?.id, props.nodeRun] as const,
+  () => {
+    activeTab.value = props.nodeRun ? 'run' : 'config'
+  },
+  { immediate: true },
+)
 
 function onUpdate(patch: WorkflowNodeData) {
   if (props.node) emit('update', props.node.id, patch)
@@ -68,15 +81,33 @@ function onInsert(text: string) {
     <!-- template 包一层 v-if：同元素上 v-if 对自身绑定不做类型收窄（vue-tsc 会报 node 可能为 null） -->
     <template v-if="node">
       <!-- :key=node.id：切换节点时强制重建表单实例（HttpForm 本地行状态、模型选项等不串台） -->
-      <component
-        :is="FORMS[node.type]"
-        :key="node.id"
-        ref="formRef"
-        :data="node.data"
-        :disabled="!canEdit"
-        @update="onUpdate"
-      />
-      <VariablePanel v-if="showVars" :vars="vars" :disabled="!canEdit" @insert="onInsert" />
+      <el-tabs v-if="nodeRun" v-model="activeTab" data-test="drawer-tabs">
+        <el-tab-pane label="配置" name="config">
+          <component
+            :is="FORMS[node.type]"
+            :key="node.id"
+            ref="formRef"
+            :data="node.data"
+            :disabled="!canEdit"
+            @update="onUpdate"
+          />
+          <VariablePanel v-if="showVars" :vars="vars" :disabled="!canEdit" @insert="onInsert" />
+        </el-tab-pane>
+        <el-tab-pane label="运行" name="run">
+          <NodeRunPanel :node-run="nodeRun" />
+        </el-tab-pane>
+      </el-tabs>
+      <template v-else>
+        <component
+          :is="FORMS[node.type]"
+          :key="node.id"
+          ref="formRef"
+          :data="node.data"
+          :disabled="!canEdit"
+          @update="onUpdate"
+        />
+        <VariablePanel v-if="showVars" :vars="vars" :disabled="!canEdit" @insert="onInsert" />
+      </template>
     </template>
   </el-drawer>
 </template>
