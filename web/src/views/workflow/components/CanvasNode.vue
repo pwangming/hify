@@ -2,11 +2,13 @@
 import { computed, type Component } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import {
-  ChatDotRound, CircleCheck, Collection, Link, Switch, VideoPlay,
+  ChatDotRound, CircleCheck, Collection, Link, Switch, VideoPlay, WarningFilled,
 } from '@element-plus/icons-vue'
+import type { WorkflowNodeData, WorkflowNodeType } from '@/types/workflow'
+import { nodeIssues } from '../composables/useNodeIssues'
 
-// Vue Flow 经 nodeTypes 注入的自定义节点：只声明用到的 props，其余（data/selected 等）忽略
-const props = defineProps<{ id: string; type: string }>()
+// Vue Flow 经 nodeTypes 注入的自定义节点：只声明用到的 props，其余（selected 等）忽略
+const props = defineProps<{ id: string; type: string; data?: Record<string, unknown> }>()
 
 const META: Record<string, { label: string; icon: Component }> = {
   start: { label: '开始', icon: VideoPlay },
@@ -17,6 +19,9 @@ const META: Record<string, { label: string; icon: Component }> = {
   end: { label: '结束', icon: CircleCheck },
 }
 const meta = computed(() => META[props.type] ?? { label: props.type, icon: Link })
+const issues = computed(() =>
+  nodeIssues(props.type as WorkflowNodeType, (props.data ?? {}) as WorkflowNodeData),
+)
 </script>
 
 <template>
@@ -34,12 +39,18 @@ const meta = computed(() => META[props.type] ?? { label: props.type, icon: Link 
       <span class="canvas-node__branch canvas-node__branch--false">假</span>
     </template>
     <Handle v-else-if="type !== 'end'" type="source" :position="Position.Right" />
+    <el-tooltip v-if="issues.length > 0" :content="issues.join('、')" placement="top">
+      <span class="canvas-node__warn" data-test="node-warn">
+        <el-icon><WarningFilled /></el-icon>
+      </span>
+    </el-tooltip>
   </div>
 </template>
 
 <style scoped lang="scss">
 // 画布几何均为视觉初值，待实测微调
 .canvas-node {
+  position: relative;
   display: flex;
   align-items: center;
   gap: $spacing-sm;
@@ -80,5 +91,15 @@ const meta = computed(() => META[props.type] ?? { label: props.type, icon: Link 
 }
 .canvas-node__branch--false {
   top: calc(70% - 8px);
+}
+.canvas-node__warn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  color: var(--el-color-warning);
+  font-size: 16px;
+  line-height: 1;
+  background: var(--el-bg-color);
+  border-radius: 50%;
 }
 </style>
