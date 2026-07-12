@@ -879,3 +879,13 @@ mvn -f server/pom.xml test
 - 测试结果：`mvn -f server/pom.xml verify` → `Tests run: 587, Failures: 0, Errors: 0`，退出码 0，含 `ModularityTests` 与 `LayerRulesTest`；`cd web && pnpm test && pnpm typecheck && pnpm build && pnpm lint` → Vitest 38 files / 276 tests passed，typecheck/build/lint 退出码 0；`cd web && pnpm e2e` → 2 passed，退出码 0。
 - DoD 待人工验收（重启服务后）：spec §8 七条。
 - 留账：C2 配置抽屉/未配齐标红；C3 运行调试；运行历史页推迟发布轮；E2E workflow 旅程推迟。
+
+## 2026-07-12 Workflow 画布 C2（六类节点配置抽屉）
+
+- 本轮范围（纯前端，server/ 零改动）：`GraphNode.data` 收窄为按类型联合；右侧 el-drawer 配置抽屉 ×6 类表单（start 输入声明 / llm 模型+提示词含失效兜底 / kb 数据集多选含已删兜底+query / condition 三元组 / http method+url+headers 行编辑+body / end 输出声明行编辑）；未配齐橙色徽章+tooltip（`useNodeIssues` 镜像后端 require* 规则，字段级、提示不阻断）；可引用变量面板（`useUpstreamVars` 沿入边反向 BFS 祖先、防环）点击插入光标处（`useVarInsert` 最后聚焦字段+默认字段回落）；表单即时写回 `updateNodeData`，dirty/保存/离开守卫复用 C1 机制；非 owner 抽屉只读。
+- 拍板决策（spec 入档）：变量面板点击插入（不做输入框内 `{{` 自动补全）；徽章+tooltip 不动边框；即时写回无确定按钮；组件架构=抽屉壳+六个子表单（否决大组件 v-if 与 schema 渲染器）。
+- Codex 执行：15 个 Task 15 个 commit 与计划一一对应，账本纪律良好（只勾选不改内容）；但 **Task 16 全量回归三步未执行未勾选**，由终审代跑补勾。
+- 终审修缮（1 Critical + 1 Important + 2 顺手）：① VariablePanel 模板残留孤立 `>` 文本节点（UI 渲染多余字符）——根因是 Codex 遇到 el-tag 点击测不通，把 @click 挪进内层 span 重排模板时留下孤儿字符；真因是 **el-tag 根是 `<transition>`，VTU 默认 stub 截走 attrs/监听**，正解是组件保持 @click 在 el-tag、测试 `stubs: { transition: false }`。② EndForm/HttpForm 动态行注册只增不删，聚焦过的行被删后点变量标签命中陈旧闭包**静默失效**——`useVarInsert` 加 `unregister`，两表单注册随行数 prune。③ 连带发现 **el-input 的 focus 组件 emit 在 jsdom 触发不了**（capture 监听+组件 emit 链路），原「最后聚焦」特性从未被真实测过——全部表单 `@focus`→`@focusin`（原生冒泡，浏览器/jsdom 两端一致），并补 ConditionForm focusin 正向用例钉死机制。④ useNodeIssues 注释补口径（API 手拼草稿的元素级偏差留给运行时校验）。共补 5 条回归测试。
+- 测试结果：`pnpm test` → 49 files / 340 tests passed；`pnpm typecheck`/`pnpm lint`/`pnpm build` 退出码 0；`git status server/` 无输出（防呆确认零后端改动）+ `mvn -q verify` 退出码 0（surefire 88 份报告，非 grep BUILD SUCCESS）。
+- DoD 待人工验收（纯前端，`pnpm dev` 即可，后端无需重启）：spec §7 五条——纯画布配出 W3a 等价图保存后 Postman 运行 succeeded；徽章列缺失项且配齐消失、半成品可存可恢复；变量面板=祖先输出、点击插入；非 owner 全只读；失效模型/已删知识库禁用兜底。
+- 留账：输入框内 `{{` 自动补全二期候选；图级校验提示不做（18001 兜底）；headers 空行编辑的边缘 dirty（极边缘）；LlmForm/KnowledgeForm 为测试 expose selectOptions（测实现不测行为，二期改断言渲染）；el-input 包 div[data-test] 的写法与计划不一致（可用，风格账）。
