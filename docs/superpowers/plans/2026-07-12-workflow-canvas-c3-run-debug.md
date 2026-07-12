@@ -1137,7 +1137,7 @@ git commit -m "feat(web/workflow): 节点抽屉加配置/运行双 tab"
 - Consumes: `useWorkflowRun / NODE_RUNS_KEY`（Task 3）、`RunInputsDialog`（Task 4）、`RunStatusChip`（Task 5）、抽屉 `nodeRun` prop（Task 8）、`StartNodeData`（既有）。
 - Produces: 工具栏 `data-test="wf-run"` 运行按钮（全员可用，运行权限团队共享）；运行中保存按钮禁用；`provide(NODE_RUNS_KEY, run.nodeRunMap)`。
 
-- [ ] **Step 1: 写失败测试**——`WorkflowEditor.spec.ts`：
+- [x] **Step 1: 写失败测试**——`WorkflowEditor.spec.ts`：
 
 mock 工厂加 `runWorkflow`（vi.mock 提升，工厂内直接加）：
 
@@ -1249,12 +1249,12 @@ describe 内追加常量与用例：
 
 `mountEditor` 的 stubs 保持 `{ NodePalette: true, NodeConfigDrawer: true }` 不变——stub 组件也接收 props/emits，`findComponent({ name: 'RunInputsDialog' })` 需要它未被 stub，**不要把 RunInputsDialog / RunStatusChip 加进 stubs**。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/__tests__/WorkflowEditor.spec.ts`
 Expected: FAIL（找不到 `wf-run`）
 
-- [ ] **Step 3: 实现**——`WorkflowEditor.vue`：
+- [x] **Step 3: 实现**——`WorkflowEditor.vue`：
 
 script 追加：
 
@@ -1348,12 +1348,12 @@ NodeConfigDrawer 加 prop、画布区末尾加弹窗：
 />
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/__tests__/WorkflowEditor.spec.ts`
 Expected: PASS（既有 9 例 + 新 5 例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/WorkflowEditor.vue web/src/views/workflow/__tests__/WorkflowEditor.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c3-run-debug.md

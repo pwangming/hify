@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, markRaw, onMounted, ref } from 'vue'
+import { computed, markRaw, onMounted, provide, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { VueFlow, useVueFlow, type NodeTypesObject } from '@vue-flow/core'
@@ -10,12 +10,15 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import { getApp } from '@/api/app'
 import type { App } from '@/types/app'
-import type { WorkflowNodeType } from '@/types/workflow'
+import type { StartNodeData, WorkflowNodeType } from '@/types/workflow'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
 import CanvasNode from './components/CanvasNode.vue'
 import NodeConfigDrawer from './components/NodeConfigDrawer.vue'
 import NodePalette from './components/NodePalette.vue'
+import RunInputsDialog from './components/RunInputsDialog.vue'
+import RunStatusChip from './components/RunStatusChip.vue'
+import { NODE_RUNS_KEY, useWorkflowRun } from './composables/useWorkflowRun'
 import { useWorkflowGraph } from './composables/useWorkflowGraph'
 
 /** 与 NodePalette 共用的拖拽数据键。 */
@@ -53,6 +56,34 @@ const selectedNode = computed(
 function onNodeClick(e: { node: { id: string } }) {
   selectedId.value = e.node.id
 }
+
+const run = useWorkflowRun(appId, { dirty: graph.dirty, canSave: canEdit, save: graph.save })
+provide(NODE_RUNS_KEY, run.nodeRunMap)
+
+const runDialogVisible = ref(false)
+/** start 声明的输入（去掉未命名的空行）。 */
+const startDecls = computed(() => {
+  const start = graph.nodes.value.find((n) => n.id === 'start')
+  const data = (start?.data ?? {}) as StartNodeData
+  return (data.inputs ?? []).filter((d) => d.name !== '')
+})
+
+function onRunClick() {
+  if (startDecls.value.length > 0) {
+    runDialogVisible.value = true
+    return
+  }
+  run.triggerRun({})
+}
+function onRunSubmit(values: Record<string, string>) {
+  runDialogVisible.value = false
+  run.triggerRun(values)
+}
+
+/** 选中节点的本次运行记录（无运行/已清空为 null，抽屉退回单表单形态）。 */
+const selectedNodeRun = computed(() =>
+  selectedId.value ? (run.nodeRunMap.value[selectedId.value] ?? null) : null,
+)
 
 onMounted(async () => {
   try {
@@ -113,12 +144,19 @@ onBeforeRouteLeave(async () => {
         <span v-if="graph.savedAt.value" class="wf-editor__saved" data-test="wf-saved-at">
           上次保存 {{ formatDateTime(graph.savedAt.value) }}
         </span>
+        <RunStatusChip :run="run.lastRun.value" />
+        <el-button
+          data-test="wf-run"
+          :loading="run.running.value"
+          @click="onRunClick"
+          >运行</el-button
+        >
         <el-tooltip :disabled="canEdit" content="仅创建者或管理员可编辑" placement="bottom">
           <span>
             <el-button
               type="primary"
               data-test="wf-save"
-              :disabled="!canEdit"
+              :disabled="!canEdit || run.running.value"
               :loading="graph.saving.value"
               @click="onSave"
               >保存</el-button
@@ -147,8 +185,15 @@ onBeforeRouteLeave(async () => {
           :nodes="graph.nodes.value"
           :edges="graph.edges.value"
           :can-edit="canEdit"
+          :node-run="selectedNodeRun"
           @close="selectedId = null"
           @update="graph.updateNodeData"
+        />
+        <RunInputsDialog
+          v-model:visible="runDialogVisible"
+          :decls="startDecls"
+          :initial="run.lastInputs.value"
+          @submit="onRunSubmit"
         />
       </div>
     </div>
