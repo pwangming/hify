@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import ElementPlus from 'element-plus'
@@ -35,7 +35,8 @@ describe('RunInputsDialog', () => {
     await nextTick()
     await w.find('[data-test="run-submit"]').trigger('click')
     expect(w.emitted('submit')).toBeUndefined()
-    expect(w.text()).toContain('必填项不能为空')
+    // el-form-item 的错误文案经 100ms 防抖（refDebounced）才上 DOM，轮询等待而非 nextTick
+    await vi.waitFor(() => expect(w.text()).toContain('必填项不能为空'))
   })
 
   it('填齐必填提交 → emit submit(values)；非必填可空', async () => {

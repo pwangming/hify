@@ -51,7 +51,6 @@ function onSubmit() {
         <div :data-test="`run-input-${d.name}`" class="run-input-dialog__field">
           <el-input v-model="model[d.name]" />
         </div>
-        <div v-if="missing.includes(d.name)" class="run-input-dialog__error">必填项不能为空</div>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -64,10 +63,5 @@ function onSubmit() {
 <style scoped lang="scss">
 .run-input-dialog__field {
   width: 100%;
-}
-.run-input-dialog__error {
-  margin-top: 4px;
-  color: var(--el-color-danger);
-  font-size: 12px;
 }
 </style>
