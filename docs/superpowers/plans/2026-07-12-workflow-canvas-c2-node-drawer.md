@@ -1816,7 +1816,7 @@ git commit -m "feat(web/workflow): end 节点输出声明表单"
 - Consumes: 六个表单组件（Task 7~12）、`VariablePanel`（Task 6）、`upstreamVars`（Task 3）、`FlowNode`/`FlowEdge`
 - Produces: props `{ node: FlowNode | null; nodes: FlowNode[]; edges: FlowEdge[]; canEdit: boolean }`，emits `close: []`、`update: [id: string, patch: WorkflowNodeData]`（Task 15 接 `graph.updateNodeData`）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -1906,12 +1906,12 @@ describe('NodeConfigDrawer', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/components/__tests__/NodeConfigDrawer.spec.ts`
 Expected: FAIL（组件不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```vue
 <script setup lang="ts">
@@ -2004,12 +2004,12 @@ function onInsert(text: string) {
 </style>
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/components/__tests__/NodeConfigDrawer.spec.ts`
 Expected: PASS（6 个用例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/components/NodeConfigDrawer.vue web/src/views/workflow/components/__tests__/NodeConfigDrawer.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
