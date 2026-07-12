@@ -33,7 +33,7 @@ defineExpose({ insertVar: insert })
           :model-value="data.left ?? ''"
           placeholder="可引用变量，如 {{kb_1.count}}"
           @update:model-value="emit('update', { left: $event })"
-          @focus="onFocus('left')"
+          @focusin="onFocus('left')"
         />
       </div>
     </el-form-item>
@@ -54,7 +54,7 @@ defineExpose({ insertVar: insert })
           :model-value="data.right ?? ''"
           placeholder="常量或变量"
           @update:model-value="emit('update', { right: $event })"
-          @focus="onFocus('right')"
+          @focusin="onFocus('right')"
         />
       </div>
     </el-form-item>

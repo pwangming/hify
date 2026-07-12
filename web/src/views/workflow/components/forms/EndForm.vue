@@ -20,15 +20,21 @@ function removeRow(i: number) {
   emit('update', { outputs: rows().filter((_, idx) => idx !== i) })
 }
 
-// 默认插入目标=最后一行 value；行是动态的，逐行注册（register 幂等覆盖）
-const { register, onFocus, insert } = useVarInsert(() => `value_${rows().length - 1}`)
+// 默认插入目标=最后一行 value；行动态增删，注册随行数同步（多余的注销，防陈旧闭包静默失效）
+const { register, unregister, onFocus, insert } = useVarInsert(
+  () => `value_${rows().length - 1}`,
+)
+let registeredRows = 0
 watchEffect(() => {
-  rows().forEach((_, i) => {
+  const len = rows().length
+  for (let i = 0; i < len; i++) {
     register(`value_${i}`, {
       get: () => rows()[i]?.value ?? '',
       set: (v) => updateRow(i, { value: v }),
     })
-  })
+  }
+  for (let i = len; i < registeredRows; i++) unregister(`value_${i}`)
+  registeredRows = len
 })
 
 /** 无行时自动新增一行再插入其 value（spec §4 拍板）。 */
@@ -55,11 +61,12 @@ defineExpose({ insertVar })
           />
         </div>
         <div data-test="end-output-value" class="end-form__value">
+          <!-- focusin（原生冒泡）而非 el-input 的 focus emit：后者在 jsdom 测不到，见终审记录 -->
           <el-input
             :model-value="row.value"
             placeholder="值，可引用变量，如 {{llm_1.text}}"
             @update:model-value="updateRow(i, { value: $event })"
-            @focus="onFocus(`value_${i}`)"
+            @focusin="onFocus(`value_${i}`)"
           />
         </div>
         <el-button data-test="end-output-remove" :icon="Delete" text @click="removeRow(i)" />

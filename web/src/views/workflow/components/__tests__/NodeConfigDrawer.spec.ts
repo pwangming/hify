@@ -34,7 +34,8 @@ const EDGES: FlowEdge[] = [
 function mountDrawer(node: FlowNode | null, canEdit = true) {
   return mount(NodeConfigDrawer, {
     props: { node, nodes: NODES, edges: EDGES, canEdit },
-    global: { plugins: [ElementPlus], stubs: { ElDrawer: DrawerStub } },
+    // transition: false——el-tag 根是 <transition>，VTU 默认 stub 会截走 attrs/监听，点击测不到
+    global: { plugins: [ElementPlus], stubs: { ElDrawer: DrawerStub, transition: false } },
   })
 }
 

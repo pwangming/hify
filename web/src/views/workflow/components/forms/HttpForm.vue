@@ -45,7 +45,7 @@ onMounted(() => {
 
 const urlRef = ref<InputInstance>()
 const bodyRef = ref<InputInstance>()
-const { register, onFocus, insert } = useVarInsert(() => 'url')
+const { register, unregister, onFocus, insert } = useVarInsert(() => 'url')
 register('url', {
   get: () => props.data.url ?? '',
   set: (v) => emit('update', { url: v }),
@@ -56,8 +56,11 @@ register('body', {
   set: (v) => emit('update', { body: v }),
   el: () => bodyRef.value?.textarea,
 })
+// 注册随行数同步：多余的注销，防删行后 insert 命中陈旧闭包静默失效
+let registeredRows = 0
 watchEffect(() => {
-  rows.value.forEach((_, i) => {
+  const len = rows.value.length
+  for (let i = 0; i < len; i++) {
     register(`hv_${i}`, {
       get: () => rows.value[i]?.value ?? '',
       set: (v) => {
@@ -67,7 +70,9 @@ watchEffect(() => {
         }
       },
     })
-  })
+  }
+  for (let i = len; i < registeredRows; i++) unregister(`hv_${i}`)
+  registeredRows = len
 })
 defineExpose({ insertVar: insert })
 </script>
@@ -90,7 +95,7 @@ defineExpose({ insertVar: insert })
           :model-value="data.url ?? ''"
           placeholder="https://…，可引用变量，如 https://api.example.com?q={{start.q}}"
           @update:model-value="emit('update', { url: $event })"
-          @focus="onFocus('url')"
+          @focusin="onFocus('url')"
         />
       </div>
     </el-form-item>
@@ -108,7 +113,7 @@ defineExpose({ insertVar: insert })
             :model-value="row.value"
             placeholder="值，可引用变量"
             @update:model-value="updateValue(i, $event)"
-            @focus="onFocus(`hv_${i}`)"
+            @focusin="onFocus(`hv_${i}`)"
           />
         </div>
         <el-button
@@ -131,7 +136,7 @@ defineExpose({ insertVar: insert })
           :model-value="data.body ?? ''"
           placeholder="可选，可引用变量"
           @update:model-value="emit('update', { body: $event })"
-          @focus="onFocus('body')"
+          @focusin="onFocus('body')"
         />
       </div>
     </el-form-item>

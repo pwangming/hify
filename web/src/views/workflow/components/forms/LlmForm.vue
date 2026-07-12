@@ -79,7 +79,7 @@ defineExpose({ insertVar: insert, selectOptions })
           :model-value="data.userPrompt ?? ''"
           placeholder="可引用变量，如 {{kb_1.text}}"
           @update:model-value="emit('update', { userPrompt: $event })"
-          @focus="onFocus('userPrompt')"
+          @focusin="onFocus('userPrompt')"
         />
       </div>
     </el-form-item>

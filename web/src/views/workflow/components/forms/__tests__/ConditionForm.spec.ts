@@ -31,6 +31,13 @@ describe('ConditionForm', () => {
     expect(w.emitted('update')?.at(-1)).toEqual([{ left: 'a={{kb_1.text}}' }])
   })
 
+  it('聚焦过 right（focusin）→ insertVar 插入 right 而非默认 left', async () => {
+    const w = mountForm({ left: 'a', right: 'b' })
+    await w.find('[data-test="cond-right"] input').trigger('focusin')
+    ;(w.vm as unknown as { insertVar: (t: string) => void }).insertVar('{{kb_1.text}}')
+    expect(w.emitted('update')?.at(-1)).toEqual([{ right: 'b{{kb_1.text}}' }])
+  })
+
   it('disabled 时输入框禁用', () => {
     const w = mountForm({}, true)
     expect(w.find('[data-test="cond-left"] input').attributes('disabled')).toBeDefined()

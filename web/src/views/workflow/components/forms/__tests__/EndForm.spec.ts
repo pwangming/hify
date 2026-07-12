@@ -44,4 +44,15 @@ describe('EndForm', () => {
       { outputs: [{ name: 'a', value: 'x' }, { name: 'b', value: 'y{{kb_1.count}}' }] },
     ])
   })
+
+  it('聚焦行被删后 insertVar 回落最后一行 value（终审回归：陈旧目标须注销）', async () => {
+    const w = mountForm({ outputs: [{ name: 'a', value: 'x' }, { name: 'b', value: 'y' }] })
+    await w.findAll('[data-test="end-output-value"] input')[1].trigger('focusin')
+    // 模拟父级应用了删行写回：第 2 行没了
+    await w.setProps({ data: { outputs: [{ name: 'a', value: 'x' }] } })
+    ;(w.vm as unknown as { insertVar: (t: string) => void }).insertVar('{{llm_1.text}}')
+    expect(w.emitted('update')?.at(-1)).toEqual([
+      { outputs: [{ name: 'a', value: 'x{{llm_1.text}}' }] },
+    ])
+  })
 })

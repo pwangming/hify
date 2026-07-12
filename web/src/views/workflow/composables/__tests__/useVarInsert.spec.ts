@@ -51,4 +51,17 @@ describe('useVarInsert', () => {
     const { insert } = useVarInsert(() => 'nope')
     expect(() => insert('{{x.y}}')).not.toThrow()
   })
+
+  it('unregister：已注册且被聚焦的字段注销后 → 回落默认字段', () => {
+    const { register, unregister, onFocus, insert } = useVarInsert(() => 'left')
+    const left = makeTarget('')
+    const row = makeTarget('x')
+    register('left', left.target)
+    register('value_2', row.target)
+    onFocus('value_2')
+    unregister('value_2')
+    insert('{{start.q}}')
+    expect(row.read()).toBe('x')
+    expect(left.read()).toBe('{{start.q}}')
+  })
 })

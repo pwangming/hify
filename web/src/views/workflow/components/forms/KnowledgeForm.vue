@@ -66,7 +66,7 @@ defineExpose({ insertVar: insert, selectOptions })
           :model-value="data.query ?? ''"
           placeholder="可引用变量，如 {{start.q}}"
           @update:model-value="emit('update', { query: $event })"
-          @focus="onFocus('query')"
+          @focusin="onFocus('query')"
         />
       </div>
     </el-form-item>

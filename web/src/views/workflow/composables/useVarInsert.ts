@@ -19,6 +19,11 @@ export function useVarInsert(defaultKey: () => string) {
     targets.set(key, target)
   }
 
+  /** 动态行被删时注销，否则 insert 会命中陈旧闭包静默失效；注销后自动回落默认字段。 */
+  function unregister(key: string) {
+    targets.delete(key)
+  }
+
   function onFocus(key: string) {
     focusedKey.value = key
   }
@@ -34,5 +39,5 @@ export function useVarInsert(defaultKey: () => string) {
     target.set(value.slice(0, pos) + text + value.slice(pos))
   }
 
-  return { register, onFocus, insert, focusedKey }
+  return { register, unregister, onFocus, insert, focusedKey }
 }

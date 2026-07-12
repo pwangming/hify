@@ -43,4 +43,12 @@ describe('HttpForm', () => {
     ;(w.vm as unknown as { insertVar: (t: string) => void }).insertVar('{{start.q}}')
     expect(w.emitted('update')?.at(-1)).toEqual([{ url: 'https://a.com?q={{start.q}}' }])
   })
+
+  it('聚焦的 header 行被删后 insertVar 回落 url（终审回归：陈旧目标须注销）', async () => {
+    const w = mountForm({ method: 'GET', url: 'u', headers: { A: '1' } })
+    await w.find('[data-test="http-header-value"] input').trigger('focusin')
+    await w.find('[data-test="http-header-remove"]').trigger('click')
+    ;(w.vm as unknown as { insertVar: (t: string) => void }).insertVar('{{start.q}}')
+    expect(w.emitted('update')?.at(-1)).toEqual([{ url: 'u{{start.q}}' }])
+  })
 })

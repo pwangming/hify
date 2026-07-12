@@ -11,9 +11,11 @@ function blank(v: unknown): boolean {
 }
 
 /**
- * 未配齐判定（提示性标红用）：严格镜像后端 validateAndOrder 的 require* 字段规则，
+ * 未配齐判定（提示性标红用）：镜像后端 validateAndOrder 的 require* 字段规则，
  * 只做字段级——图级问题（出边数/连通性/引用拓扑序）运行时后端 18001 兜底，不在此提示。
  * start/end 后端不强制任何字段，永远返回空数组。
+ * 口径：只针对画布表单能产生的值形态；API 手拼草稿的偏差（datasetIds 元素非数字、
+ * 字段为非字符串标量等）不在此细究，触发运行时后端校验兜底。
  */
 export function nodeIssues(
   type: WorkflowNodeType,

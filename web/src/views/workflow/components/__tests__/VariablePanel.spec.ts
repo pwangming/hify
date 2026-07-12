@@ -10,7 +10,11 @@ const VARS: UpstreamVar[] = [
 ]
 
 function mountPanel(props: { vars: UpstreamVar[]; disabled?: boolean }) {
-  return mount(VariablePanel, { props, global: { plugins: [ElementPlus] } })
+  return mount(VariablePanel, {
+    props,
+    // transition: false——el-tag 根是 <transition>，VTU 默认 stub 会截走 attrs/监听，点击测不到
+    global: { plugins: [ElementPlus], stubs: { transition: false } },
+  })
 }
 
 describe('VariablePanel', () => {
@@ -41,5 +45,10 @@ describe('VariablePanel', () => {
   it('start 未声明输入 → 组内提示', () => {
     const w = mountPanel({ vars: VARS })
     expect(w.text()).toContain('未声明输入')
+  })
+
+  it('模板不渲染杂散字符（终审回归：曾有孤立 > 文本节点）', () => {
+    const w = mountPanel({ vars: VARS })
+    expect(w.text()).not.toContain('>')
   })
 })

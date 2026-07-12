@@ -26,9 +26,9 @@ function onClick(nodeId: string, field: string) {
           :key="f"
           class="var-panel__tag"
           :class="{ 'var-panel__tag--disabled': disabled }"
-        >
-          <span data-test="var-tag" @click="onClick(v.nodeId, f)">{{ f }}</span>
-        </el-tag>
+          data-test="var-tag"
+          @click="onClick(v.nodeId, f)"
+          >{{ f }}</el-tag
         >
       </template>
       <span v-else class="var-panel__hint">未声明输入</span>
