@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { request } from '@/api/request'
-import { getDraft, saveDraft } from '@/api/workflow'
+import { getDraft, runWorkflow, saveDraft } from '@/api/workflow'
+import { config } from '@/config'
 import type { GraphDef } from '@/types/workflow'
 
 vi.mock('@/api/request', () => ({
@@ -23,5 +24,14 @@ describe('workflow api', () => {
   it('saveDraft → PUT /workflow/apps/{appId}/draft + graph 信封', () => {
     saveDraft('42', GRAPH)
     expect(request.put).toHaveBeenCalledWith('/workflow/apps/42/draft', { graph: GRAPH })
+  })
+
+  it('runWorkflow → POST /workflow/apps/{appId}/runs + inputs 信封 + 专用长超时', () => {
+    runWorkflow('42', { city: '北京' })
+    expect(request.post).toHaveBeenCalledWith(
+      '/workflow/apps/42/runs',
+      { inputs: { city: '北京' } },
+      { timeout: config.workflowRunTimeoutMs },
+    )
   })
 })

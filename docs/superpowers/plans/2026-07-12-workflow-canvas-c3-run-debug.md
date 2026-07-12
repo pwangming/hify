@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: `RunStatus`（`'running'|'succeeded'|'failed'|'skipped'`）、`NodeRunView`、`RunResponse`（见下方完整定义，后续所有 Task 依赖）；`StartInputDecl.required?: boolean`；`runWorkflow(appId: string, inputs: Record<string, unknown>): Promise<RunResponse>`；`config.workflowRunTimeoutMs = 300_000`。
 
-- [ ] **Step 1: 写失败测试**——`web/src/api/__tests__/workflow.spec.ts` 顶部 import 加 `runWorkflow` 与 `config`，describe 内追加：
+- [x] **Step 1: 写失败测试**——`web/src/api/__tests__/workflow.spec.ts` 顶部 import 加 `runWorkflow` 与 `config`，describe 内追加：
 
 ```ts
 // 顶部 import 区追加：
@@ -49,12 +49,12 @@ import { config } from '@/config'
   })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/api/__tests__/workflow.spec.ts`
 Expected: FAIL（`runWorkflow` 未导出）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `web/src/types/workflow.ts`——`StartInputDecl` 改为：
 
@@ -122,12 +122,12 @@ export function runWorkflow(appId: string, inputs: Record<string, unknown>) {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/api/__tests__/workflow.spec.ts`
 Expected: PASS（原有 2 例 + 新 1 例）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/types/workflow.ts web/src/config/index.ts web/src/api/workflow.ts web/src/api/__tests__/workflow.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c3-run-debug.md

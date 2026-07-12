@@ -1,9 +1,10 @@
 /** 画布节点类型（对齐后端 NodeType 的 value）。 */
 export type WorkflowNodeType = 'start' | 'llm' | 'knowledge-retrieval' | 'condition' | 'http' | 'end'
 
-/** start 节点输入声明项。纯前端约定：引擎透传触发入参、不读 data；用途=下游变量提示+C3 运行表单预填。 */
+/** start 节点输入声明项。required 供运行前校验（后端 checkRequiredInputs 只认 required=true）。 */
 export interface StartInputDecl {
   name: string
+  required?: boolean
 }
 
 export interface StartNodeData {
@@ -89,4 +90,32 @@ export interface GraphDef {
 export interface DraftResponse {
   graph: GraphDef
   updateTime: string
+}
+
+/** 运行/节点状态（对齐后端 RunStatus；同步执行，响应内只会出现三个终态）。 */
+export type RunStatus = 'running' | 'succeeded' | 'failed' | 'skipped'
+
+/** 节点运行记录（对齐后端 NodeRunView；Long 一律序列化为字符串，故 id/elapsedMs 是 string）。 */
+export interface NodeRunView {
+  id: string
+  nodeId: string
+  nodeType: string
+  status: RunStatus
+  inputs: Record<string, unknown> | null
+  outputs: Record<string, unknown> | null
+  errorMessage: string | null
+  elapsedMs: string | null
+  createTime: string
+}
+
+/** 一次运行的完整视图（对齐后端 RunResponse）。运行失败是 HTTP 200 + status=failed（W1 拍板）。 */
+export interface RunResponse {
+  id: string
+  status: RunStatus
+  inputs: Record<string, unknown> | null
+  outputs: Record<string, unknown> | null
+  errorMessage: string | null
+  elapsedMs: string | null
+  createTime: string
+  nodeRuns: NodeRunView[]
 }

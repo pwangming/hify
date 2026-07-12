@@ -7,6 +7,8 @@ export const config = {
   uploadTimeoutMs: 120_000,
   // 试连接是真实 LLM 调用：后端非流式预算最长 120s，前端超时须 ≥ 后端预算（否则客户端先断）。
   llmTestTimeoutMs: 130_000,
+  // workflow 调试运行可串多个 LLM 节点，比单次试连接更久；前端超时须 ≥ 后端预算（同 llmTestTimeoutMs 教训）。
+  workflowRunTimeoutMs: 300_000,
   // 应用版本号（Vite define 从 package.json 注入，见 vite.config.ts）
   appVersion: __APP_VERSION__,
 }
