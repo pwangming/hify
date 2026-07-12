@@ -268,7 +268,7 @@ git commit -m "feat(web/workflow): 未配齐判定纯函数（镜像后端 requi
 - Consumes: `FlowNode`/`FlowEdge`（graphTransform）、`StartNodeData`
 - Produces: `interface UpstreamVar { nodeId: string; type: WorkflowNodeType; fields: string[] }`；`upstreamVars(nodeId: string, nodes: FlowNode[], edges: FlowEdge[]): UpstreamVar[]`（BFS 近者在前）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -335,12 +335,12 @@ describe('upstreamVars（沿入边反向遍历祖先）', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/composables/__tests__/useUpstreamVars.spec.ts`
 Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```ts
 import type { StartNodeData, WorkflowNodeType } from '@/types/workflow'
@@ -391,12 +391,12 @@ export function upstreamVars(nodeId: string, nodes: FlowNode[], edges: FlowEdge[
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/composables/__tests__/useUpstreamVars.spec.ts`
 Expected: PASS（5 个用例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/composables/useUpstreamVars.ts web/src/views/workflow/composables/__tests__/useUpstreamVars.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
