@@ -1491,7 +1491,7 @@ git commit -m "feat(web/workflow): http 节点配置表单（method/url/headers/
 - Consumes: `StartNodeData` / `StartInputDecl`
 - Produces: props/emits 同通用契约；**无变量字段，不 expose insertVar**（抽屉侧可选调用已判空）；根元素 `data-test="form-start"`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -1534,12 +1534,12 @@ describe('StartForm', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/StartForm.spec.ts`
 Expected: FAIL（组件不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```vue
 <script setup lang="ts">
@@ -1614,12 +1614,12 @@ function removeRow(i: number) {
 </style>
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/components/forms/__tests__/StartForm.spec.ts`
 Expected: PASS（4 个用例全绿）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/components/forms/StartForm.vue web/src/views/workflow/components/forms/__tests__/StartForm.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
