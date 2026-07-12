@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { computed } from 'vue'
 import ElementPlus from 'element-plus'
 import CanvasNode from '@/views/workflow/components/CanvasNode.vue'
+import { NODE_RUNS_KEY } from '@/views/workflow/composables/useWorkflowRun'
+import type { NodeRunView } from '@/types/workflow'
 
 // Handle 需要 VueFlow 注入的上下文，stub 掉——本测试只验证「按类型渲染哪几个连接点」
 const HandleStub = {
@@ -59,5 +62,40 @@ describe('CanvasNode', () => {
   it('start/end 永不显示徽章', () => {
     expect(mountNode('start', 'start', {}).find('[data-test="node-warn"]').exists()).toBe(false)
     expect(mountNode('end', 'end', {}).find('[data-test="node-warn"]').exists()).toBe(false)
+  })
+
+  function nodeRun(status: NodeRunView['status']): NodeRunView {
+    return {
+      id: '1', nodeId: 'llm_1', nodeType: 'llm', status, inputs: {}, outputs: {},
+      errorMessage: null, elapsedMs: '10', createTime: '2026-07-12T10:00:00+08:00',
+    }
+  }
+  function mountWithRun(status: NodeRunView['status']) {
+    return mount(CanvasNode, {
+      props: { id: 'llm_1', type: 'llm', data: { modelId: '3', userPrompt: 'x' } },
+      global: {
+        stubs: { Handle: HandleStub },
+        plugins: [ElementPlus],
+        provide: { [NODE_RUNS_KEY as symbol]: computed(() => ({ llm_1: nodeRun(status) })) },
+      },
+    })
+  }
+
+  it.each([['succeeded'], ['failed'], ['skipped']] as const)(
+    '有本节点运行记录（%s）→ 渲染对应状态徽章',
+    (status) => {
+      const w = mountWithRun(status)
+      const badge = w.find('[data-test="node-run-badge"]')
+      expect(badge.exists()).toBe(true)
+      expect(badge.classes()).toContain(`canvas-node__run--${status}`)
+    },
+  )
+
+  it('无运行记录（未注入）→ 不渲染徽章', () => {
+    const w = mount(CanvasNode, {
+      props: { id: 'llm_1', type: 'llm', data: { modelId: '3', userPrompt: 'x' } },
+      global: { plugins: [ElementPlus], stubs: { Handle: HandleStub } },
+    })
+    expect(w.find('[data-test="node-run-badge"]').exists()).toBe(false)
   })
 })

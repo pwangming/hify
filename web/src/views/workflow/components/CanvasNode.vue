@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
+import { computed, inject, type Component } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import {
-  ChatDotRound, CircleCheck, Collection, Link, Switch, VideoPlay, WarningFilled,
+  ChatDotRound, CircleCheck, CircleCheckFilled, CircleCloseFilled, Collection, Link,
+  RemoveFilled, Switch, VideoPlay, WarningFilled,
 } from '@element-plus/icons-vue'
-import type { WorkflowNodeData, WorkflowNodeType } from '@/types/workflow'
+import type { NodeRunView, WorkflowNodeData, WorkflowNodeType } from '@/types/workflow'
 import { nodeIssues } from '../composables/useNodeIssues'
+import { NODE_RUNS_KEY } from '../composables/useWorkflowRun'
 
 // Vue Flow 经 nodeTypes 注入的自定义节点：只声明用到的 props，其余（selected 等）忽略
 const props = defineProps<{ id: string; type: string; data?: Record<string, unknown> }>()
@@ -22,6 +24,15 @@ const meta = computed(() => META[props.type] ?? { label: props.type, icon: Link 
 const issues = computed(() =>
   nodeIssues(props.type as WorkflowNodeType, (props.data ?? {}) as WorkflowNodeData),
 )
+// 运行状态徽章：编辑器 provide 的 nodeId→NodeRunView 映射；未注入（独立测试/复用场景）安全回落空
+const nodeRuns = inject(NODE_RUNS_KEY, computed(() => ({}) as Record<string, NodeRunView>))
+const runStatus = computed(() => nodeRuns.value[props.id]?.status ?? null)
+const RUN_ICONS = {
+  succeeded: CircleCheckFilled,
+  failed: CircleCloseFilled,
+  skipped: RemoveFilled,
+  running: RemoveFilled,
+} as const
 </script>
 
 <template>
@@ -44,6 +55,14 @@ const issues = computed(() =>
         <el-icon><WarningFilled /></el-icon>
       </span>
     </el-tooltip>
+    <span
+      v-if="runStatus"
+      class="canvas-node__run"
+      :class="`canvas-node__run--${runStatus}`"
+      data-test="node-run-badge"
+    >
+      <el-icon><component :is="RUN_ICONS[runStatus]" /></el-icon>
+    </span>
   </div>
 </template>
 
@@ -101,5 +120,23 @@ const issues = computed(() =>
   line-height: 1;
   background: var(--el-bg-color);
   border-radius: 50%;
+}
+.canvas-node__run {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  font-size: 16px;
+  line-height: 1;
+  background: var(--el-bg-color);
+  border-radius: 50%;
+}
+.canvas-node__run--succeeded {
+  color: var(--el-color-success);
+}
+.canvas-node__run--failed {
+  color: var(--el-color-danger);
+}
+.canvas-node__run--skipped {
+  color: var(--el-text-color-placeholder);
 }
 </style>
