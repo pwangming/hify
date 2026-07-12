@@ -889,3 +889,13 @@ mvn -f server/pom.xml test
 - 测试结果：`pnpm test` → 49 files / 340 tests passed；`pnpm typecheck`/`pnpm lint`/`pnpm build` 退出码 0；`git status server/` 无输出（防呆确认零后端改动）+ `mvn -q verify` 退出码 0（surefire 88 份报告，非 grep BUILD SUCCESS）。
 - DoD 待人工验收（纯前端，`pnpm dev` 即可，后端无需重启）：spec §7 五条——纯画布配出 W3a 等价图保存后 Postman 运行 succeeded；徽章列缺失项且配齐消失、半成品可存可恢复；变量面板=祖先输出、点击插入；非 owner 全只读；失效模型/已删知识库禁用兜底。
 - 留账：输入框内 `{{` 自动补全二期候选；图级校验提示不做（18001 兜底）；headers 空行编辑的边缘 dirty（极边缘）；LlmForm/KnowledgeForm 为测试 expose selectOptions（测实现不测行为，二期改断言渲染）；el-input 包 div[data-test] 的写法与计划不一致（可用，风格账）。
+
+## 2026-07-12 Workflow 画布 C3（运行调试）
+
+- 本轮范围（纯前端，server/ 零改动，run API W1 已备齐）：工具栏「运行」按钮（dirty 先自动保存，「所见即所跑」）→ start 有声明输入弹 `RunInputsDialog`（必填红星+非空校验+预填上次输入）→ `runWorkflow` 同步触发（专用超时 `workflowRunTimeoutMs=300s`）；节点状态徽章（succeeded 绿✓/failed 红✗/skipped 灰，经 `NODE_RUNS_KEY` provide/inject 进 CanvasNode）；抽屉「配置/运行」双 tab（有结果默认落运行 tab，`NodeRunPanel` 展示输入/输出 JSON/错误/耗时/skipped 空态）；工具栏 `RunStatusChip` 状态条（成功+耗时/失败，popover 看最终输出/整体错误）；StartForm 补「必填」勾选（顺手修 updateRow 改名丢字段隐患）。核心 `useWorkflowRun` 状态机：HTTP 错误（运行未发生）保留旧结果、图一改（dirty）即清空、世代号丢弃运行中改图的过期响应、canSave=false（非 owner）跳过自动保存。
+- 拍板决策（spec 入档）：dirty 自动保存再运行；结果载体=复用配置抽屉加 tab；总结果入口=工具栏状态条（不自动弹抽屉不只靠 toast）；补 required 勾选；无声明输入直接跑；结果只存内存刷新即无。
+- Codex 执行：Task 1-9 九个 commit 与计划一一对应、逐文件对账基本零偏差；但 **Task 10 全量回归再次未执行未勾选（C2 后第二次，提示词已写明仍被跳过）**，终审代跑补勾。
+- 终审修缮（1 处）：RunInputsDialog 同时用 `el-form-item :error` 和手写错误 div → 真实浏览器「必填项不能为空」显示两遍。根因：**Element Plus form-item 的错误文案经 `refDebounced(validateState, 100)` 100ms 防抖才上 DOM**，jsdom 测试等 nextTick 看不到 → Codex 被失败测试逼着加手写 div 却没删 `:error`。正解：保留原生 `:error`（自带输入框红边框），测试用 `vi.waitFor` 轮询等防抖。此为第三个 jsdom×Element Plus 坑（前两个：el-tag transition stub、el-input focus 链路）。
+- 测试结果：`pnpm test` → 53 files / 372 tests passed；`pnpm typecheck`/`pnpm lint`/`pnpm build` 退出码 0；`mvn verify` → 退出码 0 且 surefire 报告聚合无失败（非 grep BUILD SUCCESS）；`git status --porcelain server/` 无输出。
+- DoD 人工验收（用户已确认通过）：spec §6 五条——分支两方向徽章正确（命中绿/未走灰 skipped）；配错模型 → 200+failed、失败节点红✗、抽屉运行 tab 见错误；必填输入弹窗拦空、最终输出可见、重跑预填；改图即清徽章、再运行自动保存跑新图；未配完草稿 → 18001 toast 不产生新徽章。
+- 留账：运行历史列表页推迟发布/对外 API 轮；运行取消/SSE 节点推进动画不做；运行中改图响应丢弃为接受的边缘情况；超长链路（>300s）超时时调 `workflowRunTimeoutMs`；E2E workflow 旅程继续推迟。
