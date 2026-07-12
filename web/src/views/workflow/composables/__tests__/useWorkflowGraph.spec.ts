@@ -62,6 +62,24 @@ describe('useWorkflowGraph', () => {
     expect(g.dirty.value).toBe(true)
   })
 
+  it('updateNodeData：合并补丁到指定节点且 dirty', async () => {
+    vi.mocked(getDraft).mockResolvedValue(DRAFT)
+    const g = useWorkflowGraph('42')
+    await g.load()
+    g.updateNodeData('llm_1', { userPrompt: 'hello {{start.q}}' })
+    const llm = g.nodes.value.find((n) => n.id === 'llm_1')
+    expect(llm?.data).toMatchObject({ modelId: '3', userPrompt: 'hello {{start.q}}' })
+    expect(g.dirty.value).toBe(true)
+  })
+
+  it('updateNodeData：目标节点不存在时静默忽略', async () => {
+    vi.mocked(getDraft).mockResolvedValue(DRAFT)
+    const g = useWorkflowGraph('42')
+    await g.load()
+    g.updateNodeData('ghost', { userPrompt: 'x' })
+    expect(g.dirty.value).toBe(false)
+  })
+
   it('save：提交 fromFlow 结果；成功后 dirty 清除、savedAt 更新', async () => {
     vi.mocked(getDraft).mockResolvedValue(DRAFT)
     vi.mocked(saveDraft).mockResolvedValue({ ...DRAFT, updateTime: '2026-07-11T11:00:00+08:00' })

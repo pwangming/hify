@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { getDraft, saveDraft } from '@/api/workflow'
-import type { GraphNodePosition, WorkflowNodeType } from '@/types/workflow'
+import type { GraphNodePosition, WorkflowNodeData, WorkflowNodeType } from '@/types/workflow'
 import { edgeId, fromFlow, nextNodeId, toFlow } from './graphTransform'
 import type { FlowEdge, FlowNode } from './graphTransform'
 
@@ -67,5 +67,16 @@ export function useWorkflowGraph(appId: string) {
     })
   }
 
-  return { nodes, edges, savedAt, loading, saving, dirty, load, save, addNode, connect }
+  /** 抽屉表单即时写回：合并补丁到节点 data（不可变副本，dirty 由快照对比自动感知）。 */
+  function updateNodeData(id: string, patch: WorkflowNodeData) {
+    const node = nodes.value.find((n) => n.id === id)
+    if (!node) return
+    // 联合类型无法直接展开合并，收窄为普通对象拼接（运行时都是普通 jsonb 对象）
+    node.data = {
+      ...(node.data as Record<string, unknown>),
+      ...(patch as Record<string, unknown>),
+    } as WorkflowNodeData
+  }
+
+  return { nodes, edges, savedAt, loading, saving, dirty, load, save, addNode, connect, updateNodeData }
 }

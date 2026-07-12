@@ -414,7 +414,7 @@ git commit -m "feat(web/workflow): 可引用变量计算纯函数（祖先遍历
 **Interfaces:**
 - Produces: `updateNodeData(id: string, patch: WorkflowNodeData): void`（合并写回；Task 13/15 经由它落数据）
 
-- [ ] **Step 1: 在既有 spec 追加失败用例**
+- [x] **Step 1: 在既有 spec 追加失败用例**
 
 ```ts
 it('updateNodeData：合并补丁到指定节点且 dirty', async () => {
@@ -436,12 +436,12 @@ it('updateNodeData：目标节点不存在时静默忽略', async () => {
 
 （既有 spec 的 mock 草稿含 `llm_1`（data `{ modelId: '3', userPrompt: 'hi' }`）；若用例上下文不同，按该文件既有 fixture 名对齐，语义不变。）
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test src/views/workflow/composables/__tests__/useWorkflowGraph.spec.ts`
 Expected: FAIL（updateNodeData is not a function）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 在 `useWorkflowGraph.ts` 里（`connect` 之后）加：
 
@@ -460,12 +460,12 @@ function updateNodeData(id: string, patch: WorkflowNodeData) {
 
 import 行加 `WorkflowNodeData`，return 对象加 `updateNodeData`。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test src/views/workflow/composables/__tests__/useWorkflowGraph.spec.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/workflow/composables/useWorkflowGraph.ts web/src/views/workflow/composables/__tests__/useWorkflowGraph.spec.ts docs/superpowers/plans/2026-07-12-workflow-canvas-c2-node-drawer.md
