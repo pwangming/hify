@@ -7,6 +7,7 @@ import com.hify.common.exception.CommonError;
 import com.hify.conversation.config.ConversationProperties;
 import com.hify.conversation.constant.MessageRole;
 import com.hify.conversation.dto.MessageSource;
+import com.hify.conversation.dto.MessageToolCall;
 import com.hify.conversation.entity.Conversation;
 import com.hify.conversation.entity.Message;
 import com.hify.conversation.mapper.ConversationMapper;
@@ -93,9 +94,16 @@ public class ConversationStore {
      * （若在无事务的编排层发布会被丢弃）。失败/取消的轮不走到这里，故天然不计量（决策 E）。
      * userId/appId/modelId 仅用于计量事件，不落 message 表。
      */
-    @Transactional
     public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
                                    Long userId, Long appId, Long modelId, List<MessageSource> sources) {
+        return appendAssistant(conversationId, content, promptTokens, completionTokens,
+                userId, appId, modelId, sources, List.of());
+    }
+
+    @Transactional
+    public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
+                                   Long userId, Long appId, Long modelId, List<MessageSource> sources,
+                                   List<MessageToolCall> toolCalls) {
         Message m = new Message();
         m.setConversationId(conversationId);
         m.setRole(MessageRole.ASSISTANT.value());
@@ -103,10 +111,11 @@ public class ConversationStore {
         m.setPromptTokens(promptTokens);
         m.setCompletionTokens(completionTokens);
         m.setSources(sources);
+        m.setToolCalls(toolCalls);
         messageMapper.insert(m);
         Conversation touch = new Conversation();
         touch.setId(conversationId);
-        conversationMapper.updateById(touch); // update_time 由 infra MetaObjectHandler 自动填充
+        conversationMapper.updateById(touch);
         publisher.publishEvent(new TokenUsedEvent(userId, appId, modelId, promptTokens, completionTokens));
         return m;
     }
