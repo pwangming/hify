@@ -8,6 +8,7 @@ import com.hify.conversation.constant.ConversationError;
 import com.hify.conversation.constant.MessageRole;
 import com.hify.conversation.dto.ConversationView;
 import com.hify.conversation.dto.MessageSource;
+import com.hify.conversation.dto.MessageToolCall;
 import com.hify.conversation.dto.SendMessageResponse;
 import com.hify.conversation.entity.Conversation;
 import com.hify.conversation.entity.Message;
@@ -16,11 +17,13 @@ import com.hify.knowledge.api.KnowledgeFacade;
 import com.hify.knowledge.api.RetrievedChunk;
 import com.hify.provider.api.ProviderFacade;
 import com.hify.provider.constant.ProviderError;
+import com.hify.tool.api.ToolFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.tool.ToolCallback;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -50,6 +53,8 @@ class ConversationServiceTest {
     private ConversationStore store;
     private QuotaGuard quotaGuard;
     private KnowledgeFacade knowledgeFacade;
+    private ToolFacade toolFacade;
+    private AgentChatService agentChatService;
     private ConversationService service;
 
     private final CurrentUser member = new CurrentUser(42L, "alice", CurrentUser.ROLE_MEMBER);
@@ -63,8 +68,10 @@ class ConversationServiceTest {
         store = mock(ConversationStore.class);
         quotaGuard = mock(QuotaGuard.class);
         knowledgeFacade = mock(KnowledgeFacade.class);
+        toolFacade = mock(ToolFacade.class);
+        agentChatService = mock(AgentChatService.class);
         service = new ConversationService(appFacade, providerFacade, chatInvoker, store, quotaGuard, knowledgeFacade,
-                new ConversationProperties(new ConversationProperties.Memory(10),
+                toolFacade, agentChatService, new ConversationProperties(new ConversationProperties.Memory(10),
                         new ConversationProperties.ListProps(50), 10));
     }
 
@@ -75,6 +82,12 @@ class ConversationServiceTest {
     private void stubRunnableApp(String systemPrompt, List<Long> datasetIds) {
         when(appFacade.findRunnableChatApp(eq(7L)))
                 .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, datasetIds, false)));
+        when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
+    }
+
+    private void stubAgentRunnableApp(String systemPrompt) {
+        when(appFacade.findRunnableChatApp(eq(7L)))
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, List.of(), true)));
         when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
     }
 
@@ -175,6 +188,51 @@ class ConversationServiceTest {
 
         // 窗口原样透传给 invoker（含历史，末位当前消息），systemPrompt 为 null 透传
         verify(chatInvoker).invoke(eq(chatClient), eq(null), eq(window));
+    }
+
+    @Test
+    void send_agent开启_走AgentChatService并用9参落轨迹_不调普通chatInvoker() {
+        stubAgentRunnableApp("你是客服");
+        MessageToolCall trace = new MessageToolCall("http_request", "{\"url\":\"x\"}", "HTTP 200");
+        List<ToolCallback> callbacks = List.of(mock(ToolCallback.class));
+        when(store.openTurn(eq(7L), eq(null), eq(42L), eq("查接口")))
+                .thenReturn(new TurnContext(100L, List.of(userMsg("查接口")), 300L, true));
+        when(toolFacade.getBuiltinToolCallbacks()).thenReturn(callbacks);
+        when(agentChatService.run(eq(chatClient), eq("你是客服"), any(), eq(callbacks)))
+                .thenReturn(new AgentReply("答案", 7, 8, List.of(trace)));
+        when(store.appendAssistant(eq(100L), eq("答案"), eq(7), eq(8),
+                eq(42L), eq(7L), eq(5L), eq(List.of()), eq(List.of(trace))))
+                .thenReturn(savedAssistant());
+
+        SendMessageResponse resp = service.send(7L, null, "查接口", member);
+
+        assertEquals(100L, resp.conversationId());
+        verify(agentChatService).run(eq(chatClient), eq("你是客服"), any(), eq(callbacks));
+        verify(store).appendAssistant(100L, "答案", 7, 8,
+                42L, 7L, 5L, List.of(), List.of(trace));
+        verify(chatInvoker, never()).invoke(any(), any(), any());
+    }
+
+    @Test
+    void send_agent关闭_走普通chatInvoker_不调AgentChatService() {
+        stubRunnableApp("你是客服");
+        stubTurnAndReplyFor("你好");
+
+        service.send(7L, null, "你好", member);
+
+        verify(chatInvoker).invoke(eq(chatClient), eq("你是客服"), any());
+        verify(agentChatService, never()).run(any(), any(), any(), any());
+    }
+
+    @Test
+    void sendStream_agent开启_同步抛17002且不落turn() {
+        stubAgentRunnableApp("你是客服");
+
+        BizException ex = assertThrows(BizException.class,
+                () -> service.sendStream(7L, null, "你好", member));
+
+        assertEquals(ConversationError.AGENT_STREAM_UNSUPPORTED, ex.errorCode());
+        verify(store, never()).openTurn(any(), any(), any(), any());
     }
 
     @Test

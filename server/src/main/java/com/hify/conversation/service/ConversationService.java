@@ -14,6 +14,7 @@ import com.hify.infra.security.CurrentUser;
 import com.hify.knowledge.api.KnowledgeFacade;
 import com.hify.knowledge.api.RetrievedChunk;
 import com.hify.provider.api.ProviderFacade;
+import com.hify.tool.api.ToolFacade;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -47,17 +48,22 @@ public class ConversationService {
     private final ConversationStore store;
     private final QuotaGuard quotaGuard;
     private final KnowledgeFacade knowledgeFacade;
+    private final ToolFacade toolFacade;
+    private final AgentChatService agentChatService;
     private final ConversationProperties props;
 
     public ConversationService(AppFacade appFacade, ProviderFacade providerFacade,
                                ChatInvoker chatInvoker, ConversationStore store, QuotaGuard quotaGuard,
-                               KnowledgeFacade knowledgeFacade, ConversationProperties props) {
+                               KnowledgeFacade knowledgeFacade, ToolFacade toolFacade,
+                               AgentChatService agentChatService, ConversationProperties props) {
         this.appFacade = appFacade;
         this.providerFacade = providerFacade;
         this.chatInvoker = chatInvoker;
         this.store = store;
         this.quotaGuard = quotaGuard;
         this.knowledgeFacade = knowledgeFacade;
+        this.toolFacade = toolFacade;
+        this.agentChatService = agentChatService;
         this.props = props;
     }
 
@@ -73,11 +79,18 @@ public class ConversationService {
         try {
             // 4) 取 ChatClient（不可用抛 12002）并调用——事务外，喂历史窗口
             ChatClient chatClient = providerFacade.getChatClient(app.modelId());
-            Augmented aug = augmentWithKnowledge(app, content);
-            LlmReply reply = chatInvoker.invoke(chatClient, aug.prompt(), turn.window());
-            // 5) 事务B：落 assistant 消息（同事务内发 TokenUsedEvent 计量）
-            Message saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
-                    current.userId(), appId, app.modelId(), aug.sources());
+            Message saved;
+            if (app.agentEnabled()) {
+                AgentReply reply = agentChatService.run(chatClient, app.systemPrompt(), turn.window(),
+                        toolFacade.getBuiltinToolCallbacks());
+                saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
+                        current.userId(), appId, app.modelId(), List.of(), reply.toolCalls());
+            } else {
+                Augmented aug = augmentWithKnowledge(app, content);
+                LlmReply reply = chatInvoker.invoke(chatClient, aug.prompt(), turn.window());
+                saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
+                        current.userId(), appId, app.modelId(), aug.sources());
+            }
             return new SendMessageResponse(cid, toView(saved));
         } catch (RuntimeException e) {
             // 修缮轮 D2：失败清孤儿（新会话删会话+user消息；续聊只删user消息），与 sendStream 语义对齐
@@ -94,6 +107,9 @@ public class ConversationService {
         quotaGuard.check(current.userId(), appId);
         AppRuntimeView app = appFacade.findRunnableChatApp(appId)
                 .orElseThrow(() -> new BizException(ConversationError.APP_NOT_RUNNABLE));
+        if (app.agentEnabled()) {
+            throw new BizException(ConversationError.AGENT_STREAM_UNSUPPORTED);
+        }
         TurnContext turn = store.openTurn(appId, conversationId, current.userId(), content);
         Long cid = turn.conversationId();
         ChatClient chatClient = providerFacade.getChatClient(app.modelId());
