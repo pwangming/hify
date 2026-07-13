@@ -47,12 +47,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-    # 本地开发（server 跑在宿主机，尚未进 compose）临时把沙箱端口映射到宿主机联调；
-    # server 进 compose 后删掉此 ports、仅留 sandbox-net 内网可达（deployment.md §5：沙箱不对外发布端口）。
-    ports:
-      - "127.0.0.1:8000:8000"
+    # 沙箱不对外发布端口（deployment.md §5）。sandbox-net 为 internal，宿主机无法访问沙箱——
+    # 本地要端到端跑带 code 节点的工作流，需 server 也进 compose 并挂 sandbox-net（生产形态），
+    # 或用 docker-compose.override.yml 临时放开。直连沙箱冒烟测试用 `docker compose exec sandbox` 从容器内发起。
 
 networks:
+  # internal: true = 禁一切出网（deployment.md §5：sandbox 无外网路由）。
+  # 代价：宿主机也访问不到沙箱，本地联调见上方 sandbox 服务注释。
   sandbox-net:
     driver: bridge
     internal: true
