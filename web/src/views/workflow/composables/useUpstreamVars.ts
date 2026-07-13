@@ -15,6 +15,7 @@ const OUTPUT_FIELDS: Record<WorkflowNodeType, string[]> = {
   'knowledge-retrieval': ['text', 'count'],
   condition: ['result'],
   http: ['status', 'body', 'headers'],
+  code: [],
   end: [],
 }
 

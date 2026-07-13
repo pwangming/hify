@@ -10,6 +10,7 @@ import LlmForm from './forms/LlmForm.vue'
 import KnowledgeForm from './forms/KnowledgeForm.vue'
 import ConditionForm from './forms/ConditionForm.vue'
 import HttpForm from './forms/HttpForm.vue'
+import CodeForm from './forms/CodeForm.vue'
 import EndForm from './forms/EndForm.vue'
 
 const props = withDefaults(
@@ -30,6 +31,7 @@ const FORMS: Record<WorkflowNodeType, Component> = {
   'knowledge-retrieval': KnowledgeForm,
   condition: ConditionForm,
   http: HttpForm,
+  code: CodeForm,
   end: EndForm,
 }
 const TITLES: Record<WorkflowNodeType, string> = {
@@ -38,6 +40,7 @@ const TITLES: Record<WorkflowNodeType, string> = {
   'knowledge-retrieval': '知识检索',
   condition: '条件分支',
   http: 'HTTP 请求',
+  code: '代码执行',
   end: '结束',
 }
 

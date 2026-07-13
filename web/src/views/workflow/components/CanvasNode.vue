@@ -2,7 +2,7 @@
 import { computed, inject, type Component } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import {
-  ChatDotRound, CircleCheck, CircleCheckFilled, CircleCloseFilled, Collection, Link,
+  ChatDotRound, CircleCheck, CircleCheckFilled, CircleCloseFilled, Collection, Cpu, Link,
   RemoveFilled, Switch, VideoPlay, WarningFilled,
 } from '@element-plus/icons-vue'
 import type { NodeRunView, WorkflowNodeData, WorkflowNodeType } from '@/types/workflow'
@@ -18,6 +18,7 @@ const META: Record<string, { label: string; icon: Component }> = {
   'knowledge-retrieval': { label: '知识检索', icon: Collection },
   condition: { label: '条件分支', icon: Switch },
   http: { label: 'HTTP 请求', icon: Link },
+  code: { label: '代码执行', icon: Cpu },
   end: { label: '结束', icon: CircleCheck },
 }
 const meta = computed(() => META[props.type] ?? { label: props.type, icon: Link })

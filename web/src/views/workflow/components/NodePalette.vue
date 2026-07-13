@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { ChatDotRound, Collection, Link, Switch } from '@element-plus/icons-vue'
+import { ChatDotRound, Collection, Cpu, Link, Switch } from '@element-plus/icons-vue'
 import type { WorkflowNodeType } from '@/types/workflow'
 
 /** 拖拽数据键：与 WorkflowEditor 的 drop 端共用同一字符串。 */
@@ -12,6 +12,7 @@ const ITEMS: { type: WorkflowNodeType; label: string; icon: Component }[] = [
   { type: 'knowledge-retrieval', label: '知识检索', icon: Collection },
   { type: 'condition', label: '条件分支', icon: Switch },
   { type: 'http', label: 'HTTP 请求', icon: Link },
+  { type: 'code', label: '代码执行', icon: Cpu },
 ]
 
 function onDragStart(event: DragEvent, type: WorkflowNodeType) {
