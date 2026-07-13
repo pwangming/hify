@@ -41,3 +41,13 @@ describe('nodeIssues（严格镜像后端 validateAndOrder 的 require* 规则�
     expect(nodeIssues('start', undefined)).toEqual([])
   })
 })
+
+describe('nodeIssues - code', () => {
+  it('code 空 → 缺少代码', () => {
+    expect(nodeIssues('code', {})).toContain('缺少代码')
+    expect(nodeIssues('code', { code: '   ' })).toContain('缺少代码')
+  })
+  it('code 有内容 → 无问题', () => {
+    expect(nodeIssues('code', { code: 'def main():\n    return {}' })).toEqual([])
+  })
+})

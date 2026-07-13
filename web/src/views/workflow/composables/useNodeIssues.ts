@@ -40,6 +40,8 @@ export function nodeIssues(
       issues.push('缺少或非法的请求方法')
     }
     if (blank(d.url)) issues.push('缺少 URL')
+  } else if (type === 'code') {
+    if (blank(d.code)) issues.push('缺少代码')
   }
   return issues
 }

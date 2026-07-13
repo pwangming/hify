@@ -1,5 +1,6 @@
 /** 画布节点类型（对齐后端 NodeType 的 value）。 */
-export type WorkflowNodeType = 'start' | 'llm' | 'knowledge-retrieval' | 'condition' | 'http' | 'end'
+export type WorkflowNodeType =
+  | 'start' | 'llm' | 'knowledge-retrieval' | 'condition' | 'http' | 'code' | 'end'
 
 /** start 节点输入声明项。required 供运行前校验（后端 checkRequiredInputs 只认 required=true）。 */
 export interface StartInputDecl {
@@ -35,6 +36,12 @@ export interface HttpNodeData {
   body?: string
 }
 
+/** code 节点：code 为 Python 源（须含 def main）；inputs 为 形参名→模板 映射（值支持 {{nodeId.field}}）。 */
+export interface CodeNodeData {
+  code?: string
+  inputs?: Record<string, string>
+}
+
 /** end 输出声明项：value 是模板，典型值 {{llm_1.text}}。 */
 export interface EndOutputDecl {
   name: string
@@ -51,6 +58,7 @@ export interface NodeDataMap {
   'knowledge-retrieval': KnowledgeNodeData
   condition: ConditionNodeData
   http: HttpNodeData
+  code: CodeNodeData
   end: EndNodeData
 }
 
