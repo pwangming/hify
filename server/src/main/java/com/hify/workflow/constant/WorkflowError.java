@@ -7,7 +7,10 @@ import org.springframework.http.HttpStatus;
 public enum WorkflowError implements ErrorCode {
 
     /** 图结构非法（环/断连/缺 start/end/未知类型/变量引用越界等，message 带具体原因）。 */
-    GRAPH_INVALID(18001, HttpStatus.BAD_REQUEST, "工作流图结构非法");
+    GRAPH_INVALID(18001, HttpStatus.BAD_REQUEST, "工作流图结构非法"),
+
+    /** 代码节点运行失败（用户代码抛异常/返回非 dict/沙箱执行超时等，message 带沙箱返回的原因）。 */
+    CODE_EXECUTION_FAILED(18002, HttpStatus.BAD_REQUEST, "代码节点执行失败");
 
     private final int code;
     private final HttpStatus status;

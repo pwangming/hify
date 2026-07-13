@@ -9,6 +9,7 @@ public enum NodeType {
     KNOWLEDGE_RETRIEVAL("knowledge-retrieval"),
     CONDITION("condition"),
     HTTP("http"),
+    CODE("code"),
     END("end");
 
     private final String value;
