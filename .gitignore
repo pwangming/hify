@@ -26,3 +26,6 @@ logs/
 
 # 本地运行态（start.sh/stop.sh 的 PID 文件与日志）
 .run/
+
+# 本地 compose 覆盖：docker compose 自动加载，提交会静默改变生产隔离行为，禁止入库
+docker-compose.override.yml
