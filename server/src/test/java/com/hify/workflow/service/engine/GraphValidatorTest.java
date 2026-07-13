@@ -326,6 +326,36 @@ class GraphValidatorTest {
         assertTrue(ex.getMessage().contains("headers"));
     }
 
+    @Test
+    void code节点缺code_报图非法() {
+        GraphNode code = new GraphNode("code_1", "code", Map.of("inputs", Map.of("x", "{{start.query}}")));
+        GraphDef graph = new GraphDef(List.of(start(), code, end("{{code_1.result}}")),
+                List.of(new GraphEdge("start", "code_1"), new GraphEdge("code_1", "end")));
+        BizException ex = assertThrows(BizException.class, () -> validator.validateAndOrder(graph));
+        assertTrue(ex.getMessage().contains("code"));
+    }
+
+    @Test
+    void code节点inputs非对象_报图非法() {
+        GraphNode code = new GraphNode("code_1", "code",
+                Map.of("code", "def main(): return {}", "inputs", "oops"));
+        GraphDef graph = new GraphDef(List.of(start(), code, end("{{code_1.result}}")),
+                List.of(new GraphEdge("start", "code_1"), new GraphEdge("code_1", "end")));
+        BizException ex = assertThrows(BizException.class, () -> validator.validateAndOrder(graph));
+        assertTrue(ex.getMessage().contains("inputs"));
+    }
+
+    @Test
+    void code节点合法_通过并含在拓扑序() {
+        GraphNode code = new GraphNode("code_1", "code", Map.of(
+                "code", "def main(query): return {'result': query}",
+                "inputs", Map.of("query", "{{start.query}}")));
+        GraphDef graph = new GraphDef(List.of(start(), code, end("{{code_1.result}}")),
+                List.of(new GraphEdge("start", "code_1"), new GraphEdge("code_1", "end")));
+        List<GraphNode> ordered = validator.validateAndOrder(graph);
+        assertTrue(ordered.stream().anyMatch(n -> "code_1".equals(n.id())));
+    }
+
     // —— 画布 C1：保存草稿的底线校验（validateBasics）——
 
     @Test

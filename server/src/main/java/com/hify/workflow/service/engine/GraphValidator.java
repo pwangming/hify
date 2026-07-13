@@ -95,6 +95,9 @@ public class GraphValidator {
             if (NodeType.HTTP.value().equals(n.type())) {
                 requireHttpFields(n);
             }
+            if (NodeType.CODE.value().equals(n.type())) {
+                requireCodeFields(n);
+            }
         }
         requireExactlyOne(nodes, NodeType.START.value());
         requireExactlyOne(nodes, NodeType.END.value());
@@ -233,6 +236,18 @@ public class GraphValidator {
         Object headers = n.data().get("headers");
         if (headers != null && !(headers instanceof Map)) {
             throw invalid("http 节点 " + n.id() + " 的 headers 必须是对象");
+        }
+    }
+
+    /** code 节点字段校验；code 必填非空；inputs 若存在须为对象（值为模板，走既有引用拓扑序校验）。 */
+    private void requireCodeFields(GraphNode n) {
+        Object code = n.data() == null ? null : n.data().get("code");
+        if (code == null || String.valueOf(code).isBlank()) {
+            throw invalid("code 节点 " + n.id() + " 缺少 code");
+        }
+        Object inputs = n.data().get("inputs");
+        if (inputs != null && !(inputs instanceof Map)) {
+            throw invalid("code 节点 " + n.id() + " 的 inputs 必须是对象");
         }
     }
 
