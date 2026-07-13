@@ -28,5 +28,33 @@ services:
       timeout: 3s
       retries: 10
 
+  sandbox:
+    build: ./sandbox
+    container_name: hify-sandbox
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - sandbox-net
+    mem_limit: 1g
+    cpus: "1.0"
+    tmpfs:
+      - /tmp          # read_only 下给用户代码临时文件一块可写内存盘
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    # 本地开发（server 跑在宿主机，尚未进 compose）临时把沙箱端口映射到宿主机联调；
+    # server 进 compose 后删掉此 ports、仅留 sandbox-net 内网可达（deployment.md §5：沙箱不对外发布端口）。
+    ports:
+      - "127.0.0.1:8000:8000"
+
+networks:
+  sandbox-net:
+    driver: bridge
+
 volumes:
   hify-pgdata:
