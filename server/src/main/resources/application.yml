@@ -134,6 +134,9 @@ hify:
       recent-limit: ${HIFY_CONVERSATION_LIST_LIMIT:50}
     # 引用来源卡片的预览截断字数（不存命中段全文，看全文走命中测试弹窗）。
     source-preview-length: ${HIFY_CONVERSATION_SOURCE_PREVIEW_LENGTH:120}
+  agent:
+    # 一轮对话内模型调用次数上限，防 Agent 异常循环刷 Token。
+    max-tool-iterations: ${HIFY_AGENT_MAX_TOOL_ITERATIONS:5}
   usage:
     # 单用户每日 Token 上限（prompt+completion 累计）。入口配额检查：今日已用 >= 此值即拦（14001/429）。
     # 防失控 Agent 循环刷爆账单，非精确计费；宽松默认，生产按供应商额度调。改配额只动这里。

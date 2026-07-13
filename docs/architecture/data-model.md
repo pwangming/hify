@@ -14,7 +14,7 @@
 | app | `app` | 应用，类型字段区分对话型/工作流型；Agent 配置是对话型 app 的 jsonb 配置 |
 | | `app_api_key` | 应用对外 API Key |
 | | `app_dataset_rel` | 应用 ↔ 知识库 多对多 |
-| | `app_tool_rel` | 应用 ↔ 工具 多对多 |
+| | `app_tool_rel` | 应用 ↔ 工具 多对多（T2 落地；T1 暂不建表，Agent 应用全量启用内置工具） |
 | conversation | `conversation` | 会话 |
 | | `message` | 消息；`sources jsonb` 存引用来源快照数组 `[{chunkId,documentId,documentName,score,preview}]`，随消息落库/删会话级联，未命中为 `[]`；Agent 工具调用轨迹存本表 jsonb，不单独建表 |
 | knowledge | `dataset` | 知识库 |
@@ -23,8 +23,8 @@
 | workflow | `workflow_def` | 画布定义（jsonb graph），带版本号，(app_id, version) 唯一 |
 | | `workflow_run` | 运行实例（状态机；scaling-path.md 阶段 2 的 SKIP LOCKED 任务表即本表） |
 | | `workflow_node_run` | 节点级执行日志 |
-| tool | `tool` | 统一注册表，source 区分 builtin / openapi / mcp；OpenAPI spec 存 jsonb |
-| | `mcp_server` | MCP 服务连接配置，仅 source=mcp 的工具关联 |
+| tool | `tool` | 统一注册表；T1 已落地 V23：`name/description/source/enabled/spec/owner_id` + BaseEntity 字段，`source` 区分 builtin / openapi / mcp；内置工具 `spec/owner_id` 为空，OpenAPI spec 后续存 jsonb |
+| | `mcp_server` | MCP 服务连接配置，仅 source=mcp 的工具关联（T4 落地；T1 暂不建表） |
 | usage | `llm_call_log` | 每次模型调用流水（监听 TokenUsedEvent 落库） |
 | | `daily_usage` | 用户×应用×天 聚合；配额检查只查本表，不扫流水 |
 | 系统 | `system_setting` | admin 系统设置，KV |

@@ -61,7 +61,7 @@ com.hify.<module>/
 **`api/`** —— 模块的公开契约。
 - 只能依赖：本包内类、`common`、JDK、其他模块的 `api`。禁止依赖本模块的 `service/mapper/entity/controller/dto`。
 - DTO 和 Event 一律用 `record`，不可变，不携带行为。
-- 例外：`provider` 的 Facade 允许在签名中使用 Spring AI 类型（`ChatClient`、`EmbeddingModel`）。
+- 例外：`provider` 与 `tool` 的 Facade 允许在签名中使用 Spring AI 类型（provider：`ChatClient`、`EmbeddingModel`；tool：`ToolCallback`）。
 
 **`controller/` + `dto/`** —— 协议转换层，不是业务层。
 - Controller 只做：参数校验（`@Valid` + jakarta validation 注解）、Request → Service 入参转换、调用**本模块** service、组装 `Result<T>` 返回。
@@ -123,7 +123,7 @@ com.hify.<module>/
 ## 4. 跨模块调用规则
 
 1. **唯一入口**：模块 X 引用模块 Y 时，只能 import `com.hify.y.api..*`。出现任何其他 import（如 `com.hify.y.service.*`）即违规，CI 会失败。
-2. **同步调用走 Facade**：需要对方"做事并拿到结果"时调 Facade 方法。Facade 方法签名只能使用：`api/dto` 类型、`common` 类型、JDK 类型（provider 的 Spring AI 类型例外）。
+2. **同步调用走 Facade**：需要对方"做事并拿到结果"时调 Facade 方法。Facade 方法签名只能使用：`api/dto` 类型、`common` 类型、JDK 类型（provider/tool 的 Spring AI 类型例外：provider 暴露 `ChatClient`/`EmbeddingModel`，tool 暴露 `ToolCallback`）。
 3. **通知走事件**：只需要告知"发生了什么"、不关心谁处理时，发布 Spring 事件。规则：
    - 事件 record 定义在**发布方**的 `api/event/`；
    - **例外——被 usage 消费的计量事件放 `common`**：如 `TokenUsedEvent`。发布方（conversation/workflow）
