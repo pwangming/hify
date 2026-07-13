@@ -62,7 +62,7 @@ public class AppService {
         entity.setDescription(req.description());
         entity.setType(req.type());
         entity.setModelId(req.modelId());
-        entity.setConfig(req.config() == null ? new AppConfig(null) : req.config());
+        entity.setConfig(req.config() == null ? new AppConfig(null, false) : req.config());
         entity.setOwnerId(current.userId());
         entity.setStatus(AppStatus.ENABLED.value());
         try {
@@ -121,7 +121,7 @@ public class AppService {
         app.setName(req.name());
         app.setDescription(req.description());
         app.setModelId(req.modelId());
-        app.setConfig(req.config() == null ? new AppConfig(null) : req.config());
+        app.setConfig(req.config() == null ? new AppConfig(null, false) : req.config());
         try {
             appMapper.updateById(app);
         } catch (DuplicateKeyException e) {
@@ -229,7 +229,7 @@ public class AppService {
         return new AppResponse(
                 e.getId(), e.getName(), e.getDescription(), e.getType(),
                 e.getModelId(), modelName, modelUsable,
-                e.getConfig() == null ? new AppConfig(null) : e.getConfig(),
+                e.getConfig() == null ? new AppConfig(null, false) : e.getConfig(),
                 datasetIds,
                 e.getOwnerId(), e.getStatus(), e.getCreateTime(), e.getUpdateTime());
     }

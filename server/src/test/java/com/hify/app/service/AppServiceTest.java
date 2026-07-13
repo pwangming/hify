@@ -62,7 +62,7 @@ class AppServiceTest {
     }
 
     private CreateAppRequest chatReq() {
-        return new CreateAppRequest("客服助手", "答疑", "chat", 5L, new AppConfig("你是客服"), List.of());
+        return new CreateAppRequest("客服助手", "答疑", "chat", 5L, new AppConfig("你是客服", false), List.of());
     }
 
     @Test
@@ -140,7 +140,7 @@ class AppServiceTest {
     void 分页_映射total与列表_不按owner过滤() {
         App a = new App();
         a.setId(1L); a.setName("x"); a.setType("chat"); a.setOwnerId(999L);
-        a.setStatus("enabled"); a.setConfig(new com.hify.app.api.dto.AppConfig(null));
+        a.setStatus("enabled"); a.setConfig(new com.hify.app.api.dto.AppConfig(null, false));
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<App> pg =
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
         pg.setRecords(java.util.List.of(a));
@@ -156,7 +156,7 @@ class AppServiceTest {
     void 分页_批量回显modelName() {
         App a = new App();
         a.setId(1L); a.setName("x"); a.setType("chat"); a.setOwnerId(7L); a.setModelId(5L);
-        a.setStatus("enabled"); a.setConfig(new com.hify.app.api.dto.AppConfig(null));
+        a.setStatus("enabled"); a.setConfig(new com.hify.app.api.dto.AppConfig(null, false));
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<App> pg =
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
         pg.setRecords(java.util.List.of(a));
@@ -173,7 +173,7 @@ class AppServiceTest {
     void 分页_模型停用_modelName有值但modelUsable为false() {
         App a = new App();
         a.setId(1L); a.setName("x"); a.setType("chat"); a.setOwnerId(7L); a.setModelId(5L);
-        a.setStatus("enabled"); a.setConfig(new com.hify.app.api.dto.AppConfig(null));
+        a.setStatus("enabled"); a.setConfig(new com.hify.app.api.dto.AppConfig(null, false));
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<App> pg =
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
         pg.setRecords(java.util.List.of(a));
@@ -204,13 +204,13 @@ class AppServiceTest {
     private App stored(long id, long ownerId, String status) {
         App a = new App();
         a.setId(id); a.setName("app" + id); a.setType("chat"); a.setOwnerId(ownerId);
-        a.setStatus(status); a.setConfig(new com.hify.app.api.dto.AppConfig(null));
+        a.setStatus(status); a.setConfig(new com.hify.app.api.dto.AppConfig(null, false));
         return a;
     }
 
     private final CurrentUser admin = new CurrentUser(1L, "root", CurrentUser.ROLE_ADMIN);
     private UpdateAppRequest upd() {
-        return new UpdateAppRequest("新名", "新描述", 9L, new com.hify.app.api.dto.AppConfig("改了"), List.of());
+        return new UpdateAppRequest("新名", "新描述", 9L, new com.hify.app.api.dto.AppConfig("改了", false), List.of());
     }
 
     @org.junit.jupiter.api.Test
@@ -249,7 +249,7 @@ class AppServiceTest {
     void 更新_modelId为null_不校验模型_放行() {
         when(mapper.selectById(10L)).thenReturn(stored(10L, 7L, "enabled"));
         UpdateAppRequest noModel = new UpdateAppRequest("新名", "新描述", null,
-                new com.hify.app.api.dto.AppConfig("改了"), List.of());
+                new com.hify.app.api.dto.AppConfig("改了", false), List.of());
         service.update(10L, noModel, member);
         verify(providerFacade, never()).findUsableChatModel(any());
         verify(mapper).updateById(any(App.class));

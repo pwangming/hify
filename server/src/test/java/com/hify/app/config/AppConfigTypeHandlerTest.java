@@ -22,13 +22,13 @@ class AppConfigTypeHandlerTest {
     @Test
     void 写出_序列化为jsonb的PGobject() throws Exception {
         PreparedStatement ps = mock(PreparedStatement.class);
-        handler.setNonNullParameter(ps, 1, new AppConfig("你是客服助手"), null);
+        handler.setNonNullParameter(ps, 1, new AppConfig("你是客服助手", false), null);
 
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
         verify(ps).setObject(eq(1), captor.capture());
         PGobject obj = (PGobject) captor.getValue();
         assertEquals("jsonb", obj.getType());
-        assertEquals("{\"systemPrompt\":\"你是客服助手\"}", obj.getValue());
+        assertEquals("{\"systemPrompt\":\"你是客服助手\",\"agentEnabled\":false}", obj.getValue());
     }
 
     @Test
@@ -37,6 +37,7 @@ class AppConfigTypeHandlerTest {
         when(rs.getString("config")).thenReturn("{\"systemPrompt\":\"hi\"}");
         AppConfig cfg = handler.getNullableResult(rs, "config");
         assertEquals("hi", cfg.systemPrompt());
+        assertEquals(false, cfg.agentEnabled());
     }
 
     @Test
@@ -45,5 +46,6 @@ class AppConfigTypeHandlerTest {
         when(rs.getString("config")).thenReturn(null);
         AppConfig cfg = handler.getNullableResult(rs, "config");
         assertNull(cfg.systemPrompt());
+        assertEquals(false, cfg.agentEnabled());
     }
 }

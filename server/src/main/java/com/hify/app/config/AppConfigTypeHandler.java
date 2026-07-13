@@ -15,7 +15,7 @@ import java.sql.SQLException;
 /**
  * app.config（jsonb）↔ {@link AppConfig} 的类型处理器。
  * 写出包成 PGobject(type=jsonb)，否则 PG 报「column is of type jsonb but expression is of type varchar」。
- * 读入空值兜底为 new AppConfig(null)，保证字段不为 null。实体需 @TableName(autoResultMap=true) 才在查询时启用本处理器。
+ * 读入空值兜底为 new AppConfig(null, false)，保证字段不为 null。实体需 @TableName(autoResultMap=true) 才在查询时启用本处理器。
  */
 public class AppConfigTypeHandler extends BaseTypeHandler<AppConfig> {
 
@@ -51,7 +51,7 @@ public class AppConfigTypeHandler extends BaseTypeHandler<AppConfig> {
 
     private AppConfig parse(String json) throws SQLException {
         if (json == null || json.isBlank()) {
-            return new AppConfig(null);
+            return new AppConfig(null, false);
         }
         try {
             return MAPPER.readValue(json, AppConfig.class);

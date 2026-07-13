@@ -42,10 +42,11 @@ public class AppFacadeImpl implements AppFacade {
             return Optional.empty();
         }
         String systemPrompt = app.getConfig() == null ? null : app.getConfig().systemPrompt();
+        boolean agentEnabled = app.getConfig() != null && app.getConfig().agentEnabled();
         List<Long> datasetIds = relMapper.selectList(new LambdaQueryWrapper<AppDatasetRel>()
                         .eq(AppDatasetRel::getAppId, app.getId()).orderByAsc(AppDatasetRel::getId))
                 .stream().map(AppDatasetRel::getDatasetId).toList();
-        return Optional.of(new AppRuntimeView(app.getId(), app.getModelId(), systemPrompt, datasetIds));
+        return Optional.of(new AppRuntimeView(app.getId(), app.getModelId(), systemPrompt, datasetIds, agentEnabled));
     }
 
     @Override

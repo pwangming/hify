@@ -35,12 +35,16 @@ class AppFacadeImplTest {
     }
 
     private App app(String type, String status, Long modelId) {
+        return app(type, status, modelId, new AppConfig("你是客服", false));
+    }
+
+    private App app(String type, String status, Long modelId, AppConfig config) {
         App a = new App();
         a.setId(10L);
         a.setType(type);
         a.setStatus(status);
         a.setModelId(modelId);
-        a.setConfig(new AppConfig("你是客服"));
+        a.setConfig(config);
         return a;
     }
 
@@ -52,6 +56,26 @@ class AppFacadeImplTest {
         assertTrue(v.isPresent());
         assertEquals(5L, v.get().modelId());
         assertEquals("你是客服", v.get().systemPrompt());
+    }
+
+    @Test
+    void config_agentEnabled_true_透传到运行视图() {
+        when(mapper.selectById(eq(10L)))
+                .thenReturn(app(AppType.CHAT.value(), AppStatus.ENABLED.value(), 5L,
+                        new AppConfig("你是客服", true)));
+        Optional<AppRuntimeView> v = facade.findRunnableChatApp(10L);
+        assertTrue(v.isPresent());
+        assertTrue(v.get().agentEnabled());
+    }
+
+    @Test
+    void config缺省agentEnabled_运行视图默认为false() {
+        when(mapper.selectById(eq(10L)))
+                .thenReturn(app(AppType.CHAT.value(), AppStatus.ENABLED.value(), 5L,
+                        new AppConfig("你是客服", false)));
+        Optional<AppRuntimeView> v = facade.findRunnableChatApp(10L);
+        assertTrue(v.isPresent());
+        assertEquals(false, v.get().agentEnabled());
     }
 
     @Test
