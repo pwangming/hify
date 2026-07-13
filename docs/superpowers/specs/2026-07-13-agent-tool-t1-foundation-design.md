@@ -106,8 +106,9 @@
 **注册表（可扩展的缝）**
 - `ToolRegistry`（service）：读 DB 中 enabled 的工具行；对 `source=builtin` 的行，按 `name` 绑定对应
   `BuiltinTool` 执行器；产出 Spring AI `ToolCallback` 列表。
-  - Spring AI 适配：用 `FunctionToolCallback`（或等价 builder）把 name/description/input-schema/执行函数
-    组装成 `ToolCallback`。执行函数体即 `BuiltinTool.execute`。
+  - Spring AI 适配：用一个薄 `ToolCallback` 实现（`BuiltinToolCallback`）包住 `ToolDefinition`
+    （name+description 来自 DB 行、inputSchema 来自执行器）与 `BuiltinTool` 执行器；
+    `call(argsJson)` 即 `BuiltinTool.execute(argsJson)`。直接实现接口避开 `FunctionToolCallback` 的泛型入参反序列化。
   - T1 只处理 builtin；`source=openapi/mcp` 的行 T3/T4 再补构造分支（本轮无此类行）。
 
 **对外门面（api）**
@@ -129,13 +130,16 @@
      - 响应无工具调用 → 即终答，break。
      - 有工具调用 → 逐个：按 name 匹配 ToolCallback → 执行 → 记录 `(name, args, result)` 进轨迹 →
        追加工具结果消息进对话窗口。
-     - 每轮模型调用发一次 `TokenUsedEvent`（prompt+completion tokens；沿用现有事件与 usage 监听）。
+     - **累计**各轮 prompt/completion tokens（不在循环里发事件）。
   4. 超上限 → 返回最后一次模型文本，并附「已达工具调用步数上限」提示。
-  5. 落库 assistant 消息：`content`（终答文本）+ `tool_calls`（轨迹 jsonb 数组）。
-- **为什么手动循环而非 Spring AI 自动执行**：需要逐轮拿到 usage 计费（自动执行只回最后一轮 usage，
+  5. 落库 assistant 消息：`content`（终答文本）+ `tool_calls`（轨迹 jsonb 数组）；
+     在该落库事务（`appendAssistant`，事务B）内发**一次** `TokenUsedEvent`，携带累计总量。
+     （事件必须在事务方法内发布，AFTER_COMMIT 监听才触发；编排层无事务，不能在循环里发——code-organization §4.3。
+     总量=各轮之和，对 usage 每日聚合计费等价准确。）
+- **为什么手动循环而非 Spring AI 自动执行**：需要拿到每一轮 usage 累计计费（自动执行只回最后一轮 usage，
   会漏计中间轮 token）、需要捕获每次工具调用轨迹落 message jsonb。手动循环是 function-calling 的标准做法。
 - **端点接入**：Agent 路径只接**同步**发消息端点。SSE 端点若命中 `agentEnabled=true` 应用 →
-  返 13xxx「Agent 应用暂不支持流式，见 T2」（小决策 1）。
+  返 **17xxx**（conversation 段）「Agent 应用暂不支持流式，见 T2」（小决策 1）。
 - `Message` 实体：新增 `tool_calls` 字段 + TypeHandler（比照现有 `sources` 的 `MessageSourcesTypeHandler`），
   `@TableName(autoResultMap=true)` 已具备。轨迹元素结构（本模块 DTO/内部类型）：`{name, args, result}`，
   非 agent 消息恒 `[]`（DB 默认已保证）。
