@@ -143,6 +143,19 @@ hify:
       connect-timeout-ms: ${HIFY_OUTBOUND_HTTP_CONNECT_TIMEOUT_MS:5000}
       read-timeout-ms: ${HIFY_OUTBOUND_HTTP_READ_TIMEOUT_MS:15000}
       max-response-bytes: ${HIFY_OUTBOUND_HTTP_MAX_RESPONSE_BYTES:65536}
+  sandbox:
+    # 代码执行沙箱内网地址（生产走 .env 覆盖；本地联调临时指向映射端口）。
+    base-url: ${HIFY_SANDBOX_BASE_URL:http://sandbox:8000}
+    # 连接沙箱超时（毫秒）。
+    connect-timeout-ms: ${HIFY_SANDBOX_CONNECT_TIMEOUT_MS:1000}
+    # server 侧读超时：须 = exec-timeout-ms + 余量，保证沙箱先超时返回结构化错误。
+    read-timeout-ms: ${HIFY_SANDBOX_READ_TIMEOUT_MS:7000}
+    # 沙箱子进程执行超时（毫秒），随请求下发。
+    exec-timeout-ms: ${HIFY_SANDBOX_EXEC_TIMEOUT_MS:5000}
+    # server 侧提交并发上限（信号量），防 Agent 级联打爆单沙箱容器。
+    max-concurrency: ${HIFY_SANDBOX_MAX_CONCURRENCY:8}
+    # 沙箱响应体大小上限（字节），超出视为异常。
+    max-output-bytes: ${HIFY_SANDBOX_MAX_OUTPUT_BYTES:65536}
   workflow:
     # 单画布节点数上限：图校验用，超限报 18001
     max-nodes: 50
