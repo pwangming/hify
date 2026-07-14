@@ -1,6 +1,9 @@
 package com.hify.tool.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hify.common.exception.BizException;
+import com.hify.infra.crypto.SecretCipher;
+import com.hify.infra.outbound.OutboundHttpClient;
 import com.hify.tool.entity.Tool;
 import com.hify.tool.mapper.ToolMapper;
 import org.junit.jupiter.api.Test;
@@ -12,12 +15,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class ToolFacadeImplTest {
 
     private final ToolMapper mapper = Mockito.mock(ToolMapper.class);
-    private final ToolFacadeImpl facade = new ToolFacadeImpl(new ToolRegistry(mapper, List.of()));
+    private final ToolFacadeImpl facade = new ToolFacadeImpl(new ToolRegistry(mapper, List.of(),
+            mock(SecretCipher.class), mock(OutboundHttpClient.class), new ObjectMapper()));
 
     private static Tool enabled(long id) {
         Tool t = new Tool(); t.setId(id); t.setEnabled(true); t.setSource("builtin"); t.setName("n" + id);
