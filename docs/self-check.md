@@ -950,3 +950,11 @@ mvn -f server/pom.xml test
 - 全量回归：`mvn -q -f server clean test` 退出码 0，surefire 聚合 **658 tests, 0 failures, 0 errors, 0 skipped**（104 份报告）。其中 `ModularityTests` 1/0/0/0、`LayerRulesTest` 5/0/0/0；tool 仍无 provider 依赖，DTO 不 import entity，controller 不注入 Mapper。
 - 红线复核：加密默认值字符串与 `hify.provider.crypto` 前缀未改；本轮只新增 `ToolError.SPEC_PARSE_FAILED(13001/400)`，CRUD 复用 `CommonError`；自定义工具凭据只存 `valueEnc`，详情只回 `authHeaderNames`，不回明文；未新增 HTTP 客户端；未新增/修改 Flyway 迁移。
 - 留账：OpenAPI `servers[0].url` 只支持绝对 `http/https`，相对 baseUrl 不支持；SSRF 内网地址由 `OutboundHttpClient` 统一拦截；真实 server 冒烟未执行（Task 8 Step 2 可选，当前只做自动化全量回归）。T3b 可依赖的详情契约：`ToolAdminDetailResponse` 回 `baseUrl`、`operations`、`authHeaderNames`、`rawSpec`，其中鉴权值永不回传。
+
+### 终审补验（2026-07-14，独立复跑）
+
+- 逐 Task 代码审查：8 提交全部忠实落地 plan。重点核实——`SecretCipher` 与原 `ApiKeyCipher` 逐字节等价、provider 两处注入点仅改类型名（`ChatClientFactory`/`ProviderService`）、`ProviderCryptoProperties` 已删、`ProviderConfig` 干净移除 `@EnableConfigurationProperties`、`CryptoProperties` 前缀保留 `hify.provider.crypto` 且 `@Component` 自注册、加密主密钥默认值一字未改；`getToolCallbacks` 去 source 过滤 + openapi 读时展开（T2 per-app 选择与 Agent 编排零改动生效）；admin 守卫齐（builtin 拒删改→10001、重名→10006、不存在→10005）。
+- 独立重跑 `mvn -f server clean test`：**658 tests / 0 failures / 0 errors / 0 skipped**（104 报告），`ModularityTests` 1/0、`LayerRulesTest` 5/0——与 Codex 自检一字不差复现。
+- 终审补一处功能小缺口（`46e0b0c`）：`OpenApiToolCallback` 发带 body 请求时默认补 `Content-Type: application/json`（大小写不敏感，admin 已提供则不覆盖）——真实 API 收无 Content-Type 的 JSON body 常 415/误解析。补 2 个测试，补后全量 clean test **660/0/0/0**。
+- 坑记录：**不带 `clean` 的定向 `-Dtest=` 跑**会让 forked JVM 出现 `NoClassDefFoundError: io.swagger.v3.oas.models.OpenAPI`（只砸中需 swagger 类的 `OpenApiSpecParserTest`/`ToolAdminServiceTest`，12 errors + dump + MojoFailureException）；`mvn clean test` 全量则稳过。判定 tool 结果务必用 `clean` 全量，别信非 clean 定向跑。
+- 未做：真实 server 冒烟（T3a 无 UI，自然并入 T3b 用管理台手验注册→列表→详情不回明文，跟 T2 同路子）；`tool.spec` jsonb 走真实 Postgres 读写往返未测（Testcontainers 按约定推迟，照搬生产已验证的 `AppConfigTypeHandler` 模式，风险低）。
