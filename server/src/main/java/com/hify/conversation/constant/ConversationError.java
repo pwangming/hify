@@ -10,10 +10,7 @@ import org.springframework.http.HttpStatus;
 public enum ConversationError implements ErrorCode {
 
     /** 应用不存在/非对话型/已停用/未绑定模型——无法发起对话。 */
-    APP_NOT_RUNNABLE(17001, HttpStatus.BAD_REQUEST, "应用未绑定可用模型或已停用，无法发起对话"),
-
-    /** Agent 应用暂不支持流式对话（T1 只做同步，流式留 T2）。 */
-    AGENT_STREAM_UNSUPPORTED(17002, HttpStatus.BAD_REQUEST, "Agent 应用暂不支持流式对话");
+    APP_NOT_RUNNABLE(17001, HttpStatus.BAD_REQUEST, "应用未绑定可用模型或已停用，无法发起对话");
 
     private final int code;
     private final HttpStatus status;

@@ -4,6 +4,7 @@ import com.hify.app.api.WorkflowAppView;
 import com.hify.app.entity.App;
 import com.hify.app.mapper.AppDatasetRelMapper;
 import com.hify.app.mapper.AppMapper;
+import com.hify.app.mapper.AppToolRelMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +24,7 @@ class AppFacadeWorkflowViewTest {
     @BeforeEach
     void setUp() {
         appMapper = mock(AppMapper.class);
-        facade = new AppFacadeImpl(appMapper, mock(AppDatasetRelMapper.class));
+        facade = new AppFacadeImpl(appMapper, mock(AppDatasetRelMapper.class), mock(AppToolRelMapper.class));
     }
 
     private App app(String type, String status) {

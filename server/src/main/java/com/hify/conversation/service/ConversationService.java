@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
@@ -82,7 +83,7 @@ public class ConversationService {
             Message saved;
             if (app.agentEnabled()) {
                 AgentReply reply = agentChatService.run(chatClient, app.systemPrompt(), turn.window(),
-                        toolFacade.getBuiltinToolCallbacks());
+                        toolFacade.getToolCallbacks(app.toolIds()));
                 saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
                         current.userId(), appId, app.modelId(), List.of(), reply.toolCalls());
             } else {
@@ -108,7 +109,7 @@ public class ConversationService {
         AppRuntimeView app = appFacade.findRunnableChatApp(appId)
                 .orElseThrow(() -> new BizException(ConversationError.APP_NOT_RUNNABLE));
         if (app.agentEnabled()) {
-            throw new BizException(ConversationError.AGENT_STREAM_UNSUPPORTED);
+            return sendStreamAgent(app, conversationId, current, content);
         }
         TurnContext turn = store.openTurn(appId, conversationId, current.userId(), content);
         Long cid = turn.conversationId();
@@ -150,6 +151,36 @@ public class ConversationService {
                         .subscribeOn(Schedulers.boundedElastic())
                         .onErrorResume(cleanupEx -> Mono.empty())   // 清理失败不可盖住原始 LLM 错误
                         .then(Mono.<StreamEvent>error(err)));
+    }
+
+    /** Agent 流式编排（方案一）：boundedElastic 上跑同步循环，工具事件实时推，最终答案整段推，落库后 done。 */
+    private Flux<StreamEvent> sendStreamAgent(AppRuntimeView app, Long conversationId,
+                                              CurrentUser current, String content) {
+        TurnContext turn = store.openTurn(app.appId(), conversationId, current.userId(), content);
+        Long cid = turn.conversationId();
+        ChatClient chatClient = providerFacade.getChatClient(app.modelId());
+        List<ToolCallback> callbacks = toolFacade.getToolCallbacks(app.toolIds());
+
+        return Flux.<StreamEvent>create(sink -> {
+            sink.next(new StreamEvent.Meta(cid));
+            try {
+                AgentReply reply = agentChatService.run(chatClient, app.systemPrompt(), turn.window(),
+                        callbacks, sink::next);
+                sink.next(new StreamEvent.Delta(reply.content()));
+                Message saved = store.appendAssistant(cid, reply.content(),
+                        reply.promptTokens(), reply.completionTokens(),
+                        current.userId(), app.appId(), app.modelId(), List.of(), reply.toolCalls());
+                sink.next(new StreamEvent.Done(cid, saved.getId(), reply.promptTokens(), reply.completionTokens()));
+                sink.complete();
+            } catch (RuntimeException e) {
+                try {
+                    store.cleanupFailedTurn(cid, turn.userMessageId(), turn.newConversation());
+                } catch (RuntimeException cleanupEx) {
+                    log.warn("Agent 流式孤儿清理失败 conversationId={}", cid, cleanupEx);
+                }
+                sink.error(e);
+            }
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     public List<MessageView> history(Long conversationId, CurrentUser current) {

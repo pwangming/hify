@@ -6,8 +6,10 @@ import com.hify.app.constant.AppStatus;
 import com.hify.app.constant.AppType;
 import com.hify.app.entity.App;
 import com.hify.app.entity.AppDatasetRel;
+import com.hify.app.entity.AppToolRel;
 import com.hify.app.mapper.AppDatasetRelMapper;
 import com.hify.app.mapper.AppMapper;
+import com.hify.app.mapper.AppToolRelMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,13 +27,15 @@ class AppFacadeImplTest {
 
     private AppMapper mapper;
     private AppDatasetRelMapper relMapper;
+    private AppToolRelMapper toolRelMapper;
     private AppFacadeImpl facade;
 
     @BeforeEach
     void setUp() {
         mapper = mock(AppMapper.class);
         relMapper = mock(AppDatasetRelMapper.class);
-        facade = new AppFacadeImpl(mapper, relMapper);
+        toolRelMapper = mock(AppToolRelMapper.class);
+        facade = new AppFacadeImpl(mapper, relMapper, toolRelMapper);
     }
 
     private App app(String type, String status, Long modelId) {
@@ -119,10 +123,26 @@ class AppFacadeImplTest {
         assertEquals(List.of(9L, 8L), view.orElseThrow().datasetIds());
     }
 
+    @Test
+    void findRunnableChatApp_带绑定的工具ids() {
+        when(mapper.selectById(eq(10L)))
+                .thenReturn(app(AppType.CHAT.value(), AppStatus.ENABLED.value(), 5L));
+        when(toolRelMapper.selectList(any())).thenReturn(List.of(toolRel(10L, 1L), toolRel(10L, 2L)));
+        Optional<AppRuntimeView> view = facade.findRunnableChatApp(10L);
+        assertEquals(List.of(1L, 2L), view.orElseThrow().toolIds());
+    }
+
     private static AppDatasetRel rel(Long appId, Long datasetId) {
         AppDatasetRel r = new AppDatasetRel();
         r.setAppId(appId);
         r.setDatasetId(datasetId);
+        return r;
+    }
+
+    private static AppToolRel toolRel(Long appId, Long toolId) {
+        AppToolRel r = new AppToolRel();
+        r.setAppId(appId);
+        r.setToolId(toolId);
         return r;
     }
 }

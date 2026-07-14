@@ -87,7 +87,7 @@ class ConversationServiceTest {
 
     private void stubAgentRunnableApp(String systemPrompt) {
         when(appFacade.findRunnableChatApp(eq(7L)))
-                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, List.of(), true, List.of())));
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, List.of(), true, List.of(1L))));
         when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
     }
 
@@ -197,7 +197,7 @@ class ConversationServiceTest {
         List<ToolCallback> callbacks = List.of(mock(ToolCallback.class));
         when(store.openTurn(eq(7L), eq(null), eq(42L), eq("查接口")))
                 .thenReturn(new TurnContext(100L, List.of(userMsg("查接口")), 300L, true));
-        when(toolFacade.getBuiltinToolCallbacks()).thenReturn(callbacks);
+        when(toolFacade.getToolCallbacks(List.of(1L))).thenReturn(callbacks);
         when(agentChatService.run(eq(chatClient), eq("你是客服"), any(), eq(callbacks)))
                 .thenReturn(new AgentReply("答案", 7, 8, List.of(trace)));
         when(store.appendAssistant(eq(100L), eq("答案"), eq(7), eq(8),
@@ -208,6 +208,7 @@ class ConversationServiceTest {
 
         assertEquals(100L, resp.conversationId());
         verify(agentChatService).run(eq(chatClient), eq("你是客服"), any(), eq(callbacks));
+        verify(toolFacade).getToolCallbacks(List.of(1L));
         verify(store).appendAssistant(100L, "答案", 7, 8,
                 42L, 7L, 5L, List.of(), List.of(trace));
         verify(chatInvoker, never()).invoke(any(), any(), any());
@@ -225,14 +226,30 @@ class ConversationServiceTest {
     }
 
     @Test
-    void sendStream_agent开启_同步抛17002且不落turn() {
-        stubAgentRunnableApp("你是客服");
+    void sendStream_agent应用_发出meta_toolcall_delta_done() {
+        when(appFacade.findRunnableChatApp(eq(7L))).thenReturn(Optional.of(
+                new AppRuntimeView(7L, 5L, "你是助手", List.of(), true, List.of(1L))));
+        when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
+        when(store.openTurn(eq(7L), eq(null), eq(42L), eq("问题")))
+                .thenReturn(new TurnContext(100L, List.of(userMsg("问题")), 300L, true));
+        when(toolFacade.getToolCallbacks(eq(List.of(1L)))).thenReturn(List.of());
+        MessageToolCall trace = new MessageToolCall("http_request", "{}", "HTTP 200");
+        when(agentChatService.run(any(), any(), any(), any(), any())).thenAnswer(inv -> {
+            java.util.function.Consumer<StreamEvent.ToolCall> cb = inv.getArgument(4);
+            cb.accept(new StreamEvent.ToolCall("http_request", "{}", "HTTP 200", true));
+            return new AgentReply("终答", 3, 2, List.of(trace));
+        });
+        when(store.appendAssistant(eq(100L), eq("终答"), eq(3), eq(2),
+                eq(42L), eq(7L), eq(5L), eq(List.of()), eq(List.of(trace))))
+                .thenReturn(savedAssistant());
 
-        BizException ex = assertThrows(BizException.class,
-                () -> service.sendStream(7L, null, "你好", member));
+        List<StreamEvent> events = service.sendStream(7L, null, "问题", member).collectList().block();
 
-        assertEquals(ConversationError.AGENT_STREAM_UNSUPPORTED, ex.errorCode());
-        verify(store, never()).openTurn(any(), any(), any(), any());
+        assertTrue(events.get(0) instanceof StreamEvent.Meta);
+        assertTrue(events.stream().anyMatch(e -> e instanceof StreamEvent.ToolCall tc
+                && tc.toolName().equals("http_request")));
+        assertTrue(events.stream().anyMatch(e -> e instanceof StreamEvent.Delta d && d.text().equals("终答")));
+        assertTrue(events.get(events.size() - 1) instanceof StreamEvent.Done);
     }
 
     @Test
