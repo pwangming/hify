@@ -8,14 +8,17 @@ import com.hify.app.dto.CreateAppRequest;
 import com.hify.app.dto.UpdateAppRequest;
 import com.hify.app.entity.App;
 import com.hify.app.entity.AppDatasetRel;
+import com.hify.app.entity.AppToolRel;
 import com.hify.app.mapper.AppDatasetRelMapper;
 import com.hify.app.mapper.AppMapper;
+import com.hify.app.mapper.AppToolRelMapper;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.infra.security.CurrentUser;
 import com.hify.knowledge.api.KnowledgeFacade;
 import com.hify.provider.api.ProviderFacade;
 import com.hify.provider.api.dto.ModelView;
+import com.hify.tool.api.ToolFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -43,6 +46,8 @@ class AppServiceTest {
     private ProviderFacade providerFacade;
     private AppDatasetRelMapper relMapper;
     private KnowledgeFacade knowledgeFacade;
+    private AppToolRelMapper toolRelMapper;
+    private ToolFacade toolFacade;
     private AppService service;
 
     private final CurrentUser member = new CurrentUser(7L, "bob", CurrentUser.ROLE_MEMBER);
@@ -53,16 +58,18 @@ class AppServiceTest {
         providerFacade = mock(ProviderFacade.class);
         relMapper = mock(AppDatasetRelMapper.class);
         knowledgeFacade = mock(KnowledgeFacade.class);
+        toolRelMapper = mock(AppToolRelMapper.class);
+        toolFacade = mock(ToolFacade.class);
         // 默认桩：任意 modelId 视为可用，让带 modelId 的既有用例不因校验红；针对性用例各自覆盖。
         when(providerFacade.findUsableChatModel(any()))
                 .thenReturn(Optional.of(new ModelView(5L, "GPT-4o", "chat", "通义千问")));
         when(providerFacade.getModelNames(any())).thenReturn(java.util.Map.of());
         when(providerFacade.filterUsableChatModelIds(any())).thenReturn(java.util.Set.of());
-        service = new AppService(mapper, providerFacade, relMapper, knowledgeFacade);
+        service = new AppService(mapper, providerFacade, relMapper, knowledgeFacade, toolRelMapper, toolFacade);
     }
 
     private CreateAppRequest chatReq() {
-        return new CreateAppRequest("客服助手", "答疑", "chat", 5L, new AppConfig("你是客服", false), List.of());
+        return new CreateAppRequest("客服助手", "答疑", "chat", 5L, new AppConfig("你是客服", false), List.of(), List.of());
     }
 
     @Test
@@ -83,7 +90,7 @@ class AppServiceTest {
 
     @Test
     void 创建_工作流型_放行() {
-        CreateAppRequest wf = new CreateAppRequest("流程", null, "workflow", null, null, List.of());
+        CreateAppRequest wf = new CreateAppRequest("流程", null, "workflow", null, null, List.of(), List.of());
         AppResponse resp = service.create(wf, member);
         assertEquals("workflow", resp.type());
         verify(mapper).insert(any(App.class));
@@ -91,7 +98,7 @@ class AppServiceTest {
 
     @Test
     void 创建_config缺省兜底为空配置() {
-        CreateAppRequest noCfg = new CreateAppRequest("无配置", null, "chat", null, null, List.of());
+        CreateAppRequest noCfg = new CreateAppRequest("无配置", null, "chat", null, null, List.of(), List.of());
         ArgumentCaptor<App> captor = ArgumentCaptor.forClass(App.class);
         service.create(noCfg, member);
         verify(mapper).insert(captor.capture());
@@ -108,7 +115,7 @@ class AppServiceTest {
 
     @Test
     void 创建_modelId为null_不校验模型_放行() {
-        CreateAppRequest noModel = new CreateAppRequest("无模型", null, "chat", null, null, List.of());
+        CreateAppRequest noModel = new CreateAppRequest("无模型", null, "chat", null, null, List.of(), List.of());
         service.create(noModel, member);
         verify(providerFacade, never()).findUsableChatModel(any());
         verify(mapper).insert(any(App.class));
@@ -210,7 +217,7 @@ class AppServiceTest {
 
     private final CurrentUser admin = new CurrentUser(1L, "root", CurrentUser.ROLE_ADMIN);
     private UpdateAppRequest upd() {
-        return new UpdateAppRequest("新名", "新描述", 9L, new com.hify.app.api.dto.AppConfig("改了", false), List.of());
+        return new UpdateAppRequest("新名", "新描述", 9L, new com.hify.app.api.dto.AppConfig("改了", false), List.of(), List.of());
     }
 
     @org.junit.jupiter.api.Test
@@ -249,7 +256,7 @@ class AppServiceTest {
     void 更新_modelId为null_不校验模型_放行() {
         when(mapper.selectById(10L)).thenReturn(stored(10L, 7L, "enabled"));
         UpdateAppRequest noModel = new UpdateAppRequest("新名", "新描述", null,
-                new com.hify.app.api.dto.AppConfig("改了", false), List.of());
+                new com.hify.app.api.dto.AppConfig("改了", false), List.of(), List.of());
         service.update(10L, noModel, member);
         verify(providerFacade, never()).findUsableChatModel(any());
         verify(mapper).updateById(any(App.class));
@@ -309,7 +316,7 @@ class AppServiceTest {
             inv.getArgument(0, App.class).setId(7L);
             return 1;
         });
-        CreateAppRequest req = new CreateAppRequest("知识助手", null, "chat", null, null, List.of(9L, 8L));
+        CreateAppRequest req = new CreateAppRequest("知识助手", null, "chat", null, null, List.of(9L, 8L), List.of());
         AppResponse resp = service.create(req, admin);
         verify(knowledgeFacade).validateDatasetIds(List.of(9L, 8L));
         verify(relMapper, times(2)).insert(any(AppDatasetRel.class));
@@ -320,7 +327,7 @@ class AppServiceTest {
     void 创建_datasetIds校验失败_透传异常不落库() {
         doThrow(new BizException(CommonError.NOT_FOUND, "知识库不存在或已删除"))
                 .when(knowledgeFacade).validateDatasetIds(List.of(404L));
-        CreateAppRequest req = new CreateAppRequest("知识助手", null, "chat", null, null, List.of(404L));
+        CreateAppRequest req = new CreateAppRequest("知识助手", null, "chat", null, null, List.of(404L), List.of());
         assertThrows(BizException.class, () -> service.create(req, admin));
         verify(mapper, never()).insert(any(App.class));
     }
@@ -328,7 +335,7 @@ class AppServiceTest {
     @Test
     void 更新_全量替换绑定_先软删后插入() {
         when(mapper.selectById(7L)).thenReturn(stored(7L, 1L, "enabled"));
-        UpdateAppRequest req = new UpdateAppRequest("改名", null, null, null, List.of(9L));
+        UpdateAppRequest req = new UpdateAppRequest("改名", null, null, null, List.of(9L), List.of());
         service.update(7L, req, admin);
         InOrder inOrder = inOrder(relMapper);
         inOrder.verify(relMapper).delete(any());
@@ -338,7 +345,7 @@ class AppServiceTest {
     @Test
     void 更新_datasetIds为null_清空绑定_响应空列表() {
         when(mapper.selectById(7L)).thenReturn(stored(7L, 1L, "enabled"));
-        UpdateAppRequest req = new UpdateAppRequest("改名", null, null, null, null);
+        UpdateAppRequest req = new UpdateAppRequest("改名", null, null, null, null, List.of());
         AppResponse resp = service.update(7L, req, admin);
         verify(relMapper).delete(any());
         verify(relMapper, never()).insert(any(AppDatasetRel.class));
@@ -351,8 +358,40 @@ class AppServiceTest {
             inv.getArgument(0, App.class).setId(7L);
             return 1;
         });
-        CreateAppRequest req = new CreateAppRequest("知识助手", null, "chat", null, null, List.of(9L, 9L));
+        CreateAppRequest req = new CreateAppRequest("知识助手", null, "chat", null, null, List.of(9L, 9L), List.of());
         service.create(req, admin);
         verify(relMapper, times(1)).insert(any(AppDatasetRel.class));
+    }
+
+    @Test
+    void 创建chat应用_写入toolIds绑定并校验() {
+        when(mapper.insert(any(App.class))).thenAnswer(inv -> {
+            inv.getArgument(0, App.class).setId(7L);
+            return 1;
+        });
+        CreateAppRequest req = new CreateAppRequest("工具助手", null, "chat", null, null, List.of(), List.of(1L, 2L));
+
+        AppResponse resp = service.create(req, admin);
+
+        verify(toolFacade).validateToolIds(List.of(1L, 2L));
+        verify(toolRelMapper, times(2)).insert(any(AppToolRel.class));
+        assertEquals(List.of(1L, 2L), resp.toolIds());
+    }
+
+    @Test
+    void 更新chat应用_全量替换toolIds() {
+        when(mapper.selectById(7L)).thenReturn(stored(7L, 1L, "enabled"));
+        AppToolRel two = new AppToolRel(); two.setAppId(7L); two.setToolId(2L);
+        AppToolRel three = new AppToolRel(); three.setAppId(7L); three.setToolId(3L);
+        when(toolRelMapper.selectList(any())).thenReturn(List.of(two, three));
+        UpdateAppRequest req = new UpdateAppRequest("改名", null, null, null, List.of(), List.of(2L, 3L));
+
+        AppResponse resp = service.update(7L, req, admin);
+
+        verify(toolFacade).validateToolIds(List.of(2L, 3L));
+        InOrder inOrder = inOrder(toolRelMapper);
+        inOrder.verify(toolRelMapper).delete(any());
+        inOrder.verify(toolRelMapper, times(2)).insert(any(AppToolRel.class));
+        assertEquals(List.of(2L, 3L), resp.toolIds());
     }
 }

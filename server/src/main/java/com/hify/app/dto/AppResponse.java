@@ -20,6 +20,7 @@ public record AppResponse(
         boolean modelUsable,
         AppConfig config,
         List<Long> datasetIds,
+        List<Long> toolIds,
         Long ownerId,
         String status,
         OffsetDateTime createTime,

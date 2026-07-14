@@ -81,18 +81,18 @@ class ConversationServiceTest {
 
     private void stubRunnableApp(String systemPrompt, List<Long> datasetIds) {
         when(appFacade.findRunnableChatApp(eq(7L)))
-                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, datasetIds, false)));
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, datasetIds, false, List.of())));
         when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
     }
 
     private void stubAgentRunnableApp(String systemPrompt) {
         when(appFacade.findRunnableChatApp(eq(7L)))
-                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, List.of(), true)));
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, systemPrompt, List.of(), true, List.of())));
         when(providerFacade.getChatClient(eq(5L))).thenReturn(chatClient);
     }
 
     private AppRuntimeView runnableChatAppBoundTo(List<Long> datasetIds) {
-        return new AppRuntimeView(7L, 5L, "你是客服", datasetIds, false);
+        return new AppRuntimeView(7L, 5L, "你是客服", datasetIds, false, List.of());
     }
 
     private void stubTurnAndReplyFor(String content) {
@@ -248,7 +248,7 @@ class ConversationServiceTest {
     @Test
     void send_模型不可用_透传12002_清理孤儿turn() {
         when(appFacade.findRunnableChatApp(eq(7L)))
-                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, null, List.of(), false)));
+                .thenReturn(Optional.of(new AppRuntimeView(7L, 5L, null, List.of(), false, List.of())));
         when(store.openTurn(any(), any(), any(), any()))
                 .thenReturn(new TurnContext(100L, List.of(userMsg("你好")), 300L, true));
         when(providerFacade.getChatClient(eq(5L)))

@@ -11,14 +11,17 @@ import com.hify.app.dto.CreateAppRequest;
 import com.hify.app.dto.UpdateAppRequest;
 import com.hify.app.entity.App;
 import com.hify.app.entity.AppDatasetRel;
+import com.hify.app.entity.AppToolRel;
 import com.hify.app.mapper.AppDatasetRelMapper;
 import com.hify.app.mapper.AppMapper;
+import com.hify.app.mapper.AppToolRelMapper;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import com.hify.common.page.PageResult;
 import com.hify.infra.security.CurrentUser;
 import com.hify.knowledge.api.KnowledgeFacade;
 import com.hify.provider.api.ProviderFacade;
+import com.hify.tool.api.ToolFacade;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,13 +43,18 @@ public class AppService {
     private final ProviderFacade providerFacade;
     private final AppDatasetRelMapper relMapper;
     private final KnowledgeFacade knowledgeFacade;
+    private final AppToolRelMapper toolRelMapper;
+    private final ToolFacade toolFacade;
 
     public AppService(AppMapper appMapper, ProviderFacade providerFacade,
-                      AppDatasetRelMapper relMapper, KnowledgeFacade knowledgeFacade) {
+                      AppDatasetRelMapper relMapper, KnowledgeFacade knowledgeFacade,
+                      AppToolRelMapper toolRelMapper, ToolFacade toolFacade) {
         this.appMapper = appMapper;
         this.providerFacade = providerFacade;
         this.relMapper = relMapper;
         this.knowledgeFacade = knowledgeFacade;
+        this.toolRelMapper = toolRelMapper;
+        this.toolFacade = toolFacade;
     }
 
     @Transactional
@@ -56,7 +64,11 @@ public class AppService {
         }
         assertModelUsableIfPresent(req.modelId());
         List<Long> datasetIds = req.datasetIds() == null ? List.of() : req.datasetIds();
+        List<Long> toolIds = req.toolIds() == null ? List.of() : req.toolIds();
         knowledgeFacade.validateDatasetIds(datasetIds);
+        if (AppType.CHAT.value().equals(req.type())) {
+            toolFacade.validateToolIds(toolIds);
+        }
         App entity = new App();
         entity.setName(req.name());
         entity.setDescription(req.description());
@@ -71,8 +83,11 @@ public class AppService {
             throw new BizException(CommonError.CONFLICT, "应用名已存在", e);
         }
         replaceDatasetBindings(entity.getId(), datasetIds);
+        if (AppType.CHAT.value().equals(req.type())) {
+            replaceToolBindings(entity.getId(), toolIds);
+        }
         return toResponse(entity, modelNameOf(entity.getModelId()), modelUsableOf(entity.getModelId()),
-                datasetIds.stream().distinct().toList());
+                datasetIds.stream().distinct().toList(), toolIds.stream().distinct().toList());
     }
 
     public AppResponse get(Long id) {
@@ -81,7 +96,7 @@ public class AppService {
             throw new BizException(CommonError.NOT_FOUND, "应用不存在");
         }
         return toResponse(app, modelNameOf(app.getModelId()), modelUsableOf(app.getModelId()),
-                datasetIdsOf(app.getId()));
+                datasetIdsOf(app.getId()), toolIdsOf(app.getId()));
     }
 
     public PageResult<AppResponse> page(String keyword, String type, int page, int size) {
@@ -100,11 +115,13 @@ public class AppService {
         Map<Long, String> names = providerFacade.getModelNames(modelIds);
         Set<Long> usable = providerFacade.filterUsableChatModelIds(modelIds);
         Map<Long, List<Long>> bindings = datasetIdsByApp(records.stream().map(App::getId).toList());
+        Map<Long, List<Long>> toolBindings = toolIdsByApp(records.stream().map(App::getId).toList());
         List<AppResponse> list = records.stream()
                 .map(a -> toResponse(a,
                         a.getModelId() == null ? null : names.get(a.getModelId()),
                         a.getModelId() != null && usable.contains(a.getModelId()),
-                        bindings.getOrDefault(a.getId(), List.of())))
+                        bindings.getOrDefault(a.getId(), List.of()),
+                        toolBindings.getOrDefault(a.getId(), List.of())))
                 .toList();
         return PageResult.of(list, result.getTotal(), page, size);
     }
@@ -115,8 +132,10 @@ public class AppService {
         assertCanModify(app, current);
         assertModelUsableIfPresent(req.modelId());
         List<Long> datasetIds = req.datasetIds() == null ? List.of() : req.datasetIds();
+        List<Long> toolIds = req.toolIds() == null ? List.of() : req.toolIds();
         if (AppType.CHAT.value().equals(app.getType())) {
             knowledgeFacade.validateDatasetIds(datasetIds);
+            toolFacade.validateToolIds(toolIds);
         }
         app.setName(req.name());
         app.setDescription(req.description());
@@ -129,9 +148,10 @@ public class AppService {
         }
         if (AppType.CHAT.value().equals(app.getType())) {
             replaceDatasetBindings(app.getId(), datasetIds);
+            replaceToolBindings(app.getId(), toolIds);
         }
         return toResponse(app, modelNameOf(app.getModelId()), modelUsableOf(app.getModelId()),
-                datasetIdsOf(app.getId()));
+                datasetIdsOf(app.getId()), toolIdsOf(app.getId()));
     }
 
     @Transactional
@@ -225,12 +245,41 @@ public class AppService {
                         Collectors.mapping(AppDatasetRel::getDatasetId, Collectors.toList())));
     }
 
-    AppResponse toResponse(App e, String modelName, boolean modelUsable, List<Long> datasetIds) {
+    /** 全量替换工具绑定：软删该应用全部关系行 + 插入新勾选（去重）。调用方均在 @Transactional 内。 */
+    private void replaceToolBindings(Long appId, List<Long> toolIds) {
+        toolRelMapper.delete(new LambdaQueryWrapper<AppToolRel>().eq(AppToolRel::getAppId, appId));
+        for (Long tid : toolIds.stream().distinct().toList()) {
+            AppToolRel rel = new AppToolRel();
+            rel.setAppId(appId);
+            rel.setToolId(tid);
+            toolRelMapper.insert(rel);
+        }
+    }
+
+    /** 单应用的绑定工具 ids（按绑定先后稳定排序）。 */
+    private List<Long> toolIdsOf(Long appId) {
+        return toolRelMapper.selectList(new LambdaQueryWrapper<AppToolRel>()
+                        .eq(AppToolRel::getAppId, appId).orderByAsc(AppToolRel::getId))
+                .stream().map(AppToolRel::getToolId).toList();
+    }
+
+    /** 批量取工具绑定（列表页防 N+1：一页一查）。 */
+    private Map<Long, List<Long>> toolIdsByApp(List<Long> appIds) {
+        if (appIds.isEmpty()) {
+            return Map.of();
+        }
+        return toolRelMapper.selectList(new LambdaQueryWrapper<AppToolRel>()
+                        .in(AppToolRel::getAppId, appIds).orderByAsc(AppToolRel::getId))
+                .stream().collect(Collectors.groupingBy(AppToolRel::getAppId,
+                        Collectors.mapping(AppToolRel::getToolId, Collectors.toList())));
+    }
+
+    AppResponse toResponse(App e, String modelName, boolean modelUsable, List<Long> datasetIds, List<Long> toolIds) {
         return new AppResponse(
                 e.getId(), e.getName(), e.getDescription(), e.getType(),
                 e.getModelId(), modelName, modelUsable,
                 e.getConfig() == null ? new AppConfig(null, false) : e.getConfig(),
-                datasetIds,
+                datasetIds, toolIds,
                 e.getOwnerId(), e.getStatus(), e.getCreateTime(), e.getUpdateTime());
     }
 }

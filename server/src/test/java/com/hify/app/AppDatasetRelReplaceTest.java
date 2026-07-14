@@ -29,10 +29,10 @@ class AppDatasetRelReplaceTest extends PgIntegrationTest {
         Long dsId = jdbc.queryForObject(
                 "insert into dataset(name, owner_id) values ('K4绑定库', 1) returning id", Long.class);
         AppResponse created = appService.create(
-                new CreateAppRequest("K4绑定应用", null, "chat", null, null, List.of(dsId)), admin);
+                new CreateAppRequest("K4绑定应用", null, "chat", null, null, List.of(dsId), List.of()), admin);
         // 两次保存同一绑定：第一次软删后重插，第二次亦然——部分唯一索引只看未删行，不应报冲突
-        appService.update(created.id(), new UpdateAppRequest("K4绑定应用", null, null, null, List.of(dsId)), admin);
-        appService.update(created.id(), new UpdateAppRequest("K4绑定应用", null, null, null, List.of(dsId)), admin);
+        appService.update(created.id(), new UpdateAppRequest("K4绑定应用", null, null, null, List.of(dsId), List.of()), admin);
+        appService.update(created.id(), new UpdateAppRequest("K4绑定应用", null, null, null, List.of(dsId), List.of()), admin);
         assertEquals(1, jdbc.queryForObject(
                 "select count(*) from app_dataset_rel where app_id = ? and deleted = false",
                 Integer.class, created.id()));

@@ -8,8 +8,10 @@ import com.hify.app.constant.AppStatus;
 import com.hify.app.constant.AppType;
 import com.hify.app.entity.App;
 import com.hify.app.entity.AppDatasetRel;
+import com.hify.app.entity.AppToolRel;
 import com.hify.app.mapper.AppDatasetRelMapper;
 import com.hify.app.mapper.AppMapper;
+import com.hify.app.mapper.AppToolRelMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,10 +25,12 @@ public class AppFacadeImpl implements AppFacade {
 
     private final AppMapper appMapper;
     private final AppDatasetRelMapper relMapper;
+    private final AppToolRelMapper toolRelMapper;
 
-    public AppFacadeImpl(AppMapper appMapper, AppDatasetRelMapper relMapper) {
+    public AppFacadeImpl(AppMapper appMapper, AppDatasetRelMapper relMapper, AppToolRelMapper toolRelMapper) {
         this.appMapper = appMapper;
         this.relMapper = relMapper;
+        this.toolRelMapper = toolRelMapper;
     }
 
     @Override
@@ -46,7 +50,10 @@ public class AppFacadeImpl implements AppFacade {
         List<Long> datasetIds = relMapper.selectList(new LambdaQueryWrapper<AppDatasetRel>()
                         .eq(AppDatasetRel::getAppId, app.getId()).orderByAsc(AppDatasetRel::getId))
                 .stream().map(AppDatasetRel::getDatasetId).toList();
-        return Optional.of(new AppRuntimeView(app.getId(), app.getModelId(), systemPrompt, datasetIds, agentEnabled));
+        List<Long> toolIds = toolRelMapper.selectList(new LambdaQueryWrapper<AppToolRel>()
+                        .eq(AppToolRel::getAppId, app.getId()).orderByAsc(AppToolRel::getId))
+                .stream().map(AppToolRel::getToolId).toList();
+        return Optional.of(new AppRuntimeView(app.getId(), app.getModelId(), systemPrompt, datasetIds, agentEnabled, toolIds));
     }
 
     @Override
