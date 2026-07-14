@@ -314,6 +314,14 @@ async function onDeleteConv(id: string) {
 
   &__sources {
     margin-top: 6px;
+
+    // 折叠头左右对称：EP 默认左侧图标贴边、右侧展开箭头带外边距，补左内边距 + 清箭头右外边距，两侧各 8px
+    :deep(.el-collapse-item__header) {
+      padding: 0 8px;
+    }
+    :deep(.el-collapse-item__arrow) {
+      margin-right: 0;
+    }
   }
 
   &__sources-title {

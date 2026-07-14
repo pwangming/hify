@@ -177,12 +177,13 @@ async function loadToolOptions() {
 const toolSelectOptions = computed(() => {
   const opts = toolOptions.value.map((t) => ({
     value: t.id,
-    label: t.description ? `${t.name} / ${t.description}` : t.name,
+    label: t.name,
+    description: t.description,
     disabled: false,
   }))
   for (const id of form.toolIds) {
     if (!toolOptions.value.some((t) => t.id === id)) {
-      opts.unshift({ value: id, label: '已停用的工具', disabled: true })
+      opts.unshift({ value: id, label: '已停用的工具', description: '', disabled: true })
     }
   }
   return opts
@@ -442,8 +443,11 @@ async function submitForm() {
               :value="o.value"
               :label="o.label"
               :disabled="o.disabled"
-            />
+            >
+              <span :title="o.description || undefined">{{ o.label }}</span>
+            </el-option>
           </el-select>
+          <div class="app-list__hint">悬停工具名可查看用法说明</div>
         </el-form-item>
         <el-form-item v-if="formType === 'chat'" label="系统提示词">
           <el-input
