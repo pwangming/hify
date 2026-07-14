@@ -11,6 +11,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class ToolRegistryTest {
@@ -28,6 +29,12 @@ class ToolRegistryTest {
     private static Tool row(String name, String desc, boolean enabled) {
         Tool t = new Tool();
         t.setName(name); t.setDescription(desc); t.setSource("builtin"); t.setEnabled(enabled);
+        return t;
+    }
+
+    private static Tool rowWithId(long id, String name, boolean enabled) {
+        Tool t = row(name, name + "说明", enabled);
+        t.setId(id);
         return t;
     }
 
@@ -52,5 +59,31 @@ class ToolRegistryTest {
         when(toolMapper.selectList(any())).thenReturn(List.of(row("ghost", "无执行器", true)));
         ToolRegistry registry = new ToolRegistry(toolMapper, List.of(fake("http_request", "OK")));
         assertThat(registry.getBuiltinToolCallbacks()).isEmpty();
+    }
+
+    @Test
+    void 按id取callback_只产出返回行对应的执行器() {
+        when(toolMapper.selectList(any())).thenReturn(List.of(rowWithId(2, "code_executor", true)));
+        ToolRegistry registry = new ToolRegistry(toolMapper,
+                List.of(fake("http_request", "OK"), fake("code_executor", "X")));
+
+        List<ToolCallback> cbs = registry.getToolCallbacks(List.of(2L));
+
+        assertThat(cbs).hasSize(1);
+        assertThat(cbs.get(0).getToolDefinition().name()).isEqualTo("code_executor");
+    }
+
+    @Test
+    void 空id集合_直接空列表_不查库() {
+        ToolRegistry registry = new ToolRegistry(toolMapper, List.of(fake("http_request", "OK")));
+        assertThat(registry.getToolCallbacks(List.of())).isEmpty();
+        verifyNoInteractions(toolMapper);
+    }
+
+    @Test
+    void filterEnabledIds_返回查到的enabled行id集() {
+        when(toolMapper.selectList(any())).thenReturn(List.of(rowWithId(1, "http_request", true)));
+        ToolRegistry registry = new ToolRegistry(toolMapper, List.of(fake("http_request", "OK")));
+        assertThat(registry.filterEnabledIds(List.of(1L, 99L))).containsExactly(1L);
     }
 }

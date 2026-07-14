@@ -12,8 +12,10 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -43,6 +45,34 @@ public class ToolRegistry {
                 .eq(Tool::getSource, "builtin")
                 .eq(Tool::getEnabled, true)
                 .orderByAsc(Tool::getName));
+        return buildCallbacks(rows);
+    }
+
+    /** 按 id 取 enabled 的 builtin 工具 ToolCallback（未知/停用/无执行器的跳过）。空集合→空列表。 */
+    public List<ToolCallback> getToolCallbacks(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<Tool> rows = toolMapper.selectList(new LambdaQueryWrapper<Tool>()
+                .eq(Tool::getSource, "builtin")
+                .eq(Tool::getEnabled, true)
+                .in(Tool::getId, ids)
+                .orderByAsc(Tool::getName));
+        return buildCallbacks(rows);
+    }
+
+    /** 给定 id 集合，返回其中「现存且 enabled」的 id（用于绑定前校验）。空集合→空集。 */
+    public Set<Long> filterEnabledIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Set.of();
+        }
+        return toolMapper.selectList(new LambdaQueryWrapper<Tool>()
+                        .eq(Tool::getEnabled, true)
+                        .in(Tool::getId, ids))
+                .stream().map(Tool::getId).collect(Collectors.toSet());
+    }
+
+    private List<ToolCallback> buildCallbacks(List<Tool> rows) {
         List<ToolCallback> callbacks = new ArrayList<>(rows.size());
         for (Tool row : rows) {
             BuiltinTool exec = builtinByName.get(row.getName());
