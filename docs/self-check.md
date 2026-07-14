@@ -921,3 +921,22 @@ mvn -f server/pom.xml test
     - http_request：模型调 `GET https://httpbin.org/json`，工具真执行取回 HTTP 200 全 JSON，`message.tool_calls` 落一条轨迹(name/args/result)，模型据结果答出 `Sample Slide Show` ✓（promptTokens=1387，证明工具 schema+结果注入）。
     - code_executor：模型生成正确 Python(`sum(range(1,101))`) 发起调用；因 host 直跑 server 连不到 `internal` 沙箱网络（[[workflow-code-node-merged]] 已记坑，非代码缺陷），工具返回错误文本→模型据错恢复直接答出 5050；`tool_calls` 落 2 条轨迹，证明手动循环把工具错误喂回、有界重试后退出 ✓。
   - 结论：Spring AI `internalToolExecutionEnabled(false)` 下 tool call 确被交回手动循环、工具真执行/结果回填/轨迹落库/错误恢复全链路成立。code_executor 端到端「绿」需 server 与 sandbox 同网（进 compose）后复验，与 T1 代码无关。
+
+## 2026-07-14 Agent Tool T2（per-app 工具配置 + Agent 流式轨迹）
+
+- 本轮范围：新增 `app_tool_rel` V24 与实体/Mapper；`ToolFacade` 增加 per-app `getToolCallbacks(ids)` 与 `validateToolIds(ids)`；成员侧 `GET /api/v1/tool/tools`；`AppResponse/CreateAppRequest/UpdateAppRequest/AppRuntimeView` 打通 `toolIds`；`MessageView` 回显 `toolCalls`；SSE 增加 `tool_call` 事件；`AgentChatService` 增加工具调用完成回调；`ConversationService.sendStream` 对 Agent 应用去 17002，改为 boundedElastic 上复用同步 Agent 循环并实时推工具轨迹；前端应用配置页增加 Agent 开关与工具多选；前端流式接线把 `tool_call` append 到助手消息；ChatView 复用参考来源折叠样式渲染工具调用轨迹。
+- 逐 Task 自证（均按计划先红后绿、逐 Task commit）：
+  - Task 1：`mvn test -Dtest=AppToolRelMapperIT` → 1 passed；Flyway 真库应用 V24，插入并按 appId/id 读回工具绑定。
+  - Task 2：`mvn test -Dtest=ToolRegistryTest,ToolFacadeImplTest` → 8 passed；覆盖按 id 取 callback、空集合不查库、enabled id 过滤、不可用 id 抛 `CommonError.PARAM_INVALID`。
+  - Task 3：`mvn test -Dtest=ToolServiceTest,ToolControllerTest` → 2 passed；成员族路由 `/api/v1/tool/tools`，token 签发照 `ConversationControllerTest`。
+  - Task 4：改 `AppRuntimeView` 前执行 `cd server && grep -rn "new AppRuntimeView(" src` 且未截断；`mvn test -Dtest=AppServiceTest,ConversationServiceTest` → 63 passed；create/update/page/get/facade/runtime 全链路带 `toolIds`。
+  - Task 5：`mvn test -Dtest=ConversationServiceTest` → 33 passed；历史消息 `MessageView.toolCalls` 回显。
+  - Task 6：`mvn test -Dtest=AgentChatServiceTest` → 6 passed；工具成功/失败后均推 `StreamEvent.ToolCall`，controller 映射 `event: tool_call`。
+  - Task 7：`mvn test -Dtest=ConversationServiceTest` → 33 passed；`rg "AGENT_STREAM_UNSUPPORTED|17002" server/src/main/java server/src/test/java` 无残留；随后后端全量 `mvn test` → 637/0/0。
+  - Task 8：文档回写 `api-standards.md` 的 `tool_call` 事件形状与 `data-model.md` 的 `app_tool_rel` V24 落地状态。
+  - Task 9：`pnpm vitest run src/views/app/__tests__/AppList.spec.ts` → 22 passed；`pnpm vitest run` → 54 files / 380 tests passed。
+  - Task 10：`pnpm vitest run src/composables/__tests__/useChatStream.spec.ts src/stores/__tests__/conversation.spec.ts` → 31 passed。
+  - Task 11：`pnpm vitest run src/views/conversation/__tests__/ChatView.spec.ts` → 22 passed；`pnpm vitest run` → 54 files / 384 tests passed。
+- 全量回归（收尾执行）：`cd server && mvn clean test` → `Tests run: 637, Failures: 0, Errors: 0, Skipped: 0`，含 `ModularityTests` 与 `LayerRulesTest`；`cd web && pnpm vitest run && pnpm build` → vitest 54 files / 384 tests passed，`vue-tsc --noEmit` 与 `vite build` 退出码 0。
+- 关键红线复核：Long 继续走全局 JSON string；未新增后端错误码且删除 `AGENT_STREAM_UNSUPPORTED/17002`；新路由是成员族 `/api/v1/tool/tools`；数据库只新增 V24；DTO 未 import entity；Agent 流式采用 boundedElastic 复用同步循环，工具每次调用完成后发一次 `tool_call`，最终答案以一条 `message` delta 推出再落库。
+- 真实 LLM 手验：本轮 Codex 未启动 server 做真实 LLM 黄金路径手验。自动化已覆盖流式编排、tool_call 事件、落库回显与前端渲染；仍需在有可用 provider/model、可登录 member、server 与 sandbox/外网工具连通的环境中补跑：创建/编辑 Agent 应用勾 `http_request`/`code_executor` → 试聊 → 观察 `tool_call` 卡片实时出现 → 刷新历史仍带轨迹 → 关闭 Agent 开关回归普通聊天。
