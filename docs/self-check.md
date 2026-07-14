@@ -942,3 +942,11 @@ mvn -f server/pom.xml test
 - 真实 LLM 手验：本轮 Codex 未启动 server 做真实 LLM 黄金路径手验。自动化已覆盖流式编排、tool_call 事件、落库回显与前端渲染；仍需在有可用 provider/model、可登录 member、server 与 sandbox/外网工具连通的环境中补跑：创建/编辑 Agent 应用勾 `http_request`/`code_executor` → 试聊 → 观察 `tool_call` 卡片实时出现 → 刷新历史仍带轨迹 → 关闭 Agent 开关回归普通聊天。
 - 终审补验（2026-07-14）：终审独立重跑 `mvn clean test` → 637/0/0（含 Modularity/LayerRules）、`pnpm vitest run` → 384 passed、`pnpm build` 退出 0；起 server 连 `hify` 库确认 **V24 迁移已应用**（`app_tool_rel` 建成、flyway v24 success）。真实 LLM 黄金路径由用户在 UI 手验通过：配 Agent 应用勾 `http_request`（模型 deepseek）→ 试聊外呼问题 → `tool_call` 卡片实时出现、答出结果 → 刷新历史仍带轨迹 → 关开关回归普通聊天，均 ✅（`code_executor` 因本地 server 跑在 compose 外、够不到沙箱未走此路，属拓扑非代码问题，见 [[workflow-code-node-merged]]）。
 - 终审后 UI 优化（`acc3255`）：① 启用工具下拉 label 只显工具名、用法说明转 hover 原生 tooltip；② 工具调用/参考来源折叠头补左内边距 + 清箭头右外边距，左右图标各距边 8px 对称。`pnpm build` 绿。
+
+## 2026-07-14 Agent Tool T3a（OpenAPI 自定义工具后端）
+
+- 本轮范围（后端半）：`ApiKeyCipher` 提升为 infra 共享 `SecretCipher` 并迁移 provider；引入已批准 `swagger-parser-v3:2.1.22`；新增 OpenAPI 解析、`OpenApiToolSpec` jsonb 映射、`OpenApiToolCallback`（仅经 `OutboundHttpClient` 出站）；`ToolRegistry` 支持一条 openapi 工具展开为 N 个 Spring AI callback；新增 admin CRUD 服务与 `/api/v1/admin/tool/tools` controller（PUT 全量替换，POST 子资源启停，DELETE 返回 `Result<Void>`）。零 Flyway 迁移，复用 V23 `tool.spec/owner_id`。
+- 逐 Task 验证：Task 1 provider/crypto 迁移测试 26 passed；Task 2 parser 5 passed；Task 3 spec TypeHandler 1 passed；Task 4 callback 4 passed；Task 5 registry openapi 分支 6 passed；Task 6 admin service 7 passed；Task 7 admin controller 3 passed。Mockito inline mock maker 在普通工具沙箱下无法 self-attach，相关 Maven 命令按权限规则提升后通过。
+- 全量回归：`mvn -q -f server clean test` 退出码 0，surefire 聚合 **658 tests, 0 failures, 0 errors, 0 skipped**（104 份报告）。其中 `ModularityTests` 1/0/0/0、`LayerRulesTest` 5/0/0/0；tool 仍无 provider 依赖，DTO 不 import entity，controller 不注入 Mapper。
+- 红线复核：加密默认值字符串与 `hify.provider.crypto` 前缀未改；本轮只新增 `ToolError.SPEC_PARSE_FAILED(13001/400)`，CRUD 复用 `CommonError`；自定义工具凭据只存 `valueEnc`，详情只回 `authHeaderNames`，不回明文；未新增 HTTP 客户端；未新增/修改 Flyway 迁移。
+- 留账：OpenAPI `servers[0].url` 只支持绝对 `http/https`，相对 baseUrl 不支持；SSRF 内网地址由 `OutboundHttpClient` 统一拦截；真实 server 冒烟未执行（Task 8 Step 2 可选，当前只做自动化全量回归）。T3b 可依赖的详情契约：`ToolAdminDetailResponse` 回 `baseUrl`、`operations`、`authHeaderNames`、`rawSpec`，其中鉴权值永不回传。
