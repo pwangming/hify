@@ -79,6 +79,10 @@ public class OpenApiToolCallback implements ToolCallback {
                 }
             }
 
+            if (hasBody && headers.keySet().stream().noneMatch(k -> k.equalsIgnoreCase("Content-Type"))) {
+                headers.put("Content-Type", "application/json");
+            }
+
             String url = baseUrl + path + (query.isEmpty() ? "" : "?" + String.join("&", query));
             String bodyStr = hasBody ? mapper.writeValueAsString(body) : null;
             OutboundResponse resp = http.send(op.method(), url, headers, bodyStr);

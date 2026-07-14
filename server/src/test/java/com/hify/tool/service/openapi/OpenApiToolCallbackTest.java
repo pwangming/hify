@@ -50,7 +50,43 @@ class OpenApiToolCallbackTest {
         verify(http).send(eq("GET"), url.capture(), headers.capture(), eq(null));
         assertThat(url.getValue()).isEqualTo("https://api.example.com/v1/pets/42?verbose=true");
         assertThat(headers.getValue()).containsEntry("X-API-Key", "secret");
+        assertThat(headers.getValue()).doesNotContainKey("Content-Type");
         assertThat(result).contains("HTTP 200").contains("Fido");
+    }
+
+    @Test
+    void call_addsJsonContentType_forBody() {
+        OpenApiToolSpec.Operation op = new OpenApiToolSpec.Operation(
+                "addPet", "POST", "/pets", "加", "{}",
+                List.of(new OpenApiToolSpec.Param("name", "body", true)));
+        OutboundHttpClient http = mock(OutboundHttpClient.class);
+        when(http.send(any(), any(), any(), any()))
+                .thenReturn(new OutboundResponse(201, "ok", Map.of()));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, String>> headers = ArgumentCaptor.forClass(Map.class);
+        callback(op, http).call("{\"name\":\"Fido\"}");
+
+        verify(http).send(eq("POST"), any(), headers.capture(), any());
+        assertThat(headers.getValue()).containsEntry("Content-Type", "application/json");
+    }
+
+    @Test
+    void call_respectsProvidedContentType_forBody() {
+        OpenApiToolSpec.Operation op = new OpenApiToolSpec.Operation(
+                "addPet", "POST", "/pets", "加", "{}",
+                List.of(new OpenApiToolSpec.Param("name", "body", true),
+                        new OpenApiToolSpec.Param("Content-Type", "header", false)));
+        OutboundHttpClient http = mock(OutboundHttpClient.class);
+        when(http.send(any(), any(), any(), any()))
+                .thenReturn(new OutboundResponse(201, "ok", Map.of()));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, String>> headers = ArgumentCaptor.forClass(Map.class);
+        callback(op, http).call("{\"name\":\"Fido\",\"Content-Type\":\"application/xml\"}");
+
+        verify(http).send(eq("POST"), any(), headers.capture(), any());
+        assertThat(headers.getValue()).containsEntry("Content-Type", "application/xml");
     }
 
     @Test
