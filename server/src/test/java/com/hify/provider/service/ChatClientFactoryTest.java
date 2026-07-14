@@ -1,6 +1,7 @@
 package com.hify.provider.service;
 
 import com.hify.common.exception.BizException;
+import com.hify.infra.crypto.SecretCipher;
 import com.hify.provider.constant.ProviderError;
 import com.hify.provider.entity.AiModel;
 import com.hify.provider.entity.ModelProvider;
@@ -27,12 +28,12 @@ import static org.mockito.Mockito.when;
  */
 class ChatClientFactoryTest {
 
-    private ApiKeyCipher cipher;
+    private SecretCipher cipher;
     private ChatClientFactory factory;
 
     @BeforeEach
     void setUp() {
-        cipher = mock(ApiKeyCipher.class);
+        cipher = mock(SecretCipher.class);
         when(cipher.decrypt(anyString())).thenReturn("sk-real");
         factory = new ChatClientFactory(cipher, RetryTemplate.builder().maxAttempts(1).build());
     }

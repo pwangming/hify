@@ -3,6 +3,7 @@ package com.hify.provider.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
+import com.hify.infra.crypto.SecretCipher;
 import com.hify.provider.constant.ProviderStatus;
 import com.hify.provider.dto.CreateProviderRequest;
 import com.hify.provider.dto.ProviderResponse;
@@ -21,7 +22,7 @@ import java.util.List;
 
 /**
  * 模型供应商业务逻辑（具体类 + @Service，不拆接口——code-organization.md 第 2 节）。
- * 注入本模块 ModelProviderMapper 与 ApiKeyCipher；@Transactional 只在本层写方法；
+ * 注入本模块 ModelProviderMapper 与 SecretCipher；@Transactional 只在本层写方法；
  * 失败一律抛 BizException 交全局处理器转信封。Entity ↔ DTO 转换在本层（dto 包禁依赖 entity）。
  */
 @Service
@@ -29,14 +30,14 @@ public class ProviderService {
 
     private final ModelProviderMapper providerMapper;
     private final AiModelMapper aiModelMapper;
-    private final ApiKeyCipher apiKeyCipher;
+    private final SecretCipher secretCipher;
     private final ResilienceRegistry resilienceRegistry;
 
     public ProviderService(ModelProviderMapper providerMapper, AiModelMapper aiModelMapper,
-                           ApiKeyCipher apiKeyCipher, ResilienceRegistry resilienceRegistry) {
+                           SecretCipher secretCipher, ResilienceRegistry resilienceRegistry) {
         this.providerMapper = providerMapper;
         this.aiModelMapper = aiModelMapper;
-        this.apiKeyCipher = apiKeyCipher;
+        this.secretCipher = secretCipher;
         this.resilienceRegistry = resilienceRegistry;
     }
 
@@ -47,7 +48,7 @@ public class ProviderService {
         entity.setName(request.name());
         entity.setProtocol(request.protocol());
         entity.setBaseUrl(request.baseUrl());
-        entity.setApiKeyCipher(apiKeyCipher.encrypt(request.apiKey()));
+        entity.setApiKeyCipher(secretCipher.encrypt(request.apiKey()));
         entity.setApiKeyTail(tailOf(request.apiKey()));
         entity.setStatus(ProviderStatus.ENABLED.value());
         try {
@@ -67,7 +68,7 @@ public class ProviderService {
         entity.setBaseUrl(request.baseUrl());
         // 只写密钥例外：留空保留原密文/tail；非空才重新加密并刷新 tail
         if (StringUtils.hasText(request.apiKey())) {
-            entity.setApiKeyCipher(apiKeyCipher.encrypt(request.apiKey()));
+            entity.setApiKeyCipher(secretCipher.encrypt(request.apiKey()));
             entity.setApiKeyTail(tailOf(request.apiKey()));
         }
         try {

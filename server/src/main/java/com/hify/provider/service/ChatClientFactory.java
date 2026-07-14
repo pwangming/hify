@@ -1,6 +1,7 @@
 package com.hify.provider.service;
 
 import com.hify.common.exception.BizException;
+import com.hify.infra.crypto.SecretCipher;
 import com.hify.provider.constant.ProviderError;
 import com.hify.provider.entity.AiModel;
 import com.hify.provider.entity.ModelProvider;
@@ -28,10 +29,10 @@ public class ChatClientFactory {
     /** 全库统一向量维度（kb_chunk.embedding vector(1024)，database-standards §2.1）。 */
     public static final int EMBEDDING_DIMENSION = 1024;
 
-    private final ApiKeyCipher cipher;
+    private final SecretCipher cipher;
     private final RetryTemplate noRetryTemplate;
 
-    public ChatClientFactory(ApiKeyCipher cipher, RetryTemplate noRetryTemplate) {
+    public ChatClientFactory(SecretCipher cipher, RetryTemplate noRetryTemplate) {
         this.cipher = cipher;
         this.noRetryTemplate = noRetryTemplate;
     }

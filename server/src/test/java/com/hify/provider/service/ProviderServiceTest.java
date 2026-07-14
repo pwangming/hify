@@ -2,7 +2,8 @@ package com.hify.provider.service;
 
 import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
-import com.hify.provider.config.ProviderCryptoProperties;
+import com.hify.infra.crypto.CryptoProperties;
+import com.hify.infra.crypto.SecretCipher;
 import com.hify.provider.constant.ProviderStatus;
 import com.hify.provider.dto.CreateProviderRequest;
 import com.hify.provider.dto.ProviderResponse;
@@ -30,14 +31,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * ProviderService 单元测试：mock ModelProviderMapper，用真实 ApiKeyCipher，不连库。
+ * ProviderService 单元测试：mock ModelProviderMapper，用真实 SecretCipher，不连库。
  * 覆盖创建/更新（含 apiKey 留空保留）/列表投影/启停幂等/删除幂等/重名与不存在分支。
  */
 class ProviderServiceTest {
 
     private ModelProviderMapper mapper;
     private AiModelMapper aiModelMapper;
-    private ApiKeyCipher cipher;
+    private SecretCipher cipher;
     private ResilienceRegistry registry;
     private ProviderService service;
 
@@ -46,9 +47,9 @@ class ProviderServiceTest {
         mapper = mock(ModelProviderMapper.class);
         aiModelMapper = mock(AiModelMapper.class);
         when(aiModelMapper.selectCount(any())).thenReturn(0L); // 默认无模型，既有删除测试照常通过
-        ProviderCryptoProperties props = new ProviderCryptoProperties();
+        CryptoProperties props = new CryptoProperties();
         props.setMasterKey("unit-test-master-key");
-        cipher = new ApiKeyCipher(props);
+        cipher = new SecretCipher(props);
         registry = mock(ResilienceRegistry.class);
         service = new ProviderService(mapper, aiModelMapper, cipher, registry);
     }
