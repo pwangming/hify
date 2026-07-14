@@ -7,9 +7,11 @@ import {
 } from '@/api/app'
 import { listChatModels } from '@/api/provider'
 import { listDatasets } from '@/api/knowledge'
+import { listTools } from '@/api/tool'
 import type { App, AppForm, AppType } from '@/types/app'
 import type { ModelOption } from '@/types/model'
 import type { Dataset } from '@/types/knowledge'
+import type { ToolOption } from '@/types/tool'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
 import PageHeader from '@/components/PageHeader.vue'
@@ -104,8 +106,9 @@ const form = reactive<AppForm>({
   name: '',
   description: '',
   modelId: null,
-  config: { systemPrompt: '' },
+  config: { systemPrompt: '', agentEnabled: false },
   datasetIds: [],
+  toolIds: [],
 })
 // 应用类型：创建时可选，编辑时锁定为行的既有类型（后端不支持改型）
 const formType = ref<AppType>('chat')
@@ -161,6 +164,30 @@ const datasetSelectOptions = computed(() => {
   return opts
 })
 
+// Agent 工具选项，打开弹窗时刷新；已绑定但不可选的工具保留禁用回显。
+const toolOptions = ref<ToolOption[]>([])
+async function loadToolOptions() {
+  try {
+    toolOptions.value = await listTools()
+  } catch {
+    /* 失败由 request 拦截器统一 toast；下拉留空 */
+  }
+}
+
+const toolSelectOptions = computed(() => {
+  const opts = toolOptions.value.map((t) => ({
+    value: t.id,
+    label: t.description ? `${t.name} / ${t.description}` : t.name,
+    disabled: false,
+  }))
+  for (const id of form.toolIds) {
+    if (!toolOptions.value.some((t) => t.id === id)) {
+      opts.unshift({ value: id, label: '已停用的工具', disabled: true })
+    }
+  }
+  return opts
+})
+
 const rules: FormRules<AppForm> = {
   name: [
     { required: true, message: '请输入名称', trigger: 'blur' },
@@ -175,11 +202,13 @@ function openCreate() {
   form.description = ''
   form.modelId = null
   editingModelName.value = null
-  form.config = { systemPrompt: '' }
+  form.config = { systemPrompt: '', agentEnabled: false }
   form.datasetIds = []
+  form.toolIds = []
   dialogVisible.value = true
   loadModelOptions()
   loadDatasetOptions()
+  loadToolOptions()
 }
 function openEdit(row: App) {
   editingId.value = row.id
@@ -188,11 +217,16 @@ function openEdit(row: App) {
   form.description = row.description ?? ''
   form.modelId = row.modelId
   editingModelName.value = row.modelName
-  form.config = { systemPrompt: row.config.systemPrompt ?? '' }
+  form.config = {
+    systemPrompt: row.config.systemPrompt ?? '',
+    agentEnabled: row.config.agentEnabled ?? false,
+  }
   form.datasetIds = [...row.datasetIds]
+  form.toolIds = [...(row.toolIds ?? [])]
   dialogVisible.value = true
   loadModelOptions()
   loadDatasetOptions()
+  loadToolOptions()
 }
 
 async function submitForm() {
@@ -388,6 +422,28 @@ async function submitForm() {
             />
           </el-select>
           <div class="app-list__hint">绑定后，该应用回答会参考所选知识库内容</div>
+        </el-form-item>
+        <el-form-item v-if="formType === 'chat'" label="Agent 工具调用">
+          <el-switch v-model="form.config.agentEnabled" data-test="form-agent" />
+          <div class="app-list__hint">开启后，助手可调用你勾选的工具（如 HTTP 请求、代码执行）来回答</div>
+        </el-form-item>
+        <el-form-item v-if="formType === 'chat' && form.config.agentEnabled" label="启用工具">
+          <el-select
+            v-model="form.toolIds"
+            data-test="form-tools"
+            multiple
+            clearable
+            placeholder="选择启用的工具"
+            class="app-list__model-select"
+          >
+            <el-option
+              v-for="o in toolSelectOptions"
+              :key="o.value"
+              :value="o.value"
+              :label="o.label"
+              :disabled="o.disabled"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item v-if="formType === 'chat'" label="系统提示词">
           <el-input

@@ -4,9 +4,10 @@ export type AppType = 'chat' | 'workflow'
 /** 应用启停状态。 */
 export type AppStatus = 'enabled' | 'disabled'
 
-/** 对话型运行配置（对齐后端 AppConfig，jsonb）。本轮仅系统提示词。 */
+/** 对话型运行配置（对齐后端 AppConfig，jsonb）。 */
 export interface AppConfig {
   systemPrompt: string | null
+  agentEnabled?: boolean
 }
 
 /** 应用视图（对齐后端 AppResponse）。id/modelId/ownerId 为 string（Long 序列化防精度丢失）。 */
@@ -21,6 +22,8 @@ export interface App {
   config: AppConfig
   /** 绑定的知识库 ids（K4 起）。 */
   datasetIds: string[]
+  /** Agent 启用的工具 ids（T2 起）。 */
+  toolIds: string[]
   ownerId: string
   status: AppStatus
   createTime: string
@@ -35,6 +38,8 @@ export interface AppForm {
   config: AppConfig
   /** 绑定的知识库 ids（K4 起）。 */
   datasetIds: string[]
+  /** Agent 启用的工具 ids（T2 起）。 */
+  toolIds: string[]
 }
 
 /** 页码分页结果（对齐后端 PageResult）。total/page/size 后端以 string 下发（long 也序列化为 string）。 */

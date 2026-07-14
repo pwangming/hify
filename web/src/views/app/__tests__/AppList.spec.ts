@@ -5,6 +5,7 @@ import ElementPlus, { ElSelect, ElOption } from 'element-plus'
 import { listApps, createApp, updateApp, deleteApp } from '@/api/app'
 import { listChatModels } from '@/api/provider'
 import { listDatasets } from '@/api/knowledge'
+import { listTools } from '@/api/tool'
 import type { App, PageResult } from '@/types/app'
 import { useUserStore } from '@/stores/user'
 import AppList from '@/views/app/AppList.vue'
@@ -15,6 +16,7 @@ vi.mock('@/api/app', () => ({
 }))
 vi.mock('@/api/provider', () => ({ listChatModels: vi.fn() }))
 vi.mock('@/api/knowledge', () => ({ listDatasets: vi.fn() }))
+vi.mock('@/api/tool', () => ({ listTools: vi.fn() }))
 
 const routerPush = vi.fn()
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: routerPush }) }))
@@ -28,7 +30,8 @@ function page(list: App[]): PageResult<App> {
 }
 const MINE: App = {
   id: '1', name: '我的助手', description: null, type: 'chat', modelId: null, modelName: null,
-  modelUsable: false, config: { systemPrompt: null }, datasetIds: [], ownerId: '7', status: 'enabled',
+  modelUsable: false, config: { systemPrompt: null, agentEnabled: false }, datasetIds: [], toolIds: [],
+  ownerId: '7', status: 'enabled',
   createTime: '2026-06-24T10:00:00+08:00', updateTime: '2026-06-24T10:00:00+08:00',
 }
 const OTHERS: App = { ...MINE, id: '2', name: '他人应用', ownerId: '999' }
@@ -51,6 +54,10 @@ describe('AppList', () => {
       { id: '5', name: 'GPT-4o', type: 'chat', providerName: '通义千问' },
     ])
     vi.mocked(listDatasets).mockResolvedValue({ list: [DS], total: '1', page: '1', size: '100' })
+    vi.mocked(listTools).mockResolvedValue([
+      { id: '1', name: 'http_request', description: 'HTTP 工具', source: 'builtin' },
+      { id: '2', name: 'code_executor', description: '代码工具', source: 'builtin' },
+    ])
     const store = useUserStore()
     store.user = { id: '7', username: 'bob', role: 'member' } // 当前用户=bob(7)
   })
@@ -221,6 +228,33 @@ describe('AppList', () => {
     const gone = wrapper.findAllComponents(ElOption).find((o) => o.props('label') === '已删除的知识库')
     expect(gone).toBeTruthy()
     expect(gone!.props('disabled')).toBe(true)
+  })
+
+  it('开启 Agent 开关后显示工具多选，提交带 toolIds/agentEnabled', async () => {
+    vi.mocked(updateApp).mockResolvedValue({ ...MINE, config: { systemPrompt: null, agentEnabled: true }, toolIds: ['1'] })
+    const wrapper = mount(AppList, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    await wrapper.find('[data-test="edit-1"]').trigger('click')
+    await flushPromises()
+
+    expect(listTools).toHaveBeenCalledOnce()
+    const agent = wrapper.find('[data-test="form-agent"]')
+    expect(agent.exists()).toBe(true)
+    await wrapper.findComponent({ name: 'ElSwitch' }).vm.$emit('update:modelValue', true)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="form-tools"]').exists()).toBe(true)
+    const tools = wrapper.findAllComponents(ElSelect)
+      .find((select) => select.attributes('data-test') === 'form-tools')
+    expect(tools).toBeTruthy()
+    await tools!.vm.$emit('update:modelValue', ['1'])
+    await wrapper.find('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(updateApp).toHaveBeenCalledWith('1', expect.objectContaining({
+      config: expect.objectContaining({ agentEnabled: true }),
+      toolIds: ['1'],
+    }))
   })
 
   it('新建：提交载荷 datasetIds 为空数组', async () => {
