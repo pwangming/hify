@@ -245,6 +245,48 @@ describe('ChatView', () => {
     expect(wrapper.find('[data-test="msg-sources"]').exists()).toBe(false)
   })
 
+  it('助手消息有 toolCalls 时渲染工具调用卡片', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({
+      id: '9',
+      role: 'assistant',
+      content: '答案',
+      promptTokens: 1,
+      completionTokens: 2,
+      createTime: 't',
+      toolCalls: [{ name: 'http_request', args: '{}', result: 'HTTP 200' }],
+    })
+    await nextTick()
+
+    const block = wrapper.find('[data-test="tool-trace"]')
+    expect(block.exists()).toBe(true)
+    expect(block.text()).toContain('工具调用 (1)')
+    await block.find('.el-collapse-item__header').trigger('click')
+    await nextTick()
+    expect(block.text()).toContain('http_request')
+    expect(block.text()).toContain('参数：{}')
+    expect(block.text()).toContain('结果：HTTP 200')
+  })
+
+  it('无 toolCalls 时不渲染工具卡片', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({
+      id: '10',
+      role: 'assistant',
+      content: '答案',
+      promptTokens: 1,
+      completionTokens: 2,
+      createTime: 't',
+      toolCalls: [],
+    })
+    await nextTick()
+    expect(wrapper.find('[data-test="tool-trace"]').exists()).toBe(false)
+  })
+
   it('复制用户消息写入剪贴板', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })

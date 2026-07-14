@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { Document as DocumentIcon, DocumentCopy, EditPen, Link } from '@element-plus/icons-vue'
+import { Document as DocumentIcon, DocumentCopy, EditPen, Link, Tools } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useConversationStore } from '@/stores/conversation'
 import type { MessageView } from '@/types/conversation'
@@ -174,6 +174,29 @@ async function onDeleteConv(id: string) {
                       <el-tag size="small" type="info">{{ Math.round(s.score * 100) }}%</el-tag>
                     </div>
                     <div class="chat__source-preview">{{ s.preview }}</div>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+            <div
+              v-if="m.role === 'assistant' && m.toolCalls && m.toolCalls.length"
+              class="chat__sources"
+              data-test="tool-trace"
+            >
+              <el-collapse>
+                <el-collapse-item :name="m.id">
+                  <template #title>
+                    <span class="chat__sources-title">
+                      <el-icon><Tools /></el-icon>
+                      <span>工具调用 ({{ m.toolCalls.length }})</span>
+                    </span>
+                  </template>
+                  <div v-for="(tc, ti) in m.toolCalls" :key="ti" class="chat__source-card">
+                    <div class="chat__source-head">
+                      <span class="chat__source-doc">{{ tc.name }}</span>
+                    </div>
+                    <div class="chat__source-preview">参数：{{ tc.args }}</div>
+                    <div class="chat__source-preview">结果：{{ tc.result }}</div>
                   </div>
                 </el-collapse-item>
               </el-collapse>
