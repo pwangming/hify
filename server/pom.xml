@@ -35,6 +35,7 @@
         <hutool.version>5.8.38</hutool.version>
         <jjwt.version>0.12.6</jjwt.version>
         <archunit.version>1.4.0</archunit.version>
+        <swagger-parser.version>2.1.22</swagger-parser.version>
     </properties>
 
     <dependencyManagement>
@@ -179,6 +180,11 @@
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
             <version>${hutool.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.parser.v3</groupId>
+            <artifactId>swagger-parser-v3</artifactId>
+            <version>${swagger-parser.version}</version>
         </dependency>
 
         <!-- ===== 编译期：配置元数据 ===== -->
