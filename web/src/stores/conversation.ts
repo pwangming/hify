@@ -87,7 +87,7 @@ export const useConversationStore = defineStore('conversation', () => {
     })
     const idx = messages.value.push({
       id: `local-asst-${Date.now()}`, role: 'assistant', content: '',
-      promptTokens: null, completionTokens: null, createTime: new Date().toISOString(), sources: [],
+      promptTokens: null, completionTokens: null, createTime: new Date().toISOString(), sources: [], toolCalls: [],
     }) - 1
     sending.value = true
 
@@ -122,6 +122,10 @@ export const useConversationStore = defineStore('conversation', () => {
           if (currentId.value === null) currentId.value = conversationId
         },
         onSources: (list) => { messages.value[idx].sources = list },
+        onToolCall: (tc) => {
+          const arr = messages.value[idx].toolCalls ?? (messages.value[idx].toolCalls = [])
+          arr.push({ name: tc.toolName, args: tc.args, result: tc.result })
+        },
         onDelta: (t) => { pendingText += t },   // buffer; drain timer writes to bubble
         onDone: (conversationId, messageId, usage) => {
           // Flush all remaining buffered text before committing the final id/usage

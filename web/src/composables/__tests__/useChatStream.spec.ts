@@ -76,6 +76,21 @@ describe('useChatStream', () => {
     ])
   })
 
+  it('解析 tool_call 事件 → onToolCall', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
+      'event:tool_call\ndata:{"toolName":"http_request","args":"{}","result":"HTTP 200","ok":true}\n\n',
+      'event:done\ndata:{"conversationId":"9","messageId":"7","usage":{"promptTokens":1,"completionTokens":1}}\n\n',
+    ])))
+    const onToolCall = vi.fn()
+    const { start } = useChatStream()
+    await start('1', null, 'q', {
+      onDelta: vi.fn(), onDone: vi.fn(), onError: vi.fn(), onToolCall,
+    })
+    expect(onToolCall).toHaveBeenCalledWith(
+      { toolName: 'http_request', args: '{}', result: 'HTTP 200', ok: true },
+    )
+  })
+
   it('error 事件 → onError', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
       'event:error\ndata:{"code":12003,"message":"模型供应商暂时不可用"}\n\n',

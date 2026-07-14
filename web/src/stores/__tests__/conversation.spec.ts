@@ -134,6 +134,31 @@ describe('useConversationStore', () => {
     expect(asst.sources).toEqual(sources)
   })
 
+  it('send：tool_call 事件 append 到助手消息 toolCalls', async () => {
+    const start = vi.fn(async (
+      _a: unknown,
+      _c: unknown,
+      _t: unknown,
+      h: {
+        onToolCall?: (tc: { toolName: string; args: string; result: string; ok: boolean }) => void
+        onDelta: (t: string) => void
+        onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void
+        onError: (e: { code: number; message: string }) => void
+      },
+    ) => {
+      h.onToolCall?.({ toolName: 'http_request', args: '{}', result: 'HTTP 200', ok: true })
+      h.onDelta('答案')
+      h.onDone('100', '200', { promptTokens: 1, completionTokens: 1 })
+    })
+    ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })
+
+    const store = useConversationStore()
+    await store.send('7', '问题')
+
+    const asst = store.messages[store.messages.length - 1]
+    expect(asst.toolCalls).toEqual([{ name: 'http_request', args: '{}', result: 'HTTP 200' }])
+  })
+
   it('send：error 时占位气泡内联错误、sending 复位', async () => {
     const start = vi.fn(async (_a: unknown, _c: unknown, _t: unknown, h: { onDelta: (t: string) => void; onDone: (cid: string, mid: string, u: { promptTokens: number; completionTokens: number }) => void; onError: (e: { code: number; message: string }) => void }) => h.onError({ code: 12003, message: '模型供应商暂时不可用' }))
     ;(useChatStream as unknown as Mock).mockReturnValue({ start, abort: vi.fn() })

@@ -7,6 +7,8 @@ export interface ChatStreamHandlers {
   onMeta?: (conversationId: string) => void
   /** 引用来源事件（Meta 后、首个 delta 前）；命中为空时后端不发本事件 */
   onSources?: (sources: MessageSource[]) => void
+  /** Agent 工具调用完成事件；每个工具调用完成后发一次 */
+  onToolCall?: (tc: { toolName: string; args: string; result: string; ok: boolean }) => void
   onDelta: (text: string) => void
   onDone: (conversationId: string, messageId: string,
            usage: { promptTokens: number; completionTokens: number }) => void
@@ -94,6 +96,7 @@ export function useChatStream() {
     if (event === 'message') h.onDelta(payload.delta)
     else if (event === 'meta') h.onMeta?.(payload.conversationId)
     else if (event === 'sources') h.onSources?.(payload.sources)
+    else if (event === 'tool_call') h.onToolCall?.(payload)
     else if (event === 'done') { h.onDone(payload.conversationId, payload.messageId, payload.usage); return true }
     else if (event === 'error') { h.onError({ code: payload.code, message: payload.message }); return true }
     return false

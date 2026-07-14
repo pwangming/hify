@@ -10,6 +10,13 @@ export interface MessageSource {
   preview: string
 }
 
+/** Agent 工具调用轨迹（对齐后端 MessageToolCall / 落库 message.tool_calls）。 */
+export interface MessageToolCall {
+  name: string
+  args: string
+  result: string
+}
+
 /** 消息视图（对齐后端 MessageView）。id 为 string（Long）；token 为 number（Integer）。 */
 export interface MessageView {
   id: string
@@ -20,6 +27,8 @@ export interface MessageView {
   createTime: string
   /** 引用来源；未绑库/降级/无命中为空数组或缺省。 */
   sources?: MessageSource[]
+  /** Agent 工具调用轨迹；普通聊天为空数组或缺省。 */
+  toolCalls?: MessageToolCall[]
   /** 客户端专用：流式失败时的错误文案（红色高亮渲染），后端不返回。 */
   error?: string
 }
