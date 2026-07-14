@@ -127,8 +127,8 @@ public record Result<T>(int code, String message, T data, String traceId) {
 event: message        // 增量内容
 data: {"delta": "你好，"}
 
-event: tool_call      // Agent 工具调用轨迹（可选）
-data: {"toolName": "http_request", "status": "running"}
+event: tool_call      // Agent 工具调用轨迹：每个工具调用完成后发一次
+data: {"toolName": "http_request", "args": "{\"url\":\"...\"}", "result": "HTTP 200 ...", "ok": true}
 
 event: error          // 流中途出错：data 即 Result 失败结构（同样的 code/message/traceId）
 data: {"code": 12002, "message": "模型供应商调用超时", "traceId": "..."}

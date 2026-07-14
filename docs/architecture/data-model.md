@@ -14,7 +14,7 @@
 | app | `app` | 应用，类型字段区分对话型/工作流型；Agent 配置是对话型 app 的 jsonb 配置 |
 | | `app_api_key` | 应用对外 API Key |
 | | `app_dataset_rel` | 应用 ↔ 知识库 多对多 |
-| | `app_tool_rel` | 应用 ↔ 工具 多对多（T2 落地；T1 暂不建表，Agent 应用全量启用内置工具） |
+| | `app_tool_rel` | 应用 ↔ 工具 多对多；T2 已落地 V24：`app_id/tool_id` + BaseEntity 字段，tool_id 跨模块弱引用，Agent 应用勾选启用哪些工具 |
 | conversation | `conversation` | 会话 |
 | | `message` | 消息；`sources jsonb` 存引用来源快照数组 `[{chunkId,documentId,documentName,score,preview}]`，随消息落库/删会话级联，未命中为 `[]`；Agent 工具调用轨迹存本表 jsonb，不单独建表 |
 | knowledge | `dataset` | 知识库 |
