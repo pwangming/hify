@@ -913,3 +913,11 @@ mvn -f server/pom.xml test
 - 验证：Task 1-7 均先红后绿并单独提交；Task 8 执行 `mvn -q clean test` 全量回归，退出码 0，surefire 聚合 `tests=623 failures=0 errors=0 skipped=0`（含 `ModularityTests`/`LayerRulesTest`）。
 - 手动 self-check：当前 compose 只有 `postgres`/`sandbox`，本机 `localhost:8080/actuator/health` curl exit 7，缺少运行中的 server、可登录 token、可用 chat 模型与 chat app，故 spec §1 的真实 Agent curl 黄金路径未执行；需启动 server 并准备可用应用后补跑。
 - 留账：T1 只支持全量启用内置工具，per-app 工具选择 `app_tool_rel` 留 T2；OpenAPI 工具留 T3；MCP 服务与 `mcp_server` 留 T4；Agent 流式/SSE 留 T2。
+- 终审补验（2026-07-14，起默认 profile server 对真库 hify 实跑，验毕已清现场）：
+  - 独立复跑 `mvn clean test`：Tests run **623, Failures 0, Errors 0, Skipped 0**（含 ModularityTests/LayerRulesTest）。
+  - 启动：Flyway `Successfully applied ... now at version v23`；`Started HifyApplication`（全新 bean ToolFacade/AgentChatService/AgentProperties 装配无误）；`tool` 表种子 2 行（`http_request`/`code_executor`，enabled、owner_id/spec 空）。
+  - **17002 守卫**（app 14 翻 agentEnabled 后打 SSE 端点）：`{"code":17002,"message":"Agent 应用暂不支持流式对话"}` HTTP 400 ✓。
+  - **真实 LLM 黄金路径**（app 14=deepseek，同步端点）：
+    - http_request：模型调 `GET https://httpbin.org/json`，工具真执行取回 HTTP 200 全 JSON，`message.tool_calls` 落一条轨迹(name/args/result)，模型据结果答出 `Sample Slide Show` ✓（promptTokens=1387，证明工具 schema+结果注入）。
+    - code_executor：模型生成正确 Python(`sum(range(1,101))`) 发起调用；因 host 直跑 server 连不到 `internal` 沙箱网络（[[workflow-code-node-merged]] 已记坑，非代码缺陷），工具返回错误文本→模型据错恢复直接答出 5050；`tool_calls` 落 2 条轨迹，证明手动循环把工具错误喂回、有界重试后退出 ✓。
+  - 结论：Spring AI `internalToolExecutionEnabled(false)` 下 tool call 确被交回手动循环、工具真执行/结果回填/轨迹落库/错误恢复全链路成立。code_executor 端到端「绿」需 server 与 sandbox 同网（进 compose）后复验，与 T1 代码无关。
