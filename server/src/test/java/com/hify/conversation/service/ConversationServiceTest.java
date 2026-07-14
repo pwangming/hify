@@ -430,6 +430,19 @@ class ConversationServiceTest {
     }
 
     @Test
+    void history_带工具轨迹回显() {
+        Message m = new Message();
+        m.setId(200L); m.setRole("assistant"); m.setContent("答案");
+        m.setToolCalls(List.of(new MessageToolCall("http_request", "{\"url\":\"x\"}", "HTTP 200")));
+        when(store.listMessages(eq(100L), eq(42L))).thenReturn(List.of(m));
+
+        List<com.hify.conversation.dto.MessageView> views = service.history(100L, member);
+
+        assertEquals(1, views.get(0).toolCalls().size());
+        assertEquals("http_request", views.get(0).toolCalls().get(0).name());
+    }
+
+    @Test
     void listConversations_委托store_映射为视图() {
         Conversation c = new Conversation();
         c.setId(1L);

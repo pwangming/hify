@@ -59,7 +59,7 @@ class ConversationControllerTest {
 
     private MessageView assistant() {
         return new MessageView(200L, "assistant", "你好，我是助手", 12, 8,
-                OffsetDateTime.parse("2026-06-26T10:00:00+08:00"), List.of());
+                OffsetDateTime.parse("2026-06-26T10:00:00+08:00"), List.of(), List.of());
     }
 
     @Test
@@ -102,7 +102,7 @@ class ConversationControllerTest {
         var view = new MessageView(
                 7L, "assistant", "答案", 1, 2, OffsetDateTime.now(),
                 List.of(new com.hify.conversation.dto.MessageSource(
-                        10L, 20L, "手册.pdf", 0.82, "预览文字")));
+                        10L, 20L, "手册.pdf", 0.82, "预览文字")), List.of());
         when(conversationService.history(eq(5L), any())).thenReturn(List.of(view));
 
         mockMvc.perform(get("/api/v1/conversation/messages").param("conversationId", "5")
