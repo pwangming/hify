@@ -95,6 +95,8 @@ public class ConversationController {
             return sse("sources", new StreamPayloads.Sources(s.sources()));
         } else if (e instanceof StreamEvent.Delta d) {
             return sse("message", new StreamPayloads.Delta(d.text()));
+        } else if (e instanceof StreamEvent.ToolCall tc) {
+            return sse("tool_call", new StreamPayloads.ToolCall(tc.toolName(), tc.args(), tc.result(), tc.ok()));
         } else if (e instanceof StreamEvent.Done done) {
             return sse("done", new StreamPayloads.Done(done.conversationId(), done.messageId(),
                     new StreamPayloads.Usage(done.promptTokens(), done.completionTokens())));

@@ -15,6 +15,7 @@ import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -102,6 +103,35 @@ class AgentChatServiceTest {
         AgentReply reply = withScript(5, script)
                 .run(null, "", List.of(userMsg("x")), List.of(fakeTool("http_request", "R")));
         assertThat(reply.toolCalls().get(0).result()).contains("不存在");
+    }
+
+    @Test
+    void run重载_每调完一个工具触发一次事件() {
+        Deque<ChatResponse> script = new ArrayDeque<>(List.of(
+                assistantWithToolCall("http_request", "{\"url\":\"x\"}"),
+                finalAnswer("好了")));
+        AgentChatService svc = withScript(5, script);
+        List<StreamEvent.ToolCall> events = new ArrayList<>();
+
+        AgentReply reply = svc.run(null, "", List.of(userMsg("q")),
+                List.of(fakeTool("http_request", "HTTP 200")), events::add);
+
+        assertThat(reply.content()).isEqualTo("好了");
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).toolName()).isEqualTo("http_request");
+        assertThat(events.get(0).result()).contains("HTTP 200");
+        assertThat(events.get(0).ok()).isTrue();
+    }
+
+    @Test
+    void run重载_未知工具事件ok为false() {
+        Deque<ChatResponse> script = new ArrayDeque<>(List.of(
+                assistantWithToolCall("ghost", "{}"),
+                finalAnswer("x")));
+        List<StreamEvent.ToolCall> events = new ArrayList<>();
+        withScript(5, script).run(null, "", List.of(userMsg("q")),
+                List.of(fakeTool("http_request", "R")), events::add);
+        assertThat(events.get(0).ok()).isFalse();
     }
 
     private static Message userMsg(String content) {

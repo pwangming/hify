@@ -11,6 +11,8 @@ public final class StreamPayloads {
 
     public record Delta(String delta) {}
 
+    public record ToolCall(String toolName, String args, String result, boolean ok) {}
+
     public record Usage(Integer promptTokens, Integer completionTokens) {}
 
     public record Done(Long conversationId, Long messageId, Usage usage) {}

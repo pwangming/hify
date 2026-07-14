@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -36,6 +37,12 @@ public class AgentChatService {
 
     public AgentReply run(ChatClient chatClient, String systemPrompt, List<Message> window,
                           List<ToolCallback> toolCallbacks) {
+        return run(chatClient, systemPrompt, window, toolCallbacks, tc -> {});
+    }
+
+    public AgentReply run(ChatClient chatClient, String systemPrompt, List<Message> window,
+                          List<ToolCallback> toolCallbacks,
+                          Consumer<StreamEvent.ToolCall> onToolCall) {
         Map<String, ToolCallback> byName = toolCallbacks.stream()
                 .collect(Collectors.toMap(cb -> cb.getToolDefinition().name(), Function.identity(), (a, b) -> a));
         List<org.springframework.ai.chat.messages.Message> msgs = chatInvoker.toMessages(systemPrompt, window);
@@ -63,16 +70,21 @@ public class AgentChatService {
             for (AssistantMessage.ToolCall call : assistant.getToolCalls()) {
                 ToolCallback cb = byName.get(call.name());
                 String result;
+                boolean ok;
                 if (cb == null) {
                     result = "错误：工具不存在：" + call.name();
+                    ok = false;
                 } else {
                     try {
                         result = cb.call(call.arguments());
+                        ok = true;
                     } catch (RuntimeException ex) {
                         result = "错误：工具执行失败：" + ex.getMessage();
+                        ok = false;
                     }
                 }
                 trace.add(new MessageToolCall(call.name(), call.arguments(), result));
+                onToolCall.accept(new StreamEvent.ToolCall(call.name(), call.arguments(), result, ok));
                 responses.add(new ToolResponseMessage.ToolResponse(call.id(), call.name(), result));
             }
             msgs.add(new ToolResponseMessage(responses));
