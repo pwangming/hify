@@ -1229,7 +1229,7 @@ git commit -m "feat(tool): McpToolDiscoverer(listTools 快照+schema 序列化)+
 - Consumes: `McpClientFactory#create(...)`（Task 2）、`McpToolSpec.McpTool`（Task 3）、`FakeMcpServer`（Task 3）。
 - Produces: `McpToolCallback(ToolDefinition definition, String toolName, String url, String transport, Map<String,String> authHeaders, McpClientFactory factory, ObjectMapper mapper) implements ToolCallback`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `server/src/test/java/com/hify/tool/service/mcp/McpToolCallbackTest.java`：
 
@@ -1312,12 +1312,12 @@ class McpToolCallbackTest {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd server && mvn -q -Dtest=McpToolCallbackTest test`
 Expected: 编译失败——`McpToolCallback` 不存在。
 
-- [ ] **Step 3: 写 `McpToolCallback`**
+- [x] **Step 3: 写 `McpToolCallback`**
 
 创建 `server/src/main/java/com/hify/tool/service/mcp/McpToolCallback.java`：
 
@@ -1414,12 +1414,12 @@ public class McpToolCallback implements ToolCallback {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd server && mvn -q -Dtest=McpToolCallbackTest test`
 Expected: 5 个测试通过。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/tool/service/mcp/McpToolCallback.java server/src/test/java/com/hify/tool/service/mcp/McpToolCallbackTest.java
