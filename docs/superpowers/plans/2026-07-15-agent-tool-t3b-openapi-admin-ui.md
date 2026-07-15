@@ -307,7 +307,7 @@ git commit -m "feat(tool): update 鉴权头值留空=保留原密文(仿 provide
   - api：`listTools()` / `getTool(id)` / `createTool(body)` / `updateTool(id,body)` / `removeTool(id)` / `enableTool(id)` / `disableTool(id)` / `previewTool(specText)`
   - 组件 `ToolList.vue`（`data-test="tool-table"`、类型标签、内置行无操作按钮）
 
-- [ ] **Step 1：写失败测试（ToolList.spec.ts）**
+- [x] **Step 1：写失败测试（ToolList.spec.ts）**
 
 ```ts
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -377,12 +377,12 @@ describe('ToolList 列表渲染', () => {
 })
 ```
 
-- [ ] **Step 2：跑测试确认失败**
+- [x] **Step 2：跑测试确认失败**
 
 Run: `cd web && pnpm vitest run src/views/admin/tool`
 Expected: FAIL（`ToolList.vue` / `@/api/admin/tool` 不存在）。
 
-- [ ] **Step 3：追加前端类型（web/src/types/tool.ts，保留既有 ToolOption）**
+- [x] **Step 3：追加前端类型（web/src/types/tool.ts，保留既有 ToolOption）**
 
 ```ts
 /** admin 列表项（对齐后端 ToolAdminResponse）。id/ownerId 为 string(Long)。 */
@@ -440,7 +440,7 @@ export interface ToolPreview {
 }
 ```
 
-- [ ] **Step 4：建 api 层（web/src/api/admin/tool.ts）**
+- [x] **Step 4：建 api 层（web/src/api/admin/tool.ts）**
 
 ```ts
 import { request } from '@/api/request'
@@ -483,7 +483,7 @@ export function previewTool(specText: string) {
 }
 ```
 
-- [ ] **Step 5：建 ToolList.vue（本轮只表格 + 加载）**
+- [x] **Step 5：建 ToolList.vue（本轮只表格 + 加载）**
 
 ```vue
 <script setup lang="ts">
@@ -631,7 +631,7 @@ async function onDelete(row: ToolAdminItem) {
 
 > 注：`createTime`/`updateTime` 已在类型里，暂不上表（列已够）。`formatDateTime` import 保留给 Task 4 详情用；若 lint 报未使用可在本任务先去掉、Task 4 再加回。
 
-- [ ] **Step 6：加路由（web/src/router/index.ts，插到 `/admin/identity` 路由块之后）**
+- [x] **Step 6：加路由（web/src/router/index.ts，插到 `/admin/identity` 路由块之后）**
 
 ```ts
 {
@@ -651,17 +651,17 @@ async function onDelete(row: ToolAdminItem) {
 
 （菜单由 `meta.menu` 自动派生，menu.ts 无需改。）
 
-- [ ] **Step 7：跑测试确认通过**
+- [x] **Step 7：跑测试确认通过**
 
 Run: `cd web && pnpm vitest run src/views/admin/tool`
 Expected: PASS（2 例）。
 
-- [ ] **Step 8：跑一次全量前端测试保证没打破别的**
+- [x] **Step 8：跑一次全量前端测试保证没打破别的**
 
 Run: `cd web && pnpm vitest run`
 Expected: 全绿。
 
-- [ ] **Step 9：提交**
+- [x] **Step 9：提交**
 
 ```bash
 git add web/src/types/tool.ts web/src/api/admin/tool.ts web/src/router/index.ts \

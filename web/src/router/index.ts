@@ -78,6 +78,19 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/admin/tool',
+    name: 'ToolList',
+    component: () => import('@/views/admin/tool/ToolList.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: ['admin'],
+      title: '自定义工具',
+      menu: true,
+      icon: 'Connection',
+      group: '管理控制台',
+    },
+  },
+  {
     path: '/admin/settings',
     name: 'SystemSettings',
     component: () => import('@/views/admin/system/SystemSettings.vue'),
