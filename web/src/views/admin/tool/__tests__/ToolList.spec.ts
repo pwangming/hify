@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import ElementPlus from 'element-plus'
-import { listTools } from '@/api/admin/tool'
-import type { ToolAdminItem } from '@/types/tool'
+import { listTools, getTool, createTool, updateTool, previewTool } from '@/api/admin/tool'
+import type { ToolAdminItem, ToolAdminDetail, ToolPreview } from '@/types/tool'
 import ToolList from '@/views/admin/tool/ToolList.vue'
 
 vi.mock('@/api/admin/tool', () => ({
@@ -58,6 +58,18 @@ function mountList() {
   return mount(ToolList, { global: { plugins: [ElementPlus, router] } })
 }
 
+// 透传桩：内联渲染默认插槽 + footer 插槽，绕开 el-drawer 的 teleport
+const drawerStub = {
+  props: ['modelValue'],
+  template: '<div v-if="modelValue" data-test="tool-drawer"><slot/><slot name="footer"/></div>',
+}
+
+function mountListWithDrawer() {
+  return mount(ToolList, {
+    global: { plugins: [ElementPlus, router], stubs: { 'el-drawer': drawerStub } },
+  })
+}
+
 describe('ToolList 列表渲染', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -80,5 +92,81 @@ describe('ToolList 列表渲染', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('—')
     expect(wrapper.text()).toContain('3')
+  })
+})
+
+describe('ToolList 注册/编辑抽屉', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(listTools).mockResolvedValue(SAMPLE)
+  })
+
+  it('注册：预览渲染操作列表，保存调 createTool', async () => {
+    const preview: ToolPreview = {
+      baseUrl: 'https://api.example.com',
+      operations: [{ opName: 'getPet', method: 'GET', pathTemplate: '/pets/{id}', description: '查' }],
+    }
+    vi.mocked(previewTool).mockResolvedValue(preview)
+    vi.mocked(createTool).mockResolvedValue(SAMPLE[1])
+
+    const wrapper = mountListWithDrawer()
+    await flushPromises()
+    await wrapper.get('[data-test="create-open"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="tool-drawer"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="form-name"]').setValue('petstore')
+    await wrapper.get('[data-test="form-description"]').setValue('宠物')
+    await wrapper.get('[data-test="form-spec"]').setValue('openapi: 3.0.0')
+    await wrapper.get('[data-test="form-preview"]').trigger('click')
+    await flushPromises()
+    expect(previewTool).toHaveBeenCalledWith('openapi: 3.0.0')
+    expect(wrapper.text()).toContain('getPet')
+
+    await wrapper.get('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createTool).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'petstore', description: '宠物', specText: 'openapi: 3.0.0' }),
+    )
+  })
+
+  it('预览失败不关抽屉（后端 13001 由拦截器 toast）', async () => {
+    vi.mocked(previewTool).mockRejectedValue(new Error('parse fail'))
+    const wrapper = mountListWithDrawer()
+    await flushPromises()
+    await wrapper.get('[data-test="create-open"]').trigger('click')
+    await wrapper.get('[data-test="form-spec"]').setValue('bad')
+    await wrapper.get('[data-test="form-preview"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="tool-drawer"]').exists()).toBe(true)
+  })
+
+  it('编辑：回填详情，头名预填且值框空，保存调 updateTool', async () => {
+    const detail: ToolAdminDetail = {
+      id: '9',
+      name: 'petstore',
+      description: '宠物商店',
+      source: 'openapi',
+      enabled: true,
+      baseUrl: 'https://api.example.com',
+      operations: [{ opName: 'getPet', method: 'GET', pathTemplate: '/pets/{id}', description: '查' }],
+      authHeaderNames: ['X-API-Key'],
+      rawSpec: 'openapi: 3.0.0',
+    }
+    vi.mocked(getTool).mockResolvedValue(detail)
+    vi.mocked(updateTool).mockResolvedValue(SAMPLE[1])
+
+    const wrapper = mountListWithDrawer()
+    await flushPromises()
+    await wrapper.get('[data-test="edit-9"]').trigger('click')
+    await flushPromises()
+    expect(getTool).toHaveBeenCalledWith('9')
+    expect((wrapper.get('[data-test="form-name"]').element as HTMLInputElement).value).toBe('petstore')
+    expect((wrapper.get('[data-test="header-name-0"]').element as HTMLInputElement).value).toBe('X-API-Key')
+    expect((wrapper.get('[data-test="header-value-0"]').element as HTMLInputElement).value).toBe('')
+
+    await wrapper.get('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(updateTool).toHaveBeenCalledWith('9', expect.objectContaining({ name: 'petstore' }))
   })
 })
