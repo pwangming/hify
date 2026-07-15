@@ -108,6 +108,13 @@
   彻底封死重定向绕过）；内网白名单**暂缓**（一期只调公网，机制预留：SsrfValidator 查
   system_setting 放行）；不做 DNS pinning（校验与连接间的 rebinding 窗口以一期威胁模型
   评估可接受，二期对外开放时收紧）。
+- **MCP 连接的落地细节（2026-07-15，T4a spec）**：MCP **只支持远程 HTTP**
+  （`streamable_http` 默认 / `sse` 兼容），**不支持 stdio**——stdio 要求在 server 容器内 spawn
+  子进程执行第三方代码，与「不可信代码绝不进 server、代码执行进独立沙箱」的既定姿态冲突。
+  MCP 出站不走 `OutboundHttpClient`（MCP SDK 自带 HTTP 客户端），改由 `tool` 模块的
+  `McpClientFactory` 收口**同一套闸门**：建连前过 `SsrfValidator`（同款禁内网/元数据）、
+  `followRedirects(NEVER)`（不设则远端一个 302 即可绕过 SSRF 校验）、连接/请求/握手三重超时
+  外化于 `hify.tool.mcp.*`。MCP 服务器地址由 admin 注册，同样仅限公网可达。
 
 ## 6. 二期触发条件与演进路径
 

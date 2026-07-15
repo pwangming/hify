@@ -41,7 +41,7 @@ digraph hify_er {
 
     subgraph cluster_tool {
         label="tool"; style=rounded; color="#9bb7d4";
-        tool; mcp_server;
+        tool;
     }
 
     subgraph cluster_usage {
@@ -64,7 +64,6 @@ digraph hify_er {
     kb_document -> kb_chunk [label="1:N"];
     workflow_def -> workflow_run [label="1:N"];
     workflow_run -> workflow_node_run [label="1:N"];
-    mcp_server -> tool [label="1:N (mcp only)"];
     conversation -> message [label="1:N"];
 
     // ---- 跨模块弱引用（虚线，无数据库 FK） ----

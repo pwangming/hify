@@ -78,4 +78,10 @@ public class AdminToolController {
         toolAdminService.disable(id);
         return Result.ok(null);
     }
+
+    /** 重新发现 MCP 工具清单（仅 mcp 行）。动作子资源 POST——一期不用 PATCH。 */
+    @PostMapping("/{id}/refresh")
+    public Result<ToolAdminResponse> refresh(@PathVariable Long id) {
+        return Result.ok(toolAdminService.refresh(id));
+    }
 }

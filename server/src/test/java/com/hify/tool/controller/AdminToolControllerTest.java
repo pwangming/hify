@@ -95,6 +95,24 @@ class AdminToolControllerTest {
     }
 
     @Test
+    void 刷新_admin_200且返回工具() throws Exception {
+        when(toolAdminService.refresh(9L)).thenReturn(sample());
+
+        mockMvc.perform(post("/api/v1/admin/tool/tools/9/refresh")
+                        .header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value("9"));
+    }
+
+    @Test
+    void 刷新_无令牌_401且10002() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/tool/tools/9/refresh"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(10002));
+    }
+
+    @Test
     void 列表_无令牌_401且10002() throws Exception {
         mockMvc.perform(get("/api/v1/admin/tool/tools"))
                 .andExpect(status().isUnauthorized())

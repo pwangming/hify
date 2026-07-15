@@ -4,7 +4,7 @@
 > ER 图：`er-diagram.svg`（源文件 `er-diagram.dot`，重新生成：
 > `npx -y @hpcc-js/wasm-graphviz-cli -T svg er-diagram.dot > er-diagram.svg`）。
 
-## 1. 表清单（按模块，共 20 张）
+## 1. 表清单（按模块，共 19 张）
 
 | 模块 | 表 | 说明 |
 |---|---|---|
@@ -23,8 +23,7 @@
 | workflow | `workflow_def` | 画布定义（jsonb graph），带版本号，(app_id, version) 唯一 |
 | | `workflow_run` | 运行实例（状态机；scaling-path.md 阶段 2 的 SKIP LOCKED 任务表即本表） |
 | | `workflow_node_run` | 节点级执行日志 |
-| tool | `tool` | 统一注册表；T1 已落地 V23：`name/description/source/enabled/spec/owner_id` + BaseEntity 字段，`source` 区分 builtin / openapi / mcp；内置工具 `spec/owner_id` 为空，OpenAPI spec 后续存 jsonb |
-| | `mcp_server` | MCP 服务连接配置，仅 source=mcp 的工具关联（T4 落地；T1 暂不建表） |
+| tool | `tool` | 统一注册表；T1 已落地 V23：`name/description/source/enabled/spec/owner_id` + BaseEntity 字段，`source` 区分 builtin / openapi / mcp；内置工具 `spec/owner_id` 为空。`spec jsonb` 经 `kind` 字段承载两种形状（T4a 引入 `ToolSpec` 多态）：openapi 存 `baseUrl/operations/rawSpec`，mcp 存 `url/transport/tools 快照/discoveredAt`；两者的鉴权头都只存密文。V25 给存量 openapi 行补了 `kind` 标记 |
 | usage | `llm_call_log` | 每次模型调用流水（监听 TokenUsedEvent 落库） |
 | | `daily_usage` | 用户×应用×天 聚合；配额检查只查本表，不扫流水 |
 | 系统 | `system_setting` | admin 系统设置，KV |
@@ -45,8 +44,6 @@ sys_user 1──N conversation N──1 app
               └── 1──N message
 
 dataset 1──N kb_document 1──N kb_chunk（含向量列）
-
-mcp_server 1──N tool（仅 MCP 来源；内置/OpenAPI 工具此列为空）
 
 llm_call_log / daily_usage ──▷ user_id、app_id、model_id 全部弱引用，无外键
 ```
@@ -75,3 +72,4 @@ llm_call_log / daily_usage ──▷ user_id、app_id、model_id 全部弱引用
 | 消息队列表 | 阶段 2 的任务表职责由 workflow_run 状态机兼任 |
 | 向量表 | 向量不是独立实体，是 kb_chunk 的一列——这是选 pgvector 的核心收益 |
 | 文件表 / MinIO | 原始文件是 kb_document 的 bytea 列——与向量同理，文件不是独立实体；备份与多副本共享随库一并解决 |
+| mcp_server | **T1 时曾规划、T4a 拍板废弃**。一个 MCP 服务器 = `tool` 表 1 行（`source=mcp`），连接配置与工具清单快照存 `spec jsonb`，注册表读时展开成 N 个 ToolCallback（Model D，与 OpenAPI 工具同构）。若拆成 `mcp_server 1──N tool`，就必须实现「远端工具增删改 → 本地行同步」，是纯复杂度来源；Model D 整条快照替换即可，天然免疫。代价是 per-app 只能勾整个服务器、不能勾单个工具——与 OpenAPI 工具现状一致，已接受 |
