@@ -967,3 +967,43 @@ mvn -f server/pom.xml test
 - 服务启动：`mvn -DskipTests package` 重打包成功；已启动后端新 jar，`GET /actuator/health` → `{"status":"UP"}`，`GET /api/v1/health` → `{"code":200,...,"data":"Hify is running"}`；已启动 Vite dev，`GET /` → HTTP 200 HTML。
 - 遇到的坑：普通工具沙箱下 Mockito/Byte Buddy self-attach 失败，Maven 测试按权限规则提升后通过；MyBatis-Plus `BaseMapper.insert` 存在集合重载，测试里的 `insert(any())` 需收窄为 `insert(any(Tool.class))`；happy-dom 下 Element Plus `el-input` / `el-textarea` 会把 `data-test` 下发到真实 input/textarea，测试改为直接断言 input value；`el-drawer` 测试用透传桩绕开 teleport。
 - 待人工验收：浏览器登录 admin → 侧边「管理控制台 / 自定义工具」可进入，列表含内置工具且只读；注册公网 OpenAPI 工具（禁内网/元数据地址）→ 预览操作列表 → 填鉴权头保存 → 列表出现；编辑该工具 → 名称/描述/spec 回填、只显示头名、值框为空且占位「留空=不改」→ 不填头值保存不报错；抽屉内不出现任何明文头值；到 Agent 应用配置页勾选该工具并试聊 → 看到 `tool_call` 轨迹卡片；停用后 Agent 侧不再可选；删除二次确认后列表消失。
+
+## 2026-07-15 Agent Tool T4a（MCP 工具接入·后端）
+
+- 本轮范围（后端半，② Agent/tool 最后子轮）：引入 `io.modelcontextprotocol.sdk:mcp:0.12.1`（不引 spring-ai-mcp/starter、**Spring AI 版本不动**）；新增 `ToolSpec` 多态接口承载 `tool.spec` 一列两形状（`kind` 分派）+ `ToolSpecTypeHandler` + **V25** 给存量 openapi 行补 `kind`；新增 `McpClientFactory`（SSRF/禁重定向/三重超时/拆 origin+endpoint）、`McpToolDiscoverer`（listTools 快照）、`McpToolCallback`（每次调用建/关连接，失败返文本不抛）；`ToolRegistry` 加 `source=mcp` 展开分支（热路径零网络开销）；`ToolAdminService` mcp 分支（create/update/refresh/preview）+ `assertOpenApi`→`assertNotBuiltin`；admin 增 `POST /tools/{id}/refresh`。**零加表**（废弃 data-model 的 `mcp_server` 表规划），**conversation/workflow 零改动**。前端拆 T4b。
+- 8 项拍板决策：① 仅远程 HTTP、**不支持 stdio**（stdio 要在 server 容器 spawn 子进程执行第三方代码，推翻「不可信代码绝不进 server」）② 直依赖 SDK 0.12.1 + 手写 ToolCallback（Spring AI 1.0.1 锁的 SDK 0.10.0 **没有 Streamable HTTP**；starter 的 autoconfig 是 yml 驱动而我们 DB 驱动）③ 维持禁内网 ④ 沿用 Model D 零加表 ⑤ 快照+手动刷新（`getToolCallbacks` 在每条消息热路径上）⑥ 每次工具调用建/关连接 ⑦ `ToolSpec` 普通 interface + Jackson 多态（不用 sealed：无 JPMS 时实现类须同包）⑧ 拆 T4a/T4b。新错误码 `13002/400`。
+- **三个 javap/反编译实测出的陷阱**（凭记忆必错，已写进计划 Global Constraints）：① transport Builder 的 `endpoint` 默认 `/mcp`、`sseEndpoint` 默认 `/sse` → 整条 URL 当 baseUri 传会拼成 `host/mcp/mcp`，**必须拆 origin+path**（同款前科：provider 双 `/v1`）；② `McpSchema.Tool.inputSchema()` 返回类型化 `JsonSchema` record 而非字符串，须 `writeValueAsString`（spec 初稿「零转换」说法已修正）；③ 序列化 spec/schema 的私有 ObjectMapper 须 `NON_NULL`（否则 `"defs":null` 塞进**发给模型**的 schema）+ 注册 `JavaTimeModule`（`discoveredAt` 是 `OffsetDateTime`，不注册直接序列化失败）。
+- 逐 Task 验证（Codex 外部执行 Task 1-7）：Task 1 ToolSpec 多态+V25+T3a 适配；Task 2 SDK 依赖+McpClientFactory（4 tests）；Task 3 最小 MCP 桩+Discoverer（4 tests）；Task 4 McpToolCallback（5 tests）；Task 5 ToolRegistry mcp 分支（3 tests）；Task 6 ToolAdminService mcp 分支（7 tests）；Task 7 refresh 端点+回归+文档。新增 25 个测试。
+- 全量回归（终审独立代跑 3 次）：`cd server && mvn clean test` → **692 tests, 0 failures, 0 errors, 0 skipped**，`BUILD SUCCESS`，含 `ModularityTests` / `LayerRulesTest`。与 Codex 自检数字一字不差。
+- 红线复核：`git diff --stat` 中 **conversation/workflow 零改动**；`<spring-ai.version>` 未动（1.0.1）；未引 spring-ai-mcp/starter；只新增 V25，未改旧迁移；测试无删弱（既有 @Test 数量全部持平，`AdminToolControllerTest` 5→7）；代码与计划**逐字一致，零偏差**。
+
+### 终审发现的真 bug（`74e6410`）
+
+- **`create/update/refresh` 带 `@Transactional` 却内含 `discover` 网络 IO**，直接违反 CLAUDE.md 铁律「`@Transactional` 内禁止 LLM/外部 IO（防连接池耗尽拖垮全站）」。最坏 45s（连接 5s+握手 10s+请求 30s）攥着数据库连接，几个 admin 并发注册即可抽干池子（20 条）。**根因在 spec/plan 就埋下**（照抄 T3a 的事务注解，没意识到 discover 引入了 IO），Codex 忠实实现无过错；**692 个单测抓不到**——discoverer 被 mock，没有真实延迟。类注释「@Transactional 只在写方法，内无外部 IO」被 T4a 变成假话，一并修正。
+- 修法（用户拍板方案 A）：去掉这三个方法的 `@Transactional`。安全性论证：三者各只有**一条写语句**（insert/updateById），单语句本身即原子；重名查重是建议性友好提示，真正守卫一直是 `tool_name_uq` 唯一索引（T3a spec 既定）。`delete/enable/disable` 无 IO，保留注解无害。
+- 同轮删孤儿产物 `er-diagram.png`：含 `mcp_server` 残留，但**无法用 CLAUDE.md 规定的 wasm-graphviz-cli 重生成**（不支持 png 格式，本机亦无原生 graphviz），且无人引用、未登记于文档索引（索引登记的是 `er-diagram.svg`(.dot)）。svg 为唯一真相源。
+
+### Task 8 真实公网 MCP 实测（本轮最大风险，已解除）
+
+- **DeepWiki（`https://mcp.deepwiki.com/mcp` + `streamable_http`）连通**，发现 3 个工具（read_wiki_structure / read_wiki_contents / ask_question）。Context7 两种传输均失败（疑已需 API key）。
+- **决策 2 被回溯证明救了整轮**：DeepWiki 的 **`sse` 传输失败、只有 `streamable_http` 成功**。若当初选 A（守 Spring AI 1.0.1 锁的 SDK 0.10.0，只有老 SSE），**一台服务器都连不上，T4a 会是无法验收的摆设**。
+- 端到端（app 28「调用工具测试」，模型千问）：工具轨迹出现 **`deepwiki__read_wiki_structure`**（命名前缀 `sanitize(注册名)__远端工具名` 生效），拿到真实文档结构，模型答对。
+- 其余实证：V25 在**真实存量数据**上验证通过（`weather` 行补上 `kind`，`baseUrl`/`operations`/`rawSpec` 无损）；内网 MCP 地址真实链路返回 **10001 而非 13002**（spec §7.1 错误码边界成立）；`refresh` 使 `discoveredAt` 真的刷新（17:41:43→17:42:46）；`refresh` 作用于 openapi 行 → 10001「只有 MCP 工具支持刷新」；builtin 删除 → 10001「内置工具不可删除」。
+- **MCP 调用 ~25% 失败率（根因外部，非 bug）**：Hify 侧 8 次 preview 失败 2 次；**裸 curl 直连 DeepWiki 10 次失败 3 次（HTTP 000，连接层失败）**，且 10 次 `redirect_url` 全空 ⇒ **`followRedirects(NEVER)` 清白**，是 DeepWiki 服务端/网络链路问题。日志根因：`Error deserializing JSON-RPC message: AggregateResponseEvent[..., data=]`（空响应体）。**失败契约在真实故障下经受住考验**：第 1 次 MCP 调用失败 → 返回错误文本 → Agent 循环未断 → 模型自行重试第 4 次成功。
+
+### 计划质量教训（本轮 Codex 4 次叫停，4 次都是计划 bug）
+
+- **根因同一类：Task 边界切在了「编译原子单元」中间**。① Task 1 类型迁移（`Tool.getSpec()` 返回类型一改，ToolAdminService 4 处 / ToolRegistry 1 处 / ToolAdminServiceTest 4 处**同时**编译不过，中间不存在可编译快照）→ 修法是把「跑测试转绿」整体后移到全部适配之后；② Task 5 漏列 `ToolRegistryTest`/`ToolFacadeImplTest` 两处构造点；③ Task 6 `preview(String)`→`preview(PreviewToolRequest)` 但 `AdminToolController` 只在 Task 7 的 Files；④ Task 7 Step 8 要改 `er-diagram.dot/svg` 却未列入 Files。
+- **grep 模式本身会静默漏**：写计划时用 `new UpdateToolRequest(` 搜不到任何东西——代码里是**全限定名** `new com.hify.tool.dto.UpdateToolRequest(`（3 处），而我把这条带 `new ` 前缀的 grep 命令**原样写进了计划给执行方**，即使照做也会漏。同因漏掉整份 `AdminToolControllerTest`。⇒ 枚举调用点**用类名本身搜，别带 `new ` 前缀**。
+- **明确否决的反模式**：Codex 曾提议「Task 6 临时保留 `preview(String)` 兼容重载，Task 7 再切」——这是 W3a 那轮踩过的坑（为迁就人为 Task 边界造用完即删的垫片，产出语义危险的兼容层）。**边界划错了就改边界，不加垫片。**
+- **红线设计生效**：4 次叫停全部发生在「计划红线与计划自身疏漏冲突」时，Codex 每次都停下报告而非自作主张绕过 ⇒ 漏洞在**写代码之前**暴露，而非变成潜伏的垫片代码。代价是 4 个来回，划算。
+- **C3 的结构对策部分失效**：把回归/文档并入 Task 7 收尾 steps 后，Codex 仍未提交 Task 7（停在 Step 8 叫停处，Step 1-7 已做但未 commit）。结论：「并入最后功能 Task」能防跳过 step，但**叫停发生在收尾 Task 时仍会留下未提交状态**，终审须默认检查工作区（`git status`）而非只看 commit。
+
+### 留账
+
+- **MCP 调用 ~25% 失败率**：根因外部（DeepWiki/网络链路），优雅降级已验证有效。是否加 Resilience4j 重试（项目已有依赖，llm-resilience.md 有先例，可把 25% 压到 ~2-6%）待用户拍板，建议独立小轮次，未纳入 T4a。
+- **「禁内网」的战略后果（决策 3 的未预期代价）**：团队真正会用的自建 MCP 服务器全在内网被禁；剩下可用的只有公网免费服务，而它们从本网络环境访问本就不稳。安全上正确，但可能把 MCP 推向可用性最差的角落。**T4b 之前值得重议**：这功能实际要给谁用、连什么。
+- `V23` 迁移注释「mcp_server(T4) 另轮建表」现已是假话，但**按铁律不改**（改动会破坏 Flyway 校验和直接炸启动）；`data-model.md` §4「刻意不存在的表」已新增 `mcp_server` 条目记录废弃理由，防将来重提。
+- 其他既定非目标：MCP 的 resources/prompts 不接、OAuth 授权流不做、多模态工具结果给占位、per-app 只能勾整个 MCP 服务器（与 OpenAPI 工具一致）、DNS rebinding 窗口（与 `OutboundHttpClient` 现状一致，非新增）。
+- 验收残留数据（未清理）：`tool` 表 id=4 `deepwiki`（source=mcp）；app 28「调用工具测试」模型由 deepseek 改为千问（deepseek 供应商报 12003 不可达）、toolIds 由 `["1"]` 改为 `["1","4"]`。
+- **T4b（前端）未开始**：`web/` 本轮零改动，无 T4b spec/plan。admin 工具页（T3b 建）目前只认 OpenAPI，MCP 注册只能 curl；但 Agent 配置页与对话页**零改动即可用 MCP 工具**（本轮设计要证明的透明性，已实证）。
