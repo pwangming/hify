@@ -3,9 +3,12 @@ package com.hify.tool.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hify.infra.crypto.SecretCipher;
 import com.hify.infra.outbound.OutboundHttpClient;
+import com.hify.infra.outbound.SsrfValidator;
+import com.hify.tool.config.McpProperties;
 import com.hify.tool.entity.Tool;
 import com.hify.tool.mapper.ToolMapper;
 import com.hify.tool.service.builtin.BuiltinTool;
+import com.hify.tool.service.mcp.McpClientFactory;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.ai.tool.ToolCallback;
@@ -24,7 +27,8 @@ class ToolRegistryTest {
 
     private ToolRegistry registry(List<BuiltinTool> builtinTools) {
         return new ToolRegistry(toolMapper, builtinTools,
-                mock(SecretCipher.class), mock(OutboundHttpClient.class), new ObjectMapper());
+                mock(SecretCipher.class), mock(OutboundHttpClient.class), new ObjectMapper(),
+                new McpClientFactory(new SsrfValidator(), new McpProperties()));
     }
 
     private static BuiltinTool fake(String name, String result) {

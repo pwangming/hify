@@ -3,9 +3,12 @@ package com.hify.tool.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hify.infra.crypto.SecretCipher;
 import com.hify.infra.outbound.OutboundHttpClient;
+import com.hify.infra.outbound.SsrfValidator;
+import com.hify.tool.config.McpProperties;
 import com.hify.tool.entity.Tool;
 import com.hify.tool.mapper.ToolMapper;
 import com.hify.tool.service.builtin.BuiltinTool;
+import com.hify.tool.service.mcp.McpClientFactory;
 import com.hify.tool.service.openapi.OpenApiToolSpec;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.tool.ToolCallback;
@@ -41,7 +44,8 @@ class ToolRegistryOpenApiTest {
         when(mapper.selectList(any())).thenReturn(List.of(row));
 
         ToolRegistry registry = new ToolRegistry(mapper, List.<BuiltinTool>of(),
-                cipher, mock(OutboundHttpClient.class), new ObjectMapper());
+                cipher, mock(OutboundHttpClient.class), new ObjectMapper(),
+                new McpClientFactory(new SsrfValidator(), new McpProperties()));
 
         List<ToolCallback> callbacks = registry.getToolCallbacks(List.of(9L));
         assertThat(callbacks).hasSize(2);

@@ -7,6 +7,9 @@ import com.hify.infra.outbound.OutboundHttpClient;
 import com.hify.tool.entity.Tool;
 import com.hify.tool.mapper.ToolMapper;
 import com.hify.tool.service.builtin.BuiltinTool;
+import com.hify.tool.service.mcp.McpClientFactory;
+import com.hify.tool.service.mcp.McpToolCallback;
+import com.hify.tool.service.mcp.McpToolSpec;
 import com.hify.tool.service.openapi.OpenApiToolCallback;
 import com.hify.tool.service.openapi.OpenApiToolSpec;
 import org.slf4j.Logger;
@@ -39,16 +42,18 @@ public class ToolRegistry {
     private final SecretCipher secretCipher;
     private final OutboundHttpClient outboundHttpClient;
     private final ObjectMapper objectMapper;
+    private final McpClientFactory mcpClientFactory;
 
     public ToolRegistry(ToolMapper toolMapper, List<BuiltinTool> builtinTools,
                         SecretCipher secretCipher, OutboundHttpClient outboundHttpClient,
-                        ObjectMapper objectMapper) {
+                        ObjectMapper objectMapper, McpClientFactory mcpClientFactory) {
         this.toolMapper = toolMapper;
         this.builtinByName = builtinTools.stream()
                 .collect(Collectors.toMap(BuiltinTool::name, Function.identity()));
         this.secretCipher = secretCipher;
         this.outboundHttpClient = outboundHttpClient;
         this.objectMapper = objectMapper;
+        this.mcpClientFactory = mcpClientFactory;
     }
 
     /** 全部 enabled 的内置工具 → ToolCallback（找不到执行器的行跳过并告警）。 */
@@ -90,6 +95,10 @@ public class ToolRegistry {
                 callbacks.addAll(expandOpenApi(row));
                 continue;
             }
+            if ("mcp".equals(row.getSource())) {
+                callbacks.addAll(expandMcp(row));
+                continue;
+            }
             BuiltinTool exec = builtinByName.get(row.getName());
             if (exec == null) {
                 log.warn("内置工具行无对应执行器，跳过 name={}", row.getName());
@@ -125,6 +134,33 @@ public class ToolRegistry {
                     .inputSchema(op.inputSchema())
                     .build();
             out.add(new OpenApiToolCallback(def, op, spec.baseUrl(), headers, outboundHttpClient, objectMapper));
+        }
+        return out;
+    }
+
+    /** mcp 行按 spec.tools[] 快照展开——热路径不连网（T4a spec 决策 5）。 */
+    private List<ToolCallback> expandMcp(Tool row) {
+        if (!(row.getSpec() instanceof McpToolSpec spec) || spec.tools() == null) {
+            log.warn("mcp 工具行 spec 为空，跳过 id={}", row.getId());
+            return List.of();
+        }
+        Map<String, String> headers = new LinkedHashMap<>();
+        if (spec.authHeaders() != null) {
+            for (McpToolSpec.AuthHeader h : spec.authHeaders()) {
+                headers.put(h.name(), secretCipher.decrypt(h.valueEnc()));
+            }
+        }
+        String prefix = sanitizeName(row.getName());
+        List<ToolCallback> out = new ArrayList<>(spec.tools().size());
+        for (McpToolSpec.McpTool t : spec.tools()) {
+            // description 取远端那个（给模型看），不是 row.getDescription()（给人看的注册说明）
+            ToolDefinition def = DefaultToolDefinition.builder()
+                    .name(prefix + "__" + t.toolName())
+                    .description(t.description())
+                    .inputSchema(t.inputSchema())
+                    .build();
+            out.add(new McpToolCallback(def, t.toolName(), spec.url(), spec.transport(),
+                    headers, mcpClientFactory, objectMapper));
         }
         return out;
     }

@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hify.common.exception.BizException;
 import com.hify.infra.crypto.SecretCipher;
 import com.hify.infra.outbound.OutboundHttpClient;
+import com.hify.infra.outbound.SsrfValidator;
+import com.hify.tool.config.McpProperties;
 import com.hify.tool.entity.Tool;
 import com.hify.tool.mapper.ToolMapper;
+import com.hify.tool.service.mcp.McpClientFactory;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -22,7 +25,8 @@ class ToolFacadeImplTest {
 
     private final ToolMapper mapper = Mockito.mock(ToolMapper.class);
     private final ToolFacadeImpl facade = new ToolFacadeImpl(new ToolRegistry(mapper, List.of(),
-            mock(SecretCipher.class), mock(OutboundHttpClient.class), new ObjectMapper()));
+            mock(SecretCipher.class), mock(OutboundHttpClient.class), new ObjectMapper(),
+            new McpClientFactory(new SsrfValidator(), new McpProperties())));
 
     private static Tool enabled(long id) {
         Tool t = new Tool(); t.setId(id); t.setEnabled(true); t.setSource("builtin"); t.setName("n" + id);
