@@ -315,12 +315,13 @@ rm server/src/main/java/com/hify/tool/config/OpenApiToolSpecTypeHandler.java
 rm -f server/src/test/java/com/hify/tool/config/OpenApiToolSpecTypeHandlerTest.java
 ```
 
-- [ ] **Step 6: 运行测试确认通过**
+> ⚠️ **从这里到 Step 9 结束，代码库处于"编译不过"的中间状态，这是本 Task 的固有性质，不是出错。**
+> `Tool.getSpec()` 的返回类型一改，`ToolAdminService`(4 处)、`ToolRegistry`(1 处)、
+> `ToolAdminServiceTest`(4 处) 会同时编译不过——类型迁移在编译上是**原子的**，中间不存在可编译的
+> 快照。**所以 Step 6-9 之间不要跑测试**，一路改完到 Step 10 再跑绿。
+> （TDD 的"红"已经在 Step 2 观察过了：测试因 `ToolSpec` 不存在而编译失败。）
 
-Run: `cd server && mvn -q -Dtest=ToolSpecTypeHandlerTest test`
-Expected: 2 个测试通过，无 ERROR/FAIL 段落。
-
-- [ ] **Step 7: `Tool` 实体换类型**
+- [ ] **Step 6: `Tool` 实体换类型**
 
 修改 `server/src/main/java/com/hify/tool/entity/Tool.java`——把 import、字段、getter/setter 四处的 `OpenApiToolSpec` 换成 `ToolSpec`，typeHandler 换成 `ToolSpecTypeHandler`：
 
@@ -368,7 +369,7 @@ public class Tool extends BaseEntity {
 }
 ```
 
-- [ ] **Step 8: 适配 `ToolAdminService` 的 4 处 spec 用法**
+- [ ] **Step 7: 适配 `ToolAdminService` 的 4 处 spec 用法**
 
 修改 `server/src/main/java/com/hify/tool/service/ToolAdminService.java`。
 
@@ -411,7 +412,7 @@ public class Tool extends BaseEntity {
     }
 ```
 
-- [ ] **Step 9: 适配 `ToolRegistry` 的 spec 用法**
+- [ ] **Step 8: 适配 `ToolRegistry` 的 spec 用法**
 
 修改 `server/src/main/java/com/hify/tool/service/ToolRegistry.java` 的 `expandOpenApi`（原 L108-113 头部）：
 
@@ -424,7 +425,7 @@ public class Tool extends BaseEntity {
         // 以下不变
 ```
 
-- [ ] **Step 10: 适配 `ToolAdminServiceTest` 的 4 处断言**
+- [ ] **Step 9: 适配 `ToolAdminServiceTest` 的 4 处断言**
 
 修改 `server/src/test/java/com/hify/tool/service/ToolAdminServiceTest.java`——`row.getSpec()` 现在返回 `ToolSpec`，断言处加 cast。L66/67 所在测试：
 
@@ -444,6 +445,14 @@ L144、L161 同款（`saved.getValue().getSpec()` 处）：
 ```
 
 > `setSpec(new OpenApiToolSpec(...))` 处**无需改动**——`OpenApiToolSpec` 已 implements `ToolSpec`，直接兼容。
+
+- [ ] **Step 10: 运行测试确认转绿（到这里编译才重新成立）**
+
+Run: `cd server && mvn -q -Dtest=ToolSpecTypeHandlerTest test`
+Expected: 2 个测试通过，无 ERROR/FAIL 段落。
+
+> 若仍报 `cannot find symbol`，说明 Step 6-9 有遗漏：用
+> `grep -rn "getSpec()\|OpenApiToolSpecTypeHandler" server/src --include=*.java` 找出还没适配的地方。
 
 - [ ] **Step 11: 写 V25 迁移**
 
