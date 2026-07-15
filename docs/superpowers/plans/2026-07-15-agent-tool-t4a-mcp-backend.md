@@ -2300,10 +2300,17 @@ git commit -m "feat(tool): ToolAdminService mcp 分支(create/update/refresh/pre
 
 ---
 
-## Task 7: `AdminToolController` 的 refresh 端点 + preview 签名对齐
+## Task 7: `AdminToolController` refresh 端点 + 全量回归 + 架构文档同步（**Codex 的最后一个 Task**）
+
+> **回归与文档刻意并入本 Task 的收尾 steps，不设独立收尾 Task**——历史教训（memory
+> `workflow-canvas-c3-reviewed`）：Codex **从不跳过 Task 内的 step，但会整个跳过最后的独立 Task**
+> （C2 已口头叮嘱过仍被跳）。Step 4-7 必须真跑真改，不许只勾。
 
 **Files:**
 - Modify: `server/src/main/java/com/hify/tool/controller/AdminToolController.java`
+- Modify: `docs/architecture/data-model.md`
+- Modify: `docs/architecture/api-standards.md`
+- Modify: `docs/architecture/deployment.md`
 
 **Interfaces:**
 - Consumes: `ToolAdminService#refresh(Long)`、`ToolAdminService#preview(PreviewToolRequest)`（Task 6）。
@@ -2356,16 +2363,51 @@ Expected: 第 1 条返回既有工具列表（含 builtin/openapi 行，`operati
 
 > **验收前必须重启服务**（memory `workflow-w2-merged`：改完代码不重打包换进程，验的是旧进程）。
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: 全量回归（本 Task 的收尾，必须真跑，不许只勾）**
+
+Run: `cd server && mvn clean test`
+Expected: 全部测试通过，含 `ModularityTests`（tool 模块依赖白名单未变）与 ArchUnit `LayerRules`（DTO 不 import entity）。
+
+> 此处**不加 `-q`**，完整输出便于确认；判定看末尾 `Tests run:` 汇总与 BUILD 结果，
+> **不要 grep "BUILD SUCCESS"**（memory `mvn-quiet-verify-pitfall`）。
+
+- [ ] **Step 5: 复核依赖树无冲突**
+
+Run: `cd server && mvn -B dependency:tree -Dincludes='io.modelcontextprotocol.sdk:*,io.projectreactor:*,com.fasterxml.jackson.core:*,com.networknt:*'`
+Expected: `io.modelcontextprotocol.sdk:mcp:0.12.1` 在列；reactor/jackson 版本由 Spring Boot BOM 统一收口，无因冲突导致的降级。
+
+- [ ] **Step 6: 同步架构文档（拍板结论必须补进文档——CLAUDE.md 规矩）**
+
+改 `docs/architecture/data-model.md`：
+- 删除表清单里这一行：`| | mcp_server | MCP 服务连接配置，仅 source=mcp 的工具关联（T4 落地；T1 暂不建表） |`
+- 删除关系描述里这一行：`mcp_server 1──N tool（仅 MCP 来源；内置/OpenAPI 工具此列为空）`
+- 在 `tool` 表那行的说明末尾补：`spec` 经 `kind` 承载两种形状——openapi 存 baseUrl/operations/rawSpec，
+  mcp 存 url/transport/工具快照/discoveredAt；**MCP 走 Model D（1 服务器 = 1 行，读时展开成 N 个工具），
+  刻意不建 `mcp_server` 表**（T4a spec 决策 4）。
+- 若 `docs/architecture/er-diagram.dot` 里含 `mcp_server` 节点，删掉并重生成：
+  `npx -y @hpcc-js/wasm-graphviz-cli -T svg docs/architecture/er-diagram.dot > docs/architecture/er-diagram.svg`
+
+改 `docs/architecture/api-standards.md`：§5.2 的 tool 段（13xxx）如维护了码清单，补
+`13002/400 MCP 服务器连接或工具发现失败`。
+
+改 `docs/architecture/deployment.md` §5：在 SSRF 那条的 MCP 相关表述后补一句——MCP 仅支持远程 HTTP
+（`streamable_http`/`sse`），**不支持 stdio**（不在 server 容器内 spawn 子进程），出站过
+`McpClientFactory` 的 SSRF 校验 + 禁重定向。
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add server/src/main/java/com/hify/tool/controller/AdminToolController.java
-git commit -m "feat(tool): admin 增 POST /tools/{id}/refresh；preview 改按 type 分派"
+git add server/src/main/java/com/hify/tool/controller/AdminToolController.java docs/architecture
+git commit -m "feat(tool): admin 增 POST /tools/{id}/refresh；preview 按 type 分派；架构文档同步(废弃 mcp_server 表规划/补 13002/MCP 仅远程 HTTP)"
 ```
 
 ---
 
 ## Task 8: 实测真实公网 MCP 服务器（spec §9 风险验证）
+
+> **本 Task 不由 Codex 执行**——需要跑起服务 + 真实 admin token + 出网访问第三方服务，属人工验收范畴。
+> Codex 做完 Task 7 即为交付完成，**请在此停下并汇报**，不要伪造实测结果、不要为了"完成"而跳过或编造。
+> 下面的内容是给人工验收用的操作手册。
 
 **这是本轮最大的未验证风险，必须在开 T4b 之前做掉。** 决策 3（禁内网）意味着验收只能指向公网可达的 MCP 服务器。
 
@@ -2407,58 +2449,6 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/a
 ```
 
 然后在前端建一个 Agent 应用、勾上这条 mcp 工具、发一句会触发该工具的话，确认 `tool_call` 轨迹里出现 `<注册名>__<工具名>` 且有真实返回。
-
----
-
-## Task 9: 回归 + 文档更新 + self-check 入档
-
-**Files:**
-- Modify: `docs/architecture/data-model.md`
-- Modify: `docs/architecture/api-standards.md`
-- Modify: `docs/architecture/deployment.md`
-- Modify: `docs/self-check.md`
-
-- [ ] **Step 1: 全量回归**
-
-Run: `cd server && mvn clean test`
-Expected: 全部测试通过，含 `ModularityTests`（tool 模块依赖白名单未变）与 ArchUnit `LayerRules`（DTO 不 import entity）。
-
-> `mvn clean test` **不加 `-q`**，完整输出便于确认；判定看末尾的 Tests run 汇总与 BUILD 结果。
-
-- [ ] **Step 2: 复核依赖树无冲突**
-
-Run: `cd server && mvn -B dependency:tree -Dincludes='io.modelcontextprotocol.sdk:*,io.projectreactor:*,com.fasterxml.jackson.core:*,com.networknt:*'`
-Expected: 无 `version managed from` 冲突告警导致的降级；reactor/jackson 版本由 Spring Boot BOM 统一收口。
-
-- [ ] **Step 3: 改 `data-model.md`——删掉 `mcp_server` 表规划**
-
-- 删除表清单里 `| | mcp_server | MCP 服务连接配置，仅 source=mcp 的工具关联（T4 落地；T1 暂不建表） |` 这一行。
-- 删除关系描述里 `mcp_server 1──N tool（仅 MCP 来源；内置/OpenAPI 工具此列为空）` 这一行。
-- 在 `tool` 表那行的说明里补：`spec` 承载两种形状（`kind` 分派）——openapi 存 baseUrl/operations/rawSpec，mcp 存 url/transport/工具快照/discoveredAt；**MCP 走 Model D（1 服务器 = 1 行，读时展开），刻意不建 `mcp_server` 表**（T4a spec 决策 4）。
-- 若 ER 图 `.dot` 里含 `mcp_server` 节点，一并删除并重生成 svg：
-  `npx -y @hpcc-js/wasm-graphviz-cli -T svg docs/architecture/er-diagram.dot > docs/architecture/er-diagram.svg`
-
-- [ ] **Step 4: 改 `api-standards.md`**
-
-§5.2 的 tool 段（13xxx）如维护了码清单，补 `13002/400 MCP 服务器连接或工具发现失败`。
-
-- [ ] **Step 5: 改 `deployment.md` §5**
-
-在 SSRF 那条的 MCP 相关表述后补一句：MCP 仅支持远程 HTTP（`streamable_http`/`sse`），**不支持 stdio**（不在 server 容器内 spawn 子进程），出站过 `McpClientFactory` 的 SSRF 校验 + 禁重定向。
-
-- [ ] **Step 6: self-check 入档**
-
-在 `docs/self-check.md` 追加 T4a 段：范围、8 项决策、三个实测陷阱（endpoint 默认值拼 URL / `JsonSchema` 非字符串 / 私有 ObjectMapper 需 JavaTimeModule+NON_NULL）、Task 8 实测结果、留账项（快照滞后、per-app 粒度、DNS rebinding、只接 tools）。
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add docs server
-git commit -m "docs(t4a): data-model 废弃 mcp_server 表规划改 Model D；api-standards 补 13002；deployment 补 MCP 仅远程 HTTP；T4a self-check 入档"
-```
-
----
-
 ## 实测结果（Task 8 填写）
 
 > 待 Task 8 执行后填入：连通的 MCP 服务器 URL、transport、发现到的工具数与名字、以及失败候选的错误详情。
@@ -2467,7 +2457,9 @@ git commit -m "docs(t4a): data-model 废弃 mcp_server 表规划改 Model D；ap
 
 ## 完成标准（DoD）
 
-1. `mvn clean test` 全绿（含 ModularityTests / ArchUnit）。
+> Codex 的交付范围到 **Task 7** 为止（Task 1-7 全部 step 真跑真勾）。Task 8 与 self-check 入档是人工/终审环节。
+
+1. `mvn clean test` 全绿（含 ModularityTests / ArchUnit）——Task 7 Step 4。
 2. **存量兼容**：本地库里 T3a/T3b 注册的 openapi 工具，列表/详情/编辑/Agent 调用全部照常——`ToolSpecTypeHandlerTest.legacyJsonWithoutKind_stillDeserializesAsOpenApi` 是它的自动化守卫。
 3. Task 8 实测：真实公网 MCP 服务器注册成功、`refresh` 可用、Agent 端到端调用出现在 `tool_call` 轨迹里；**或**明确结论「连不上」并已交用户重议决策 3。
 4. 内网 MCP 地址被拒且错误码是 `10001`（不是 13002）。
