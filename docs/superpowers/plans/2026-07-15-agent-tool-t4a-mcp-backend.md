@@ -515,7 +515,7 @@ git commit -m "refactor(tool): 引入 ToolSpec 多态承载 spec 一列两形状
 - [ ] **Step 2: 核对依赖树无版本冲突**
 
 Run: `cd server && mvn -B dependency:tree -Dincludes='io.modelcontextprotocol.sdk:*,io.projectreactor:*,com.fasterxml.jackson.core:jackson-databind'`
-Expected: `io.modelcontextprotocol.sdk:mcp:jar:0.12.1:compile` 出现；`reactor-core` 与 `jackson-databind` 仍由 Spring Boot BOM 统一收口（不出现两个不同版本）。若出现 `omitted for conflict`，记录下来在 Task 9 复核。
+Expected: `io.modelcontextprotocol.sdk:mcp:jar:0.12.1:compile` 出现；`reactor-core` 与 `jackson-databind` 仍由 Spring Boot BOM 统一收口（不出现两个不同版本）。若出现 `omitted for conflict`，记录下来在 Task 7 Step 5 复核。
 
 - [ ] **Step 3: 加超时配置**
 
@@ -2431,7 +2431,7 @@ Expected（成功）：`"code":200` 且 `data.tools` 非空数组，每个含 `t
 
 - [ ] **Step 2: 记录结果**
 
-把**实际连通的那个 URL + transport** 记进本文件末尾的「实测结果」段，供 Task 9 的人工验收与 T4b 使用。
+把**实际连通的那个 URL + transport** 记进本文件末尾的「实测结果」段，供人工验收与 T4b 使用。
 
 - [ ] **Step 3: 分支判断——若全部失败**
 
