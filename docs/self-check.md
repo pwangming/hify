@@ -958,3 +958,12 @@ mvn -f server/pom.xml test
 - 终审补一处功能小缺口（`46e0b0c`）：`OpenApiToolCallback` 发带 body 请求时默认补 `Content-Type: application/json`（大小写不敏感，admin 已提供则不覆盖）——真实 API 收无 Content-Type 的 JSON body 常 415/误解析。补 2 个测试，补后全量 clean test **660/0/0/0**。
 - 坑记录：**不带 `clean` 的定向 `-Dtest=` 跑**会让 forked JVM 出现 `NoClassDefFoundError: io.swagger.v3.oas.models.OpenAPI`（只砸中需 swagger 类的 `OpenApiSpecParserTest`/`ToolAdminServiceTest`，12 errors + dump + MojoFailureException）；`mvn clean test` 全量则稳过。判定 tool 结果务必用 `clean` 全量，别信非 clean 定向跑。
 - 未做：真实 server 冒烟（T3a 无 UI，自然并入 T3b 用管理台手验注册→列表→详情不回明文，跟 T2 同路子）；`tool.spec` jsonb 走真实 Postgres 读写往返未测（Testcontainers 按约定推迟，照搬生产已验证的 `AppConfigTypeHandler` 模式，风险低）。
+
+## 2026-07-15 Agent Tool T3b（OpenAPI 自定义工具 admin 页）
+
+- 本轮范围：后端新增 `POST /api/v1/admin/tool/tools/preview` 预览接口（只解析不落库）；`update` 鉴权头值留空按头名保留旧密文、create 空值显式拒绝；前端新增 admin 自定义工具页 `/admin/tool`，补类型/API 层、列表、内置只读、注册/编辑抽屉、OpenAPI 预览、鉴权头名回填且值留空。
+- 后端测试：Task 1 定向先红后绿；Task 2 定向先红后绿；终审 `cd server && mvn clean test` → **666 tests, 0 failures, 0 errors, 0 skipped**，`BUILD SUCCESS`，含 `ModularityTests` / `LayerRulesTest`，Flyway Testcontainers 跑到 v24。
+- 前端测试：`cd web && pnpm vitest run src/views/admin/tool` → 5 passed；终审 `cd web && pnpm vitest run` → **55 files / 389 tests passed**；`cd web && pnpm build` → `vue-tsc --noEmit && vite build` 成功（仅 Rollup 对第三方 PURE 注释与 chunk size warning）。
+- 服务启动：`mvn -DskipTests package` 重打包成功；已启动后端新 jar，`GET /actuator/health` → `{"status":"UP"}`，`GET /api/v1/health` → `{"code":200,...,"data":"Hify is running"}`；已启动 Vite dev，`GET /` → HTTP 200 HTML。
+- 遇到的坑：普通工具沙箱下 Mockito/Byte Buddy self-attach 失败，Maven 测试按权限规则提升后通过；MyBatis-Plus `BaseMapper.insert` 存在集合重载，测试里的 `insert(any())` 需收窄为 `insert(any(Tool.class))`；happy-dom 下 Element Plus `el-input` / `el-textarea` 会把 `data-test` 下发到真实 input/textarea，测试改为直接断言 input value；`el-drawer` 测试用透传桩绕开 teleport。
+- 待人工验收：浏览器登录 admin → 侧边「管理控制台 / 自定义工具」可进入，列表含内置工具且只读；注册公网 OpenAPI 工具（禁内网/元数据地址）→ 预览操作列表 → 填鉴权头保存 → 列表出现；编辑该工具 → 名称/描述/spec 回填、只显示头名、值框为空且占位「留空=不改」→ 不填头值保存不报错；抽屉内不出现任何明文头值；到 Agent 应用配置页勾选该工具并试聊 → 看到 `tool_call` 轨迹卡片；停用后 Agent 侧不再可选；删除二次确认后列表消失。

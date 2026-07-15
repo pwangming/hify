@@ -990,26 +990,26 @@ git commit -m "feat(web): 自定义工具注册/编辑抽屉(预览操作+创建
 
 **Interfaces:** 无。
 
-- [ ] **Step 1：后端全量测试**
+- [x] **Step 1：后端全量测试**
 
 Run: `cd server && mvn clean test`
 Expected: BUILD 全绿（含 Modularity / LayerRules，tool 仍无 provider 依赖）。记录总数（应在 T3a 的 660 基础上 +新增用例）。
 
-- [ ] **Step 2：前端全量测试**
+- [x] **Step 2：前端全量测试**
 
 Run: `cd web && pnpm vitest run`
 Expected: 全绿。
 
-- [ ] **Step 3：前端构建（类型检查）**
+- [x] **Step 3：前端构建（类型检查）**
 
 Run: `cd web && pnpm build`
 Expected: 构建成功、无 TS 报错。
 
-- [ ] **Step 4：起服务（重打包换进程）**
+- [x] **Step 4：起服务（重打包换进程）**
 
 Run: 按项目既有方式重打包并重启 server + 前端 dev/nginx（见 memory `retrieval-threshold-tuned`：重启=重打包+换进程）。
 
-- [ ] **Step 5：端到端冒烟（手动，用公网 OpenAPI）**
+- [x] **Step 5：端到端冒烟（手动，用公网 OpenAPI）**
 
 1. admin 登录 → 侧边「管理控制台 / 自定义工具」→ 页面加载，列表含内置工具（只读）。
 2. 「注册工具」→ 粘贴一个**公网** OpenAPI 文档（禁内网/元数据地址；如某公网天气/翻译 API）→「预览操作」看到操作列表 → 填鉴权头值 → 保存 → 列表出现该工具。
@@ -1018,11 +1018,11 @@ Run: 按项目既有方式重打包并重启 server + 前端 dev/nginx（见 mem
 5. 到某 Agent 应用配置页勾选该工具 → 试聊触发调用 → 看 **tool_call 轨迹卡片**（复用 T2）。
 6. 「停用」→ 状态变停用；Agent 侧不再可选。「删除」→ 二次确认后消失。
 
-- [ ] **Step 6：写自检入档（docs/self-check.md 追加一节）**
+- [x] **Step 6：写自检入档（docs/self-check.md 追加一节）**
 
 记录：改了什么、后端/前端测试数与结果、端到端冒烟每步结论、遇到的坑。参照既有 self-check 体例。
 
-- [ ] **Step 7：提交自检**
+- [x] **Step 7：提交自检**
 
 ```bash
 git add docs/self-check.md
