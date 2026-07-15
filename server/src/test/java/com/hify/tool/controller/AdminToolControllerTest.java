@@ -81,7 +81,8 @@ class AdminToolControllerTest {
     void 预览_admin_200且返回操作() throws Exception {
         when(toolAdminService.preview(any())).thenReturn(
                 new com.hify.tool.dto.ToolPreviewResponse("https://api.example.com",
-                        java.util.List.of(new com.hify.tool.dto.OperationView("getPet", "GET", "/pets/{id}", "查"))));
+                        java.util.List.of(new com.hify.tool.dto.OperationView("getPet", "GET", "/pets/{id}", "查")),
+                        java.util.List.of()));
 
         mockMvc.perform(post("/api/v1/admin/tool/tools/preview")
                         .header("Authorization", "Bearer " + adminToken())

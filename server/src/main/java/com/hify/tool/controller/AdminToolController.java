@@ -42,7 +42,7 @@ public class AdminToolController {
 
     @PostMapping("/preview")
     public Result<ToolPreviewResponse> preview(@Valid @RequestBody PreviewToolRequest request) {
-        return Result.ok(toolAdminService.preview(request.specText()));
+        return Result.ok(toolAdminService.preview(request));
     }
 
     @PostMapping

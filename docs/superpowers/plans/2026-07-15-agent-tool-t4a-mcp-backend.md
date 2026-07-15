@@ -1728,7 +1728,7 @@ git commit -m "feat(tool): ToolRegistry 增 mcp 展开分支(按快照展开,热
   - `McpToolView(String toolName, String description)`。
   - DTO 常量：`CreateToolRequest.TYPE_OPENAPI = "openapi"`、`TYPE_MCP = "mcp"`。
 
-- [ ] **Step 1: 扩展 DTO**
+- [x] **Step 1: 扩展 DTO**
 
 创建 `server/src/main/java/com/hify/tool/dto/McpToolView.java`：
 
@@ -1887,7 +1887,7 @@ import java.util.List;
 public record ToolPreviewResponse(String baseUrl, List<OperationView> operations, List<McpToolView> tools) {}
 ```
 
-- [ ] **Step 2: 写失败测试**
+- [x] **Step 2: 写失败测试**
 
 创建 `server/src/test/java/com/hify/tool/service/ToolAdminServiceMcpTest.java`：
 
@@ -2073,12 +2073,12 @@ class ToolAdminServiceMcpTest {
 }
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [x] **Step 3: 运行测试确认失败**
 
 Run: `cd server && mvn -q -Dtest=ToolAdminServiceMcpTest test`
 Expected: 编译失败——`ToolAdminService` 构造器无 `McpToolDiscoverer`、无 `refresh` 方法。
 
-- [ ] **Step 4: 改 `ToolAdminService`**
+- [x] **Step 4: 改 `ToolAdminService`**
 
 修改 `server/src/main/java/com/hify/tool/service/ToolAdminService.java`。
 
@@ -2321,7 +2321,7 @@ import java.util.Map;
     }
 ```
 
-- [ ] **Step 5: 同步 `preview` 签名的两个调用点（controller + controller 测试）**
+- [x] **Step 5: 同步 `preview` 签名的两个调用点（controller + controller 测试）**
 
 `ToolAdminService.preview(String)` → `preview(PreviewToolRequest)` 后，下面两处会编译不过，必须同 Task 改。
 
@@ -2347,7 +2347,7 @@ import java.util.Map;
 > 该测试的其余部分（发的 JSON body 仍只带 `specText`、不带 `type`）**刻意不改**——它正好验证了
 > 「T3b 老前端不传 type 仍按 openapi 走」这条兼容契约还活着。
 
-- [ ] **Step 6: 补齐 `ToolAdminServiceTest` 的构造器与 DTO 参数**
+- [x] **Step 6: 补齐 `ToolAdminServiceTest` 的构造器与 DTO 参数**
 
 修改 `server/src/test/java/com/hify/tool/service/ToolAdminServiceTest.java`：
 
@@ -2402,7 +2402,7 @@ import java.util.Map;
 > grep -rn "CreateToolRequest(\|UpdateToolRequest(\|PreviewToolRequest(\|ToolPreviewResponse(\|ToolAdminDetailResponse(\|ToolAdminService(" server/src
 > ```
 
-- [ ] **Step 7: 运行测试确认转绿（到这里编译才重新成立）**
+- [x] **Step 7: 运行测试确认转绿（到这里编译才重新成立）**
 
 Run: `cd server && mvn -q -Dtest='ToolAdminService*Test,AdminToolControllerTest' test`
 Expected: `ToolAdminServiceMcpTest` 8 个 + `ToolAdminServiceTest` 原有 + `AdminToolControllerTest` 原有全通过。
@@ -2410,7 +2410,7 @@ Expected: `ToolAdminServiceMcpTest` 8 个 + `ToolAdminServiceTest` 原有 + `Adm
 > 若仍报 `cannot find symbol` / 参数个数不符，说明 Step 5-6 有遗漏：用上面那条**不带 `new ` 前缀**的
 > grep 命令重新找一遍。
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/tool server/src/test/java/com/hify/tool

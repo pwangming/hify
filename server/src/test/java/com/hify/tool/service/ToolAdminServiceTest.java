@@ -11,6 +11,7 @@ import com.hify.tool.dto.ToolAdminResponse;
 import com.hify.tool.constant.ToolError;
 import com.hify.tool.entity.Tool;
 import com.hify.tool.mapper.ToolMapper;
+import com.hify.tool.service.mcp.McpToolDiscoverer;
 import com.hify.tool.service.openapi.OpenApiSpecParser;
 import com.hify.tool.service.openapi.OpenApiToolSpec;
 import com.hify.tool.service.openapi.ParsedOpenApi;
@@ -39,7 +40,7 @@ class ToolAdminServiceTest {
         mapper = mock(ToolMapper.class);
         parser = mock(OpenApiSpecParser.class);
         cipher = mock(SecretCipher.class);
-        service = new ToolAdminService(mapper, parser, cipher);
+        service = new ToolAdminService(mapper, parser, cipher, mock(McpToolDiscoverer.class));
     }
 
     private ParsedOpenApi parsed() {
@@ -54,7 +55,7 @@ class ToolAdminServiceTest {
         when(cipher.encrypt("k")).thenReturn("ENC");
         when(mapper.selectCount(any())).thenReturn(0L);
 
-        CreateToolRequest req = new CreateToolRequest("petstore", "宠物", "SPEC",
+        CreateToolRequest req = new CreateToolRequest("petstore", "宠物", null, "SPEC", null, null,
                 List.of(new AuthHeaderInput("X-API-Key", "k")));
         ToolAdminResponse resp = service.create(req, admin);
 
@@ -73,7 +74,7 @@ class ToolAdminServiceTest {
     void create_duplicateName_conflict() {
         when(parser.parse(any())).thenReturn(parsed());
         when(mapper.selectCount(any())).thenReturn(1L);
-        CreateToolRequest req = new CreateToolRequest("petstore", "宠物", "SPEC", List.of());
+        CreateToolRequest req = new CreateToolRequest("petstore", "宠物", null, "SPEC", null, null, List.of());
         assertThatThrownBy(() -> service.create(req, admin))
                 .isInstanceOf(BizException.class)
                 .satisfies(e -> assertThat(((BizException) e).errorCode()).isEqualTo(CommonError.CONFLICT));
@@ -101,7 +102,8 @@ class ToolAdminServiceTest {
     @Test
     void preview_parsesWithoutPersisting() {
         when(parser.parse("SPEC")).thenReturn(parsed());
-        com.hify.tool.dto.ToolPreviewResponse resp = service.preview("SPEC");
+        com.hify.tool.dto.ToolPreviewResponse resp = service.preview(
+                new com.hify.tool.dto.PreviewToolRequest(null, "SPEC", null, null, List.of()));
         assertThat(resp.baseUrl()).isEqualTo("https://api.example.com");
         assertThat(resp.operations()).extracting(o -> o.opName()).containsExactly("getPet");
         org.mockito.Mockito.verify(mapper, org.mockito.Mockito.never()).insert(any(Tool.class));
@@ -110,7 +112,8 @@ class ToolAdminServiceTest {
     @Test
     void preview_parseFailure_propagates() {
         when(parser.parse("BAD")).thenThrow(new BizException(ToolError.SPEC_PARSE_FAILED, "解析失败"));
-        assertThatThrownBy(() -> service.preview("BAD"))
+        assertThatThrownBy(() -> service.preview(
+                new com.hify.tool.dto.PreviewToolRequest(null, "BAD", null, null, List.of())))
                 .isInstanceOf(BizException.class)
                 .satisfies(e -> assertThat(((BizException) e).errorCode()).isEqualTo(ToolError.SPEC_PARSE_FAILED));
     }
@@ -123,7 +126,7 @@ class ToolAdminServiceTest {
         builtin.setSource("builtin");
         when(mapper.selectById(1L)).thenReturn(builtin);
         assertThatThrownBy(() -> service.update(1L,
-                new com.hify.tool.dto.UpdateToolRequest("http_request", "x", "SPEC", List.of())))
+                new com.hify.tool.dto.UpdateToolRequest("http_request", "x", null, "SPEC", null, null, List.of())))
                 .isInstanceOf(BizException.class)
                 .satisfies(e -> assertThat(((BizException) e).errorCode()).isEqualTo(CommonError.PARAM_INVALID));
     }
@@ -135,7 +138,7 @@ class ToolAdminServiceTest {
         when(mapper.selectCount(any())).thenReturn(0L);
         when(parser.parse(any())).thenReturn(parsed());
 
-        service.update(9L, new com.hify.tool.dto.UpdateToolRequest("petstore2", "改名", "SPEC",
+        service.update(9L, new com.hify.tool.dto.UpdateToolRequest("petstore2", "改名", null, "SPEC", null, null,
                 List.of(new AuthHeaderInput("X-API-Key", ""))));
 
         ArgumentCaptor<Tool> saved = ArgumentCaptor.forClass(Tool.class);
@@ -153,7 +156,7 @@ class ToolAdminServiceTest {
         when(parser.parse(any())).thenReturn(parsed());
         when(cipher.encrypt("newk")).thenReturn("NEWENC");
 
-        service.update(9L, new com.hify.tool.dto.UpdateToolRequest("petstore", "x", "SPEC",
+        service.update(9L, new com.hify.tool.dto.UpdateToolRequest("petstore", "x", null, "SPEC", null, null,
                 List.of(new AuthHeaderInput("X-API-Key", "newk"))));
 
         ArgumentCaptor<Tool> saved = ArgumentCaptor.forClass(Tool.class);
@@ -165,7 +168,7 @@ class ToolAdminServiceTest {
     void create_blankHeaderValue_rejected() {
         when(parser.parse(any())).thenReturn(parsed());
         when(mapper.selectCount(any())).thenReturn(0L);
-        CreateToolRequest req = new CreateToolRequest("petstore", "宠物", "SPEC",
+        CreateToolRequest req = new CreateToolRequest("petstore", "宠物", null, "SPEC", null, null,
                 List.of(new AuthHeaderInput("X-API-Key", "")));
         assertThatThrownBy(() -> service.create(req, admin))
                 .isInstanceOf(BizException.class)
