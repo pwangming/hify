@@ -3,7 +3,9 @@ package com.hify.tool.controller;
 import com.hify.common.Result;
 import com.hify.infra.security.CurrentUserHolder;
 import com.hify.tool.dto.CreateToolRequest;
+import com.hify.tool.dto.PreviewToolRequest;
 import com.hify.tool.dto.ToolAdminDetailResponse;
+import com.hify.tool.dto.ToolPreviewResponse;
 import com.hify.tool.dto.ToolAdminResponse;
 import com.hify.tool.dto.UpdateToolRequest;
 import com.hify.tool.service.ToolAdminService;
@@ -36,6 +38,11 @@ public class AdminToolController {
     @GetMapping
     public Result<List<ToolAdminResponse>> list() {
         return Result.ok(toolAdminService.list());
+    }
+
+    @PostMapping("/preview")
+    public Result<ToolPreviewResponse> preview(@Valid @RequestBody PreviewToolRequest request) {
+        return Result.ok(toolAdminService.preview(request.specText()));
     }
 
     @PostMapping

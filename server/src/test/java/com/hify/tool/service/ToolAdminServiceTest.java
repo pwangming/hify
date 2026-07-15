@@ -8,6 +8,7 @@ import com.hify.tool.dto.AuthHeaderInput;
 import com.hify.tool.dto.CreateToolRequest;
 import com.hify.tool.dto.ToolAdminDetailResponse;
 import com.hify.tool.dto.ToolAdminResponse;
+import com.hify.tool.constant.ToolError;
 import com.hify.tool.entity.Tool;
 import com.hify.tool.mapper.ToolMapper;
 import com.hify.tool.service.openapi.OpenApiSpecParser;
@@ -95,6 +96,23 @@ class ToolAdminServiceTest {
         assertThatThrownBy(() -> service.get(404L))
                 .isInstanceOf(BizException.class)
                 .satisfies(e -> assertThat(((BizException) e).errorCode()).isEqualTo(CommonError.NOT_FOUND));
+    }
+
+    @Test
+    void preview_parsesWithoutPersisting() {
+        when(parser.parse("SPEC")).thenReturn(parsed());
+        com.hify.tool.dto.ToolPreviewResponse resp = service.preview("SPEC");
+        assertThat(resp.baseUrl()).isEqualTo("https://api.example.com");
+        assertThat(resp.operations()).extracting(o -> o.opName()).containsExactly("getPet");
+        org.mockito.Mockito.verify(mapper, org.mockito.Mockito.never()).insert(any(Tool.class));
+    }
+
+    @Test
+    void preview_parseFailure_propagates() {
+        when(parser.parse("BAD")).thenThrow(new BizException(ToolError.SPEC_PARSE_FAILED, "解析失败"));
+        assertThatThrownBy(() -> service.preview("BAD"))
+                .isInstanceOf(BizException.class)
+                .satisfies(e -> assertThat(((BizException) e).errorCode()).isEqualTo(ToolError.SPEC_PARSE_FAILED));
     }
 
     @Test

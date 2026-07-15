@@ -8,6 +8,7 @@ import com.hify.infra.security.CurrentUser;
 import com.hify.tool.dto.AuthHeaderInput;
 import com.hify.tool.dto.CreateToolRequest;
 import com.hify.tool.dto.OperationView;
+import com.hify.tool.dto.ToolPreviewResponse;
 import com.hify.tool.dto.ToolAdminDetailResponse;
 import com.hify.tool.dto.ToolAdminResponse;
 import com.hify.tool.dto.UpdateToolRequest;
@@ -78,6 +79,14 @@ public class ToolAdminService {
                 .toList();
         return new ToolAdminDetailResponse(row.getId(), row.getName(), row.getDescription(), row.getSource(),
                 Boolean.TRUE.equals(row.getEnabled()), spec.baseUrl(), operations, authHeaderNames, spec.rawSpec());
+    }
+
+    public ToolPreviewResponse preview(String specText) {
+        ParsedOpenApi parsed = parser.parse(specText);
+        List<OperationView> operations = parsed.operations() == null ? List.of() : parsed.operations().stream()
+                .map(op -> new OperationView(op.opName(), op.method(), op.pathTemplate(), op.description()))
+                .toList();
+        return new ToolPreviewResponse(parsed.baseUrl(), operations);
     }
 
     @Transactional

@@ -38,7 +38,7 @@
   - `PreviewToolRequest(String specText)`
   - 路由 `POST /api/v1/admin/tool/tools/preview`
 
-- [ ] **Step 1：写失败测试（service 层，加进 ToolAdminServiceTest）**
+- [x] **Step 1：写失败测试（service 层，加进 ToolAdminServiceTest）**
 
 ```java
 @Test
@@ -61,12 +61,12 @@ void preview_parseFailure_propagates() {
 }
 ```
 
-- [ ] **Step 2：跑测试确认失败**
+- [x] **Step 2：跑测试确认失败**
 
 Run: `cd server && mvn -q clean test -Dtest=ToolAdminServiceTest`
 Expected: 编译失败（`preview` / `ToolPreviewResponse` 未定义）。
 
-- [ ] **Step 3：建 DTO**
+- [x] **Step 3：建 DTO**
 
 `PreviewToolRequest.java`：
 ```java
@@ -88,7 +88,7 @@ import java.util.List;
 public record ToolPreviewResponse(String baseUrl, List<OperationView> operations) {}
 ```
 
-- [ ] **Step 4：ToolAdminService 加 preview 方法**（放在 `get(...)` 之后、`update(...)` 之前；非 `@Transactional`）
+- [x] **Step 4：ToolAdminService 加 preview 方法**（放在 `get(...)` 之后、`update(...)` 之前；非 `@Transactional`）
 
 ```java
 public ToolPreviewResponse preview(String specText) {
@@ -102,7 +102,7 @@ public ToolPreviewResponse preview(String specText) {
 
 加 import：`com.hify.tool.dto.PreviewToolRequest`（controller 用）、`com.hify.tool.dto.ToolPreviewResponse`。
 
-- [ ] **Step 5：AdminToolController 加 preview 端点**（放在 `list()` 之后）
+- [x] **Step 5：AdminToolController 加 preview 端点**（放在 `list()` 之后）
 
 ```java
 @PostMapping("/preview")
@@ -113,7 +113,7 @@ public Result<ToolPreviewResponse> preview(@Valid @RequestBody PreviewToolReques
 
 加 import：`com.hify.tool.dto.PreviewToolRequest`、`com.hify.tool.dto.ToolPreviewResponse`。
 
-- [ ] **Step 6：controller 测试加 1 例（AdminToolControllerTest）**
+- [x] **Step 6：controller 测试加 1 例（AdminToolControllerTest）**
 
 ```java
 @Test
@@ -133,12 +133,12 @@ void 预览_admin_200且返回操作() throws Exception {
 }
 ```
 
-- [ ] **Step 7：跑测试确认通过**
+- [x] **Step 7：跑测试确认通过**
 
 Run: `cd server && mvn -q clean test -Dtest=ToolAdminServiceTest,AdminToolControllerTest`
 Expected: 全绿。
 
-- [ ] **Step 8：提交**
+- [x] **Step 8：提交**
 
 ```bash
 git add server/src/main/java/com/hify/tool/dto/PreviewToolRequest.java \

@@ -78,6 +78,22 @@ class AdminToolControllerTest {
     }
 
     @Test
+    void 预览_admin_200且返回操作() throws Exception {
+        when(toolAdminService.preview(any())).thenReturn(
+                new com.hify.tool.dto.ToolPreviewResponse("https://api.example.com",
+                        java.util.List.of(new com.hify.tool.dto.OperationView("getPet", "GET", "/pets/{id}", "查"))));
+
+        mockMvc.perform(post("/api/v1/admin/tool/tools/preview")
+                        .header("Authorization", "Bearer " + adminToken())
+                        .contentType("application/json")
+                        .content("{\"specText\":\"openapi: 3.0.0\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.baseUrl").value("https://api.example.com"))
+                .andExpect(jsonPath("$.data.operations[0].opName").value("getPet"));
+    }
+
+    @Test
     void 列表_无令牌_401且10002() throws Exception {
         mockMvc.perform(get("/api/v1/admin/tool/tools"))
                 .andExpect(status().isUnauthorized())
