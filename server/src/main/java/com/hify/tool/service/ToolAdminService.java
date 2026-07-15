@@ -34,8 +34,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 自定义工具注册表 admin CRUD（Admin 专属）。openapi 行可增删改；builtin 行只可启停、不可删改。
- * 凭据加密走 infra SecretCipher，只存密文；解析走 OpenApiSpecParser。@Transactional 只在写方法，内无外部 IO。
+ * 自定义工具注册表 admin CRUD（Admin 专属）。openapi/mcp 行可增删改；builtin 行只可启停、不可删改。
+ * 凭据加密走 infra SecretCipher，只存密文；openapi 解析走 OpenApiSpecParser，mcp 工具发现走 McpToolDiscoverer。
+ *
+ * <p><b>为什么 create/update/refresh 没有 @Transactional</b>（T4a 终审拍板）：这三个方法内含
+ * {@link McpToolDiscoverer#discover} 的<b>网络 IO</b>（最坏 45s = 连接 5s + 握手 10s + 请求 30s），
+ * 而 CLAUDE.md 铁律禁止在事务内做外部 IO——否则慢 MCP 服务器会让 admin 攥着数据库连接不放，
+ * 几个并发注册就能抽干连接池（20 条）拖垮全站。去掉事务是安全的：三者各自<b>只有一条写语句</b>
+ * （insert / updateById），单语句本身即原子；重名查重（assertNameFree）本就是建议性的友好提示，
+ * 真正的守卫一直是 {@code tool_name_uq} 唯一索引（T3a spec 既定）。
+ * delete/enable/disable 无 IO，保留事务注解无害。
  */
 @Service
 public class ToolAdminService {
@@ -53,7 +61,7 @@ public class ToolAdminService {
         this.discoverer = discoverer;
     }
 
-    @Transactional
+    /** 无 @Transactional：mcp 分支内含 discover 网络 IO，且只有一条 insert（见类注释）。 */
     public ToolAdminResponse create(CreateToolRequest req, CurrentUser current) {
         assertNameFree(req.name(), null);
         boolean mcp = CreateToolRequest.TYPE_MCP.equals(req.typeOrDefault());
@@ -124,7 +132,7 @@ public class ToolAdminService {
         return new ToolPreviewResponse(parsed.baseUrl(), operations, List.of());
     }
 
-    @Transactional
+    /** 无 @Transactional：mcp 分支内含 discover 网络 IO，且只有一条 updateById（见类注释）。 */
     public ToolAdminResponse update(Long id, UpdateToolRequest req) {
         Tool row = require(id);
         assertNotBuiltin(row, "修改");
@@ -149,8 +157,10 @@ public class ToolAdminService {
         toolMapper.deleteById(id);
     }
 
-    /** 重新发现 MCP 工具清单覆盖快照；鉴权头密文原样保留（admin 没重填凭据，不能弄丢）。 */
-    @Transactional
+    /**
+     * 重新发现 MCP 工具清单覆盖快照；鉴权头密文原样保留（admin 没重填凭据，不能弄丢）。
+     * 无 @Transactional：内含 discover 网络 IO，且只有一条 updateById（见类注释）。
+     */
     public ToolAdminResponse refresh(Long id) {
         Tool row = require(id);
         if (!"mcp".equals(row.getSource())) {
