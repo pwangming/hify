@@ -129,6 +129,50 @@ class ToolAdminServiceTest {
     }
 
     @Test
+    void update_blankHeaderValue_keepsOldCipher() {
+        Tool row = openApiRow();
+        when(mapper.selectById(9L)).thenReturn(row);
+        when(mapper.selectCount(any())).thenReturn(0L);
+        when(parser.parse(any())).thenReturn(parsed());
+
+        service.update(9L, new com.hify.tool.dto.UpdateToolRequest("petstore2", "改名", "SPEC",
+                List.of(new AuthHeaderInput("X-API-Key", ""))));
+
+        ArgumentCaptor<Tool> saved = ArgumentCaptor.forClass(Tool.class);
+        org.mockito.Mockito.verify(mapper).updateById(saved.capture());
+        assertThat(saved.getValue().getName()).isEqualTo("petstore2");
+        assertThat(saved.getValue().getSpec().authHeaders().get(0).valueEnc()).isEqualTo("ENC");
+        org.mockito.Mockito.verify(cipher, org.mockito.Mockito.never()).encrypt("");
+    }
+
+    @Test
+    void update_newHeaderValue_reEncrypts() {
+        Tool row = openApiRow();
+        when(mapper.selectById(9L)).thenReturn(row);
+        when(mapper.selectCount(any())).thenReturn(0L);
+        when(parser.parse(any())).thenReturn(parsed());
+        when(cipher.encrypt("newk")).thenReturn("NEWENC");
+
+        service.update(9L, new com.hify.tool.dto.UpdateToolRequest("petstore", "x", "SPEC",
+                List.of(new AuthHeaderInput("X-API-Key", "newk"))));
+
+        ArgumentCaptor<Tool> saved = ArgumentCaptor.forClass(Tool.class);
+        org.mockito.Mockito.verify(mapper).updateById(saved.capture());
+        assertThat(saved.getValue().getSpec().authHeaders().get(0).valueEnc()).isEqualTo("NEWENC");
+    }
+
+    @Test
+    void create_blankHeaderValue_rejected() {
+        when(parser.parse(any())).thenReturn(parsed());
+        when(mapper.selectCount(any())).thenReturn(0L);
+        CreateToolRequest req = new CreateToolRequest("petstore", "宠物", "SPEC",
+                List.of(new AuthHeaderInput("X-API-Key", "")));
+        assertThatThrownBy(() -> service.create(req, admin))
+                .isInstanceOf(BizException.class)
+                .satisfies(e -> assertThat(((BizException) e).errorCode()).isEqualTo(CommonError.PARAM_INVALID));
+    }
+
+    @Test
     void delete_builtinRow_rejected() {
         Tool builtin = new Tool();
         builtin.setId(1L);

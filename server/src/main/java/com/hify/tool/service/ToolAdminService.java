@@ -43,7 +43,7 @@ public class ToolAdminService {
     @Transactional
     public ToolAdminResponse create(CreateToolRequest req, CurrentUser current) {
         assertNameFree(req.name(), null);
-        OpenApiToolSpec spec = buildSpec(req.specText(), req.authHeaders());
+        OpenApiToolSpec spec = buildSpecForCreate(req.specText(), req.authHeaders());
         Tool row = new Tool();
         row.setName(req.name());
         row.setDescription(req.description());
@@ -96,7 +96,7 @@ public class ToolAdminService {
         assertNameFree(req.name(), id);
         row.setName(req.name());
         row.setDescription(req.description());
-        row.setSpec(buildSpec(req.specText(), req.authHeaders()));
+        row.setSpec(buildSpecForUpdate(req.specText(), req.authHeaders(), row.getSpec()));
         toolMapper.updateById(row);
         return toResponse(row);
     }
@@ -124,12 +124,42 @@ public class ToolAdminService {
         toolMapper.updateById(row);
     }
 
-    private OpenApiToolSpec buildSpec(String specText, List<AuthHeaderInput> headers) {
+    private OpenApiToolSpec buildSpecForCreate(String specText, List<AuthHeaderInput> headers) {
         ParsedOpenApi parsed = parser.parse(specText);
         List<OpenApiToolSpec.AuthHeader> encHeaders = new ArrayList<>();
         if (headers != null) {
             for (AuthHeaderInput h : headers) {
+                if (h.value() == null || h.value().isBlank()) {
+                    throw new BizException(CommonError.PARAM_INVALID, "鉴权头「" + h.name() + "」的值不能为空");
+                }
                 encHeaders.add(new OpenApiToolSpec.AuthHeader(h.name(), cipher.encrypt(h.value())));
+            }
+        }
+        return new OpenApiToolSpec(parsed.baseUrl(), encHeaders, parsed.operations(), specText);
+    }
+
+    /** update：某头 value 留空 → 按 name 保留旧密文；有值 → 重新加密；不出现的头名 = 删除。 */
+    private OpenApiToolSpec buildSpecForUpdate(String specText, List<AuthHeaderInput> headers, OpenApiToolSpec old) {
+        ParsedOpenApi parsed = parser.parse(specText);
+        java.util.Map<String, String> oldEncByName = new java.util.HashMap<>();
+        if (old != null && old.authHeaders() != null) {
+            for (OpenApiToolSpec.AuthHeader h : old.authHeaders()) {
+                oldEncByName.put(h.name(), h.valueEnc());
+            }
+        }
+        List<OpenApiToolSpec.AuthHeader> encHeaders = new ArrayList<>();
+        if (headers != null) {
+            for (AuthHeaderInput h : headers) {
+                String enc;
+                if (h.value() == null || h.value().isBlank()) {
+                    enc = oldEncByName.get(h.name());
+                    if (enc == null) {
+                        throw new BizException(CommonError.PARAM_INVALID, "鉴权头「" + h.name() + "」的值不能为空");
+                    }
+                } else {
+                    enc = cipher.encrypt(h.value());
+                }
+                encHeaders.add(new OpenApiToolSpec.AuthHeader(h.name(), enc));
             }
         }
         return new OpenApiToolSpec(parsed.baseUrl(), encHeaders, parsed.operations(), specText);
