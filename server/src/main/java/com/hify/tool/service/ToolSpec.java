@@ -2,6 +2,7 @@ package com.hify.tool.service;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.hify.tool.service.mcp.McpToolSpec;
 import com.hify.tool.service.openapi.OpenApiToolSpec;
 
 /**
@@ -16,6 +17,7 @@ import com.hify.tool.service.openapi.OpenApiToolSpec;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "kind",
         defaultImpl = OpenApiToolSpec.class)
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = OpenApiToolSpec.class, name = "openapi")
+        @JsonSubTypes.Type(value = OpenApiToolSpec.class, name = "openapi"),
+        @JsonSubTypes.Type(value = McpToolSpec.class, name = "mcp")
 })
 public interface ToolSpec {}
