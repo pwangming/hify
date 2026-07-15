@@ -98,7 +98,7 @@
 - Produces: `com.hify.tool.service.ToolSpec`（空标记接口，Jackson 多态载体，`property = "kind"`）；`OpenApiToolSpec implements ToolSpec`；`Tool.getSpec()/setSpec()` 类型变为 `ToolSpec`；`ToolSpecTypeHandler extends BaseTypeHandler<ToolSpec>`。
 - 后续 Task 3 会往 `@JsonSubTypes` 里加 `McpToolSpec` 一行。
 
-- [ ] **Step 1: 写失败测试——存量无 `kind` 的老 JSON 必须仍能解成 `OpenApiToolSpec`**
+- [x] **Step 1: 写失败测试——存量无 `kind` 的老 JSON 必须仍能解成 `OpenApiToolSpec`**
 
 创建 `server/src/test/java/com/hify/tool/config/ToolSpecTypeHandlerTest.java`（先删除旧的 `OpenApiToolSpecTypeHandlerTest.java`）：
 
@@ -158,14 +158,14 @@ class ToolSpecTypeHandlerTest {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd server && mvn -q -Dtest=ToolSpecTypeHandlerTest test`
 Expected: 编译失败——`ToolSpec` / `ToolSpecTypeHandler.specMapper()` 不存在。
 
 > **注意**（memory `mvn-quiet-verify-pitfall`）：`-q` 会静音成功输出。**判定结果看是否有 ERROR/FAIL 段落，不要 grep "BUILD SUCCESS"**。
 
-- [ ] **Step 3: 写 `ToolSpec` 接口**
+- [x] **Step 3: 写 `ToolSpec` 接口**
 
 创建 `server/src/main/java/com/hify/tool/service/ToolSpec.java`：
 
@@ -193,7 +193,7 @@ import com.hify.tool.service.openapi.OpenApiToolSpec;
 public interface ToolSpec {}
 ```
 
-- [ ] **Step 4: `OpenApiToolSpec` 实现接口**
+- [x] **Step 4: `OpenApiToolSpec` 实现接口**
 
 修改 `server/src/main/java/com/hify/tool/service/openapi/OpenApiToolSpec.java` 的声明行：
 
@@ -225,7 +225,7 @@ public record OpenApiToolSpec(
 }
 ```
 
-- [ ] **Step 5: 写 `ToolSpecTypeHandler`，删旧 handler**
+- [x] **Step 5: 写 `ToolSpecTypeHandler`，删旧 handler**
 
 创建 `server/src/main/java/com/hify/tool/config/ToolSpecTypeHandler.java`：
 
@@ -321,7 +321,7 @@ rm -f server/src/test/java/com/hify/tool/config/OpenApiToolSpecTypeHandlerTest.j
 > 快照。**所以 Step 6-9 之间不要跑测试**，一路改完到 Step 10 再跑绿。
 > （TDD 的"红"已经在 Step 2 观察过了：测试因 `ToolSpec` 不存在而编译失败。）
 
-- [ ] **Step 6: `Tool` 实体换类型**
+- [x] **Step 6: `Tool` 实体换类型**
 
 修改 `server/src/main/java/com/hify/tool/entity/Tool.java`——把 import、字段、getter/setter 四处的 `OpenApiToolSpec` 换成 `ToolSpec`，typeHandler 换成 `ToolSpecTypeHandler`：
 
@@ -369,7 +369,7 @@ public class Tool extends BaseEntity {
 }
 ```
 
-- [ ] **Step 7: 适配 `ToolAdminService` 的 4 处 spec 用法**
+- [x] **Step 7: 适配 `ToolAdminService` 的 4 处 spec 用法**
 
 修改 `server/src/main/java/com/hify/tool/service/ToolAdminService.java`。
 
@@ -412,7 +412,7 @@ public class Tool extends BaseEntity {
     }
 ```
 
-- [ ] **Step 8: 适配 `ToolRegistry` 的 spec 用法**
+- [x] **Step 8: 适配 `ToolRegistry` 的 spec 用法**
 
 修改 `server/src/main/java/com/hify/tool/service/ToolRegistry.java` 的 `expandOpenApi`（原 L108-113 头部）：
 
@@ -425,7 +425,7 @@ public class Tool extends BaseEntity {
         // 以下不变
 ```
 
-- [ ] **Step 9: 适配 `ToolAdminServiceTest` 的 4 处断言**
+- [x] **Step 9: 适配 `ToolAdminServiceTest` 的 4 处断言**
 
 修改 `server/src/test/java/com/hify/tool/service/ToolAdminServiceTest.java`——`row.getSpec()` 现在返回 `ToolSpec`，断言处加 cast。L66/67 所在测试：
 
@@ -446,7 +446,7 @@ L144、L161 同款（`saved.getValue().getSpec()` 处）：
 
 > `setSpec(new OpenApiToolSpec(...))` 处**无需改动**——`OpenApiToolSpec` 已 implements `ToolSpec`，直接兼容。
 
-- [ ] **Step 10: 运行测试确认转绿（到这里编译才重新成立）**
+- [x] **Step 10: 运行测试确认转绿（到这里编译才重新成立）**
 
 Run: `cd server && mvn -q -Dtest=ToolSpecTypeHandlerTest test`
 Expected: 2 个测试通过，无 ERROR/FAIL 段落。
@@ -454,7 +454,7 @@ Expected: 2 个测试通过，无 ERROR/FAIL 段落。
 > 若仍报 `cannot find symbol`，说明 Step 6-9 有遗漏：用
 > `grep -rn "getSpec()\|OpenApiToolSpecTypeHandler" server/src --include=*.java` 找出还没适配的地方。
 
-- [ ] **Step 11: 写 V25 迁移**
+- [x] **Step 11: 写 V25 迁移**
 
 创建 `server/src/main/resources/db/migration/V25__tool_spec_add_kind.sql`：
 
@@ -470,12 +470,12 @@ update tool
    and not jsonb_exists(spec, 'kind');
 ```
 
-- [ ] **Step 12: 跑 tool 模块全部测试 + 架构测试，确认 T3a 没被弄坏**
+- [x] **Step 12: 跑 tool 模块全部测试 + 架构测试，确认 T3a 没被弄坏**
 
 Run: `cd server && mvn -q -Dtest='Tool*Test,ModularityTests,LayerRules*' test`
 Expected: 全绿，无 ERROR/FAIL 段落。特别确认 `ToolAdminServiceTest`、`ToolRegistryOpenApiTest`、`OpenApiSpecParserTest`、`OpenApiToolCallbackTest` 均通过。
 
-- [ ] **Step 13: Commit**
+- [x] **Step 13: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/tool server/src/test/java/com/hify/tool server/src/main/resources/db/migration/V25__tool_spec_add_kind.sql

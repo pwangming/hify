@@ -63,8 +63,8 @@ class ToolAdminServiceTest {
         Tool row = saved.getValue();
         assertThat(row.getSource()).isEqualTo("openapi");
         assertThat(row.getOwnerId()).isEqualTo(1L);
-        assertThat(row.getSpec().authHeaders().get(0).valueEnc()).isEqualTo("ENC");
-        assertThat(row.getSpec().rawSpec()).isEqualTo("SPEC");
+        assertThat(((OpenApiToolSpec) row.getSpec()).authHeaders().get(0).valueEnc()).isEqualTo("ENC");
+        assertThat(((OpenApiToolSpec) row.getSpec()).rawSpec()).isEqualTo("SPEC");
         assertThat(resp.source()).isEqualTo("openapi");
         assertThat(resp.operationCount()).isEqualTo(1);
     }
@@ -141,7 +141,7 @@ class ToolAdminServiceTest {
         ArgumentCaptor<Tool> saved = ArgumentCaptor.forClass(Tool.class);
         org.mockito.Mockito.verify(mapper).updateById(saved.capture());
         assertThat(saved.getValue().getName()).isEqualTo("petstore2");
-        assertThat(saved.getValue().getSpec().authHeaders().get(0).valueEnc()).isEqualTo("ENC");
+        assertThat(((OpenApiToolSpec) saved.getValue().getSpec()).authHeaders().get(0).valueEnc()).isEqualTo("ENC");
         org.mockito.Mockito.verify(cipher, org.mockito.Mockito.never()).encrypt("");
     }
 
@@ -158,7 +158,7 @@ class ToolAdminServiceTest {
 
         ArgumentCaptor<Tool> saved = ArgumentCaptor.forClass(Tool.class);
         org.mockito.Mockito.verify(mapper).updateById(saved.capture());
-        assertThat(saved.getValue().getSpec().authHeaders().get(0).valueEnc()).isEqualTo("NEWENC");
+        assertThat(((OpenApiToolSpec) saved.getValue().getSpec()).authHeaders().get(0).valueEnc()).isEqualTo("NEWENC");
     }
 
     @Test

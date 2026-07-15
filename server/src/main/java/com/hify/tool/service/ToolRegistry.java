@@ -106,8 +106,7 @@ public class ToolRegistry {
     }
 
     private List<ToolCallback> expandOpenApi(Tool row) {
-        OpenApiToolSpec spec = row.getSpec();
-        if (spec == null || spec.operations() == null) {
+        if (!(row.getSpec() instanceof OpenApiToolSpec spec) || spec.operations() == null) {
             log.warn("openapi 工具行 spec 为空，跳过 id={}", row.getId());
             return List.of();
         }

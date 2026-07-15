@@ -1,5 +1,7 @@
 package com.hify.tool.service.openapi;
 
+import com.hify.tool.service.ToolSpec;
+
 import java.util.List;
 
 /** tool.spec(jsonb) 映射：一条 openapi 注册的自包含执行描述。凭据只存密文 valueEnc。 */
@@ -7,7 +9,7 @@ public record OpenApiToolSpec(
         String baseUrl,
         List<AuthHeader> authHeaders,
         List<Operation> operations,
-        String rawSpec) {
+        String rawSpec) implements ToolSpec {
 
     public record AuthHeader(String name, String valueEnc) {}
 

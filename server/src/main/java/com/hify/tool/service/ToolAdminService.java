@@ -66,8 +66,7 @@ public class ToolAdminService {
 
     public ToolAdminDetailResponse get(Long id) {
         Tool row = require(id);
-        OpenApiToolSpec spec = row.getSpec();
-        if (spec == null) {
+        if (!(row.getSpec() instanceof OpenApiToolSpec spec)) {
             return new ToolAdminDetailResponse(row.getId(), row.getName(), row.getDescription(), row.getSource(),
                     Boolean.TRUE.equals(row.getEnabled()), null, List.of(), List.of(), null);
         }
@@ -96,7 +95,8 @@ public class ToolAdminService {
         assertNameFree(req.name(), id);
         row.setName(req.name());
         row.setDescription(req.description());
-        row.setSpec(buildSpecForUpdate(req.specText(), req.authHeaders(), row.getSpec()));
+        row.setSpec(buildSpecForUpdate(req.specText(), req.authHeaders(),
+                row.getSpec() instanceof OpenApiToolSpec old ? old : null));
         toolMapper.updateById(row);
         return toResponse(row);
     }
@@ -190,9 +190,9 @@ public class ToolAdminService {
     }
 
     private ToolAdminResponse toResponse(Tool row) {
-        Integer count = row.getSpec() == null || row.getSpec().operations() == null
-                ? null
-                : row.getSpec().operations().size();
+        Integer count = row.getSpec() instanceof OpenApiToolSpec s && s.operations() != null
+                ? s.operations().size()
+                : null;
         return new ToolAdminResponse(row.getId(), row.getName(), row.getDescription(), row.getSource(),
                 Boolean.TRUE.equals(row.getEnabled()), count, row.getOwnerId(), row.getCreateTime(), row.getUpdateTime());
     }
