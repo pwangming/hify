@@ -28,6 +28,7 @@
 
         <!-- 非 Boot 管理的依赖版本，统一在此维护 -->
         <spring-ai.version>1.0.1</spring-ai.version>
+        <mcp-sdk.version>0.12.1</mcp-sdk.version>
         <spring-modulith.version>1.4.1</spring-modulith.version>
         <mybatis-plus.version>3.5.12</mybatis-plus.version>
         <resilience4j.version>2.2.0</resilience4j.version>
@@ -185,6 +186,14 @@
             <groupId>io.swagger.parser.v3</groupId>
             <artifactId>swagger-parser-v3</artifactId>
             <version>${swagger-parser.version}</version>
+        </dependency>
+        <!-- MCP 客户端 SDK。刻意不引 spring-ai-starter-mcp-client：它锁 SDK 0.10.0（无 Streamable HTTP，
+             只有已被 MCP 规范取代的 HTTP+SSE），且其自动配置是 yml 驱动，而我们的 MCP 服务器由 admin 存在
+             DB 里（T4a spec 决策 2）。只用 SDK 本体 + 手写 McpToolCallback，Spring AI 版本不动。 -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp</artifactId>
+            <version>${mcp-sdk.version}</version>
         </dependency>
 
         <!-- ===== 编译期：配置元数据 ===== -->

@@ -137,6 +137,16 @@ hify:
   agent:
     # 一轮对话内模型调用次数上限，防 Agent 异常循环刷 Token。
     max-tool-iterations: ${HIFY_AGENT_MAX_TOOL_ITERATIONS:5}
+  tool:
+    mcp:
+      # MCP 客户端超时（CLAUDE.md：所有外部调用必须有超时且超时值外化）。
+      # 仅支持远程 HTTP（streamable_http / sse），不支持 stdio（T4a spec 决策 1）。
+      # 建立 TCP 连接超时。
+      connect-timeout-ms: ${HIFY_TOOL_MCP_CONNECT_TIMEOUT_MS:5000}
+      # 单次 JSON-RPC 请求超时（listTools / callTool）。
+      request-timeout-ms: ${HIFY_TOOL_MCP_REQUEST_TIMEOUT_MS:30000}
+      # initialize 握手超时。
+      initialization-timeout-ms: ${HIFY_TOOL_MCP_INITIALIZATION_TIMEOUT_MS:10000}
   usage:
     # 单用户每日 Token 上限（prompt+completion 累计）。入口配额检查：今日已用 >= 此值即拦（14001/429）。
     # 防失控 Agent 循环刷爆账单，非精确计费；宽松默认，生产按供应商额度调。改配额只动这里。

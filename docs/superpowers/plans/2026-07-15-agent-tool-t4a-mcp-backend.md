@@ -500,7 +500,7 @@ git commit -m "refactor(tool): 引入 ToolSpec 多态承载 spec 一列两形状
   - `McpClientFactory#create(String url, String transport, Map<String,String> plainHeaders) → McpSyncClient`（调用方负责 close）。
   - 常量：`McpClientFactory.TRANSPORT_STREAMABLE_HTTP = "streamable_http"`、`TRANSPORT_SSE = "sse"`。
 
-- [ ] **Step 1: 加 MCP SDK 依赖**
+- [x] **Step 1: 加 MCP SDK 依赖**
 
 修改 `server/pom.xml`：在 `<properties>` 段加版本（与 `<spring-ai.version>` 相邻）：
 
@@ -521,12 +521,12 @@ git commit -m "refactor(tool): 引入 ToolSpec 多态承载 spec 一列两形状
         </dependency>
 ```
 
-- [ ] **Step 2: 核对依赖树无版本冲突**
+- [x] **Step 2: 核对依赖树无版本冲突**
 
 Run: `cd server && mvn -B dependency:tree -Dincludes='io.modelcontextprotocol.sdk:*,io.projectreactor:*,com.fasterxml.jackson.core:jackson-databind'`
 Expected: `io.modelcontextprotocol.sdk:mcp:jar:0.12.1:compile` 出现；`reactor-core` 与 `jackson-databind` 仍由 Spring Boot BOM 统一收口（不出现两个不同版本）。若出现 `omitted for conflict`，记录下来在 Task 7 Step 5 复核。
 
-- [ ] **Step 3: 加超时配置**
+- [x] **Step 3: 加超时配置**
 
 修改 `server/src/main/resources/application.yml`——在 `agent:` 块之后、`usage:` 块之前插入：
 
@@ -543,7 +543,7 @@ Expected: `io.modelcontextprotocol.sdk:mcp:jar:0.12.1:compile` 出现；`reactor
       initialization-timeout-ms: ${HIFY_TOOL_MCP_INITIALIZATION_TIMEOUT_MS:10000}
 ```
 
-- [ ] **Step 4: 写 `McpProperties`**
+- [x] **Step 4: 写 `McpProperties`**
 
 创建 `server/src/main/java/com/hify/tool/config/McpProperties.java`：
 
@@ -576,7 +576,7 @@ public class McpProperties {
 }
 ```
 
-- [ ] **Step 5: 写失败测试**
+- [x] **Step 5: 写失败测试**
 
 创建 `server/src/test/java/com/hify/tool/service/mcp/McpClientFactoryTest.java`：
 
@@ -644,12 +644,12 @@ class McpClientFactoryTest {
 > **为什么鉴权头注入不在这里断言**：`customizeRequest` 的 Consumer 被封在 transport 内部，从外面拿不到。
 > 头注入由 Task 3 的 `FakeMcpServer` **端到端**断言（真发一次请求、真检查收到的头）——那才是真测试。
 
-- [ ] **Step 6: 运行测试确认失败**
+- [x] **Step 6: 运行测试确认失败**
 
 Run: `cd server && mvn -q -Dtest=McpClientFactoryTest test`
 Expected: 编译失败——`McpClientFactory` 不存在。
 
-- [ ] **Step 7: 写 `McpClientFactory`**
+- [x] **Step 7: 写 `McpClientFactory`**
 
 创建 `server/src/main/java/com/hify/tool/service/mcp/McpClientFactory.java`：
 
@@ -760,12 +760,12 @@ public class McpClientFactory {
 }
 ```
 
-- [ ] **Step 8: 运行测试确认通过**
+- [x] **Step 8: 运行测试确认通过**
 
 Run: `cd server && mvn -q -Dtest=McpClientFactoryTest test`
 Expected: 4 个测试通过。
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add server/pom.xml server/src/main/resources/application.yml server/src/main/java/com/hify/tool/config/McpProperties.java server/src/main/java/com/hify/tool/service/mcp/McpClientFactory.java server/src/test/java/com/hify/tool/service/mcp/McpClientFactoryTest.java
