@@ -84,8 +84,15 @@ ConversationService（零改动）
 两个关键性质：
 - **`McpToolCallback` 持有「连接配置 + 这一个工具的 name/schema」，不是活着的连接**——保持与
   `BuiltinToolCallback`/`OpenApiToolCallback` 一致的**无状态契约**，注册表可随时造/丢，无人需要负责关连接。
-- **MCP 工具自带的 `inputSchema` 本就是标准 JSON Schema，Spring AI `ToolDefinition` 要的也正是 JSON Schema
-  字符串——两边天然对齐，零转换**（比 T3a 省事：那边要把 path/query/body 参数合并拼出 schema）。
+- **MCP 工具自带的 `inputSchema` 语义上就是标准 JSON Schema**，与 Spring AI `ToolDefinition` 所需的
+  JSON Schema 字符串**语义对齐**，比 T3a 省事得多（那边要把 path/query/body 参数合并拼出一份 schema）。
+  但**不是零转换**：SDK 的 `McpSchema.Tool.inputSchema()` 返回的是**类型化的 `JsonSchema` record**，
+  须序列化成字符串（一行 `mapper.writeValueAsString(...)`），在**注册/刷新时**做掉、存进快照。
+  - **序列化必须用带 `NON_NULL` 的私有 `ObjectMapper`，不要注入 Spring 的那个**：`JsonSchema` 有
+    `defs`/`definitions`/`additionalProperties` 等可空字段，而 infra 全局 Jackson 按 api-standards §4
+    配的是 `JsonInclude.ALWAYS`（那条是给**对外 JSON 响应**定的），用它会把
+    `"defs":null,"definitions":null` 之类塞进**发给模型**的工具 schema 里，纯属噪声。
+    既有 `OpenApiToolSpecTypeHandler` 用私有 `new ObjectMapper()` 已是同款先例。
 
 工具命名沿用 T3a 已验证规则：`sanitize(注册名) + "__" + MCP工具名`；注册名唯一性由 `tool_name_uq` 保证，
 故跨注册不撞名。
