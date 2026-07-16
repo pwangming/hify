@@ -1,0 +1,14 @@
+# nginx 镜像构建上下文=仓库根（deploy/nginx/Dockerfile 要同时拿 web/ 与 deploy/nginx/）。
+# 不排除的话 .git/node_modules/target 全被送进构建上下文（GB 级）。
+# 注意：此文件只作用于「上下文=仓库根」的构建；server 镜像上下文=server/，用 server/.dockerignore。
+.git/
+**/node_modules/
+**/target/
+**/dist/
+docs/
+scripts/
+mcp-demo/
+sandbox/
+server/
+deploy/nginx/certs/
+.run/

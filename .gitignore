@@ -29,3 +29,6 @@ logs/
 
 # 本地 compose 覆盖：docker compose 自动加载，提交会静默改变生产隔离行为，禁止入库
 docker-compose.override.yml
+
+# nginx 自签/真实证书（gen-self-signed-cert.sh 生成或运维放置），私钥严禁入库
+deploy/nginx/certs/
