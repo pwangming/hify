@@ -14,8 +14,29 @@ export function createApp(token: string): Express {
     next();
   };
 
+  // 互操作修补：SDK 1.29 的 Hono 适配层（@hono/node-server buildOutgoingHttpHeaders）
+  // 会给空 body 的 202 响应强行补 content-type: text/plain，而 Java MCP 客户端对 POST
+  // 响应只认 json / event-stream / 无 content-type 三种，见 text/plain 直接断连。
+  // 规范本义是 202 空响应不带 content-type——这里在写响应头前把它剥掉。
+  const stripContentTypeOn202 = (res: Response): void => {
+    const origWriteHead = res.writeHead.bind(res) as (...args: unknown[]) => Response;
+    res.writeHead = ((statusCode: number, ...args: unknown[]) => {
+      if (statusCode === 202) {
+        res.removeHeader("content-type");
+        for (const a of args) {
+          if (a && typeof a === "object" && !Array.isArray(a)) {
+            delete (a as Record<string, unknown>)["content-type"];
+            delete (a as Record<string, unknown>)["Content-Type"];
+          }
+        }
+      }
+      return origWriteHead(statusCode, ...args);
+    }) as typeof res.writeHead;
+  };
+
   // 无状态模式：每请求新建 server+transport，用完即弃（sessionIdGenerator: undefined 即无会话）
   app.post("/mcp", auth, async (req: Request, res: Response) => {
+    stripContentTypeOn202(res);
     const server = createMcpServer();
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     res.on("close", () => {

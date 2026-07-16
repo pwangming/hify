@@ -55,6 +55,21 @@ describe("鉴权", () => {
   });
 });
 
+describe("通知类 POST（无 id 的 JSON-RPC 消息）", () => {
+  // 互操作修补的回归锚点：SDK 1.29 的 Hono 适配层会给空 body 202 补默认
+  // content-type: text/plain，Hify 的 Java MCP 客户端见到非 json/event-stream 会断连。
+  // 规范本义就是 202 空响应，不该有 content-type。
+  it("notifications/initialized → 202 且不带 content-type", async () => {
+    const res = await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers: goodHeaders,
+      body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+    });
+    expect(res.status).toBe(202);
+    expect(res.headers.get("content-type")).toBeNull();
+  });
+});
+
 describe("无状态模式不支持的方法", () => {
   it("GET /mcp → 405", async () => {
     const res = await fetch(`${base}/mcp`, { method: "GET", headers: goodHeaders });
