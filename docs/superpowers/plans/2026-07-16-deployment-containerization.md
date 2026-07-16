@@ -320,7 +320,7 @@ git commit -m "feat(deploy): nginx 镜像（node 多阶段构建 Vue 产物）+ 
 - Consumes: Task 1 的 `server/Dockerfile`（`build: ./server`）、Task 2 的 `deploy/nginx/Dockerfile` 与证书脚本。
 - Produces: `docker compose --profile app up -d` 可用的完整编排；Task 4 的验收在此形态上进行。
 
-- [ ] **Step 1: application.yml 两处插入**
+- [x] **Step 1: application.yml 两处插入**
 
 插入 1——在现有 `spring:` 块内、`application:` 小节之后加 `lifecycle:`（注意：`spring:` 顶层键已存在，不能新开一个，YAML 重复键会报错）：
 
@@ -344,7 +344,7 @@ server:
   shutdown: graceful
 ```
 
-- [ ] **Step 2: 整文件重写 `docker-compose.yml`**
+- [x] **Step 2: 整文件重写 `docker-compose.yml`**
 
 ```yaml
 # Hify 单机部署编排（deployment.md「单机 4 容器」落地，设计见
@@ -481,7 +481,7 @@ volumes:
   hify-pgdata:
 ```
 
-- [ ] **Step 3: `deploy/.env.example` 头部说明改写**
+- [x] **Step 3: `deploy/.env.example` 头部说明改写**
 
 把文件开头两行注释：
 
@@ -501,12 +501,12 @@ volumes:
 # 生产部署务必改掉所有 dev-only 默认值（JWT 密钥 / 主密钥 / admin 密码）。
 ```
 
-- [ ] **Step 4: compose 语法与插值校验**
+- [x] **Step 4: compose 语法与插值校验**
 
 Run: `docker compose --profile app config -q && echo COMPOSE-OK`
 Expected: 输出 `COMPOSE-OK`（无 warning 报错）。
 
-- [ ] **Step 5: 前置准备 + 全栈拉起**
+- [x] **Step 5: 前置准备 + 全栈拉起**
 
 ```bash
 # 证书（Task 2 冒烟已生成过则跳过）；deploy/.env 若已存在则不要覆盖（可能有本地真实配置）
@@ -517,13 +517,13 @@ docker compose --profile app up -d --build
 
 Expected: 4 个容器依序启动（postgres → sandbox/server → nginx）。
 
-- [ ] **Step 6: 等全部 healthy**
+- [x] **Step 6: 等全部 healthy**
 
 Run: `docker compose --profile app ps`（server 启动+迁移最多等 ~2 分钟，可重复执行观察）
 Expected: hify-postgres / hify-sandbox / hify-server / hify-nginx 四行，STATUS 均含 `(healthy)`。
 若 hify-server 起不来：`docker logs hify-server --tail 50` 排查（常见：deploy/.env 缺失、数据库连接串错）。
 
-- [ ] **Step 7: 链路冒烟（宿主机 curl）**
+- [x] **Step 7: 链路冒烟（宿主机 curl）**
 
 ```bash
 curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://localhost/          # 期望: 301 https://localhost/
@@ -537,7 +537,7 @@ curl -sk -X POST https://localhost/api/v1/identity/login \
 # 用你实际的 admin 密码重试（账号早已在库，见 memory admin-account-seeded）。
 ```
 
-- [ ] **Step 8: 回归日常开发形态**
+- [x] **Step 8: 回归日常开发形态**
 
 ```bash
 docker compose --profile app down     # 停全套（数据卷保留）
@@ -546,7 +546,7 @@ docker compose ps                     # 期望：只有 hify-postgres 与 hify-s
 docker compose --profile app up -d    # 恢复全套（镜像已建好，秒起），供 Task 4 验收
 ```
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add docker-compose.yml server/src/main/resources/application.yml deploy/.env.example

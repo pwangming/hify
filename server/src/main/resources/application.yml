@@ -2,6 +2,11 @@ spring:
   application:
     name: hify-server
 
+  # 优雅停机搭档（deployment.md §2）：SIGTERM 后各阶段最多等 50s，
+  # 必须小于 compose 的 stop_grace_period(60s)，让应用先于 docker 强杀完成收尾。
+  lifecycle:
+    timeout-per-shutdown-phase: 50s
+
   # Java 21 虚拟线程（llm-resilience.md 第 1 节）：LLM/IO 调用阻塞 10~120s，虚拟线程让"同步阻塞"
   # 编程模型零成本扩展到数千并发，不上 WebFlux。Tomcat 请求线程与 @Async 任务都跑在虚拟线程上。
   threads:
@@ -57,6 +62,11 @@ spring:
       - org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration
       - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
+# 优雅停机（deployment.md §2）：SIGTERM 后停止接新请求，等在途请求（含 workflow）收尾再退出。
+# 「等待 workflow 收尾」的行为验证属第 2 轮（运维补账），本轮只让配置就位。
+server:
+  shutdown: graceful
 
 # 暴露健康检查端点，便于冒烟验证启动是否成功
 management:

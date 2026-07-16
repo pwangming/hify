@@ -1,17 +1,24 @@
-# Hify 本地开发依赖。一期目标是 deployment.md 描述的「单机 4 容器」（nginx / hify-server /
-# sandbox / postgres）；当前阶段只需要数据库，先放 postgres 一个服务，后续按 deployment.md 扩展。
+# Hify 单机部署编排（deployment.md「单机 4 容器」落地，设计见
+# docs/superpowers/specs/2026-07-16-deployment-containerization-design.md）。
 #
-# 用法：
-#   docker compose up -d        # 启动
-#   docker compose ps           # 查看状态（等 STATUS 显示 healthy）
-#   docker compose down         # 停止（保留数据卷）
-#   docker compose down -v      # 停止并清空数据
+# 两种形态（compose profiles）：
+#   日常开发：docker compose up -d                 → 仅 postgres + sandbox（server/前端跑宿主机）
+#   全套形态：docker compose --profile app up -d   → nginx / hify-server / sandbox / postgres
+#
+# 全套形态的两个前置步骤（缺任一会启动失败并报清晰错误，不会静默错配）：
+#   1) bash deploy/nginx/gen-self-signed-cert.sh   # 生成自签证书（gitignore 不入库）
+#   2) cp deploy/.env.example deploy/.env          # server 敏感配置（生产务必改默认值）
+#
+# 常用：
+#   docker compose ps                              # 等 STATUS 全部 healthy
+#   docker compose --profile app up -d --build     # 代码变更后重建镜像
+#   docker compose --profile app down              # 停全套（保留数据卷）；down -v 清空数据
 #
 # 凭证默认值仅供本地开发；生产改用 .env 注入（CLAUDE.md：密码走 .env，不入库不入镜像）。
 
 services:
   postgres:
-    # pgvector 官方镜像 = PostgreSQL 16 + 预装 pgvector 扩展（后续 RAG 用得上，先备好）
+    # pgvector 官方镜像 = PostgreSQL 16 + 预装 pgvector 扩展
     image: pgvector/pgvector:pg16
     container_name: hify-postgres
     environment:
@@ -19,14 +26,21 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-hify}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hify}
     ports:
-      - "5432:5432"
+      # 仅本机可连，供宿主机开发（mvn / 连库工具）。生产 VM 上线时删除此发布，
+      # 即完全满足 deployment.md「只有 nginx 对外发布端口」（spec 拍板的有意偏差）。
+      - "127.0.0.1:5432:5432"
     volumes:
       - hify-pgdata:/var/lib/postgresql/data
+    networks: [backend]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hify} -d ${POSTGRES_DB:-hify}"]
       interval: 5s
       timeout: 3s
       retries: 10
+    logging: &log-rotate   # 四服务共用：json-file 50m×5（deployment.md §4）
+      driver: json-file
+      options: { max-size: 50m, max-file: "5" }
 
   sandbox:
     build: ./sandbox
@@ -47,13 +61,69 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    logging: *log-rotate
     # 沙箱不对外发布端口（deployment.md §5）。sandbox-net 为 internal，宿主机无法访问沙箱——
-    # 本地要端到端跑带 code 节点的工作流，需 server 也进 compose 并挂 sandbox-net（生产形态），
-    # 或用 docker-compose.override.yml 临时放开。直连沙箱冒烟测试用 `docker compose exec sandbox` 从容器内发起。
+    # 全套形态下 hify-server 容器经 sandbox-net 直连（生产形态）；宿主机开发跑 code 节点
+    # 仍需 docker-compose.override.yml 临时放开。直连沙箱冒烟用 `docker compose exec sandbox`。
+
+  hify-server:
+    build: ./server
+    container_name: hify-server
+    profiles: [app]
+    # 敏感项（JWT 密钥 / 加密主密钥 / admin 引导）走 env_file，不写在本文件
+    env_file: deploy/.env
+    environment:
+      # 容器拓扑地址属部署形态非密钥，直接写这里；宿主机开发不受影响（application.yml 默认 localhost）
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hify}?reWriteBatchedInserts=true
+      JAVA_OPTS: "-Xmx4g"   # deployment.md：堆 4G（容器限 6g）
+    networks: [frontend, backend, sandbox-net]   # 唯一三网皆通的枢纽
+    depends_on:
+      postgres:
+        condition: service_healthy   # Flyway 启动迁移必须等库就绪
+      sandbox:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 60s   # 启动+Flyway 迁移的宽限期，期内失败不计数
+    stop_grace_period: 60s   # 配合 server.shutdown=graceful（application.yml 50s < 60s）
+    restart: unless-stopped
+    mem_limit: 6g
+    logging: *log-rotate
+
+  nginx:
+    build:
+      context: .   # 上下文=仓库根：要同时拿 web/ 源码与 deploy/nginx/ 配置（.dockerignore 已瘦身）
+      dockerfile: deploy/nginx/Dockerfile
+    container_name: hify-nginx
+    profiles: [app]
+    ports:
+      - "80:80"
+      - "443:443"   # 全栈唯一对外发布端口的容器（postgres 的 127.0.0.1 除外，见其注释）
+    volumes:
+      - ./deploy/nginx/certs:/etc/nginx/certs:ro   # 证书不进镜像，换真证书只替换文件重启
+    networks: [frontend]   # 只见 server，不见 postgres/sandbox
+    depends_on:
+      hify-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    mem_limit: 256m
+    logging: *log-rotate
 
 networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
   # internal: true = 禁一切出网（deployment.md §5：sandbox 无外网路由）。
-  # 代价：宿主机也访问不到沙箱，本地联调见上方 sandbox 服务注释。
+  # 代价：宿主机也访问不到沙箱，本地联调见 sandbox 服务注释。
   sandbox-net:
     driver: bridge
     internal: true
