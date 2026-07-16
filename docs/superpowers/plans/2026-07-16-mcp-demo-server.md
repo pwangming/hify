@@ -289,7 +289,7 @@ git commit -m "feat(mcp-demo): roll_dice 纯函数（TDD）"
 - Consumes: Task 1 的 `getCurrentTime`/`currentTimeInputSchema`，Task 2 的 `rollDice`/`rollDiceInputSchema`
 - Produces: `createMcpServer(): McpServer`（注册了 `get_current_time`、`roll_dice` 两个工具，供 Task 4 的每请求新建使用）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `mcp-demo/src/__tests__/server.test.ts`（用 SDK 的 InMemoryTransport 把官方客户端直连 server，不经 HTTP）：
 
@@ -359,12 +359,12 @@ describe("tools/call", () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm test`
 Expected: FAIL，报 `Cannot find module '../server.js'`
 
-- [ ] **Step 3: 最小实现**
+- [x] **Step 3: 最小实现**
 
 `mcp-demo/src/server.ts`：
 
@@ -409,12 +409,12 @@ export function createMcpServer(): McpServer {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm test && pnpm typecheck`
 Expected: `Test Files  3 passed`，typecheck 退出码 0
 
-- [ ] **Step 5: Commit + 自检**
+- [x] **Step 5: Commit + 自检**
 
 ```bash
 cd /home/wang/playlab/hify
