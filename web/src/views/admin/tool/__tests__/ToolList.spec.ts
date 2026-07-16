@@ -47,6 +47,17 @@ const SAMPLE: ToolAdminItem[] = [
     createTime: '2026-07-10T10:00:00+08:00',
     updateTime: '2026-07-10T10:00:00+08:00',
   },
+  {
+    id: '12',
+    name: 'deepwiki',
+    description: 'DeepWiki MCP',
+    source: 'mcp',
+    enabled: true,
+    operationCount: 3,
+    ownerId: '1',
+    createTime: '2026-07-15T10:00:00+08:00',
+    updateTime: '2026-07-15T10:00:00+08:00',
+  },
 ]
 
 const router = createRouter({
@@ -176,5 +187,101 @@ describe('ToolList 注册/编辑抽屉', () => {
     await wrapper.get('[data-test="form-submit"]').trigger('click')
     await flushPromises()
     expect(updateTool).toHaveBeenCalledWith('9', expect.objectContaining({ name: 'petstore' }))
+  })
+})
+
+describe('ToolList MCP 注册/编辑', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(listTools).mockResolvedValue(SAMPLE)
+  })
+
+  async function openCreateMcp() {
+    const wrapper = mountListWithDrawer()
+    await flushPromises()
+    await wrapper.get('[data-test="create-open"]').trigger('click')
+    const typeGroup = wrapper.findComponent('[data-test="form-type"]')
+    await typeGroup.vm.$emit('update:modelValue', 'mcp')
+    await flushPromises()
+    return wrapper
+  }
+
+  it('新建切到 MCP：出现 url/传输方式，OpenAPI 文本框与操作预览消失', async () => {
+    const wrapper = await openCreateMcp()
+    expect(wrapper.find('[data-test="form-url"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="form-transport"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="form-spec"]').exists()).toBe(false)
+  })
+
+  it('试连接：previewTool 收 mcp body，渲染发现的工具清单', async () => {
+    vi.mocked(previewTool).mockResolvedValue({
+      baseUrl: null,
+      operations: [],
+      tools: [{ toolName: 'read_wiki', description: '读 wiki 结构' }],
+    })
+    const wrapper = await openCreateMcp()
+    await wrapper.get('[data-test="form-url"]').setValue('https://mcp.example.com/mcp')
+    await wrapper.get('[data-test="form-preview"]').trigger('click')
+    await flushPromises()
+    expect(previewTool).toHaveBeenCalledWith({
+      type: 'mcp',
+      url: 'https://mcp.example.com/mcp',
+      transport: 'streamable_http',
+      authHeaders: [],
+    })
+    expect(wrapper.find('[data-test="mcp-tool-read_wiki"]').exists()).toBe(true)
+  })
+
+  it('mcp 提交：url 空被前端拦；有 url 时 body 带 type/url/transport 不带 specText', async () => {
+    vi.mocked(createTool).mockResolvedValue(SAMPLE[2])
+    const wrapper = await openCreateMcp()
+    await wrapper.get('[data-test="form-name"]').setValue('deepwiki')
+    await wrapper.get('[data-test="form-description"]').setValue('wiki 问答')
+    await wrapper.get('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createTool).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-test="form-url"]').setValue('https://mcp.example.com/mcp')
+    await wrapper.get('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createTool).toHaveBeenCalledWith({
+      name: 'deepwiki',
+      description: 'wiki 问答',
+      type: 'mcp',
+      url: 'https://mcp.example.com/mcp',
+      transport: 'streamable_http',
+      authHeaders: [],
+    })
+  })
+
+  it('编辑 mcp 行：回填 url、类型只读、展示快照与 discoveredAt、无试连接按钮', async () => {
+    const detail: ToolAdminDetail = {
+      id: '12',
+      name: 'deepwiki',
+      description: 'DeepWiki MCP',
+      source: 'mcp',
+      enabled: true,
+      baseUrl: null,
+      operations: [],
+      authHeaderNames: ['Authorization'],
+      rawSpec: null,
+      url: 'https://mcp.deepwiki.com/mcp',
+      transport: 'streamable_http',
+      tools: [{ toolName: 'read_wiki_structure', description: '读结构' }],
+      discoveredAt: '2026-07-15T10:00:00+08:00',
+    }
+    vi.mocked(getTool).mockResolvedValue(detail)
+    const wrapper = mountListWithDrawer()
+    await flushPromises()
+    await wrapper.get('[data-test="edit-12"]').trigger('click')
+    await flushPromises()
+    expect((wrapper.get('[data-test="form-url"]').element as HTMLInputElement).value).toBe(
+      'https://mcp.deepwiki.com/mcp',
+    )
+    expect(wrapper.find('[data-test="form-type"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="type-readonly"]').text()).toBe('MCP')
+    expect(wrapper.find('[data-test="mcp-tool-read_wiki_structure"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="discovered-at"]').text()).toContain('上次发现于')
+    expect(wrapper.find('[data-test="form-preview"]').exists()).toBe(false)
   })
 })

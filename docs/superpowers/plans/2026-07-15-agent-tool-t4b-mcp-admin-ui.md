@@ -878,7 +878,7 @@ function buildBody(): ToolUpsertBody {
 Run: `cd web && pnpm vitest run`
 Expected: 全绿（数量不变）。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add web/src/types/tool.ts web/src/api/admin/tool.ts \
@@ -899,7 +899,7 @@ git commit -m "feat(web): tool 类型/api 层扩 mcp 契约——previewTool 收
 - Consumes: Task 3 的 `previewTool(body)` / `buildBody()` / `McpToolItem` / `ToolAdminDetail.tools/discoveredAt`。
 - Produces: 抽屉的 `data-test` 锚点（Task 5 不依赖，但人工验收依赖）——`form-type`（radio 组，仅新建渲染）、`type-openapi`/`type-mcp`、`type-readonly`（编辑态只读标签）、`form-url`、`form-transport`、`transport-streamable`/`transport-sse`、`form-preview`（label 随类型变：预览操作/试连接）、`mcp-tool-{toolName}`、`discovered-at`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ① `SAMPLE` 数组追加第三行（mcp 行，Task 5 也用它）：
 
@@ -1017,12 +1017,12 @@ describe('ToolList MCP 注册/编辑', () => {
 })
 ```
 
-- [ ] **Step 2: 观察红**
+- [x] **Step 2: 观察红**
 
 Run: `cd web && pnpm vitest run src/views/admin/tool`
 Expected: 新 describe 4 个用例全 FAIL（`form-type` 等锚点不存在）；既有用例仍绿。
 
-- [ ] **Step 3: 实现——`ToolDrawer.vue` 完整最终版（整文件替换）**
+- [x] **Step 3: 实现——`ToolDrawer.vue` 完整最终版（整文件替换）**
 
 要点：编辑态**不渲染** radio 组、用只读 `el-tag`（`ProviderDetail.vue` 同款先例，绕开 EP
 radio 子项 disabled 覆盖组级的坑）；`mcpTools` 一个 ref 双用（新建=试连接结果，编辑=库中快照）；
@@ -1326,7 +1326,7 @@ async function submitForm() {
 
 （`$spacing-xs` 已存在于 `styles/variables.scss:76`，经全局注入直接可用。）
 
-- [ ] **Step 4: 跑测试转绿**
+- [x] **Step 4: 跑测试转绿**
 
 Run: `cd web && pnpm vitest run`
 Expected: 全绿（+4 个新用例）。
