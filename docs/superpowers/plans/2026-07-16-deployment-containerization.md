@@ -27,11 +27,12 @@
 **Files:**
 - Create: `server/Dockerfile`
 - Create: `server/.dockerignore`
+- Create: `server/maven-settings.xml`（2026-07-17 修订新增：容器内 Maven Central 直连超时，改走阿里云镜像仓库）
 
 **Interfaces:**
 - Produces: 本地镜像 `hify-server:dev`（Task 3 的 compose `build: ./server` 复用同一 Dockerfile）；运行时约定：监听 8080、`JAVA_OPTS` 环境变量注入 JVM 参数、jar 内含 Actuator `/actuator/health`（SecurityConfig 已放行 `/actuator/**`，已核实）。
 
-- [ ] **Step 1: 写 `server/.dockerignore`**
+- [x] **Step 1: 写 `server/.dockerignore`**
 
 ```
 # 构建上下文瘦身：镜像内用 maven 重新编译，宿主机产物不需要
@@ -39,19 +40,43 @@ target/
 *.iml
 ```
 
-- [ ] **Step 2: 写 `server/Dockerfile`**
+- [ ] **Step 2: 写 `server/maven-settings.xml` 与 `server/Dockerfile`**（2026-07-17 修订：原版 Dockerfile 直连 Maven Central 在容器内超时——宿主机代理不覆盖容器网络路径（DNS 返回 198.18.x fake-IP）；阿里云仓库容器内实测 200/392ms。改动：新增构建专用 settings + 两处 mvn 加 `-s`。）
+
+`server/maven-settings.xml`：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 仅供 Docker 构建使用（server/Dockerfile 里 mvn -s 引用）：
+     容器内无宿主机代理链路，Maven Central 直连超时，改走阿里云公共镜像仓库（聚合 central）。
+     宿主机开发不受影响（不放 ~/.m2，不改全局配置）。 -->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <mirrors>
+    <mirror>
+      <id>aliyun-public</id>
+      <name>Aliyun public mirror of central</name>
+      <mirrorOf>central</mirrorOf>
+      <url>https://maven.aliyun.com/repository/public</url>
+    </mirror>
+  </mirrors>
+</settings>
+```
+
+`server/Dockerfile`：
 
 ```dockerfile
 # 多阶段构建（spec 决策 2）：编译也在 Docker 里，镜像产出不依赖宿主机 JDK。
 # 阶段1：maven 编译。BuildKit 缓存挂载 /root/.m2，依赖不变时重建只剩编译时间。
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /build
+# 构建专用 Maven 镜像仓库配置。不放 /root/.m2——缓存挂载会在 RUN 期间把它盖住，
+# 所以放构建目录并用 -s 显式指定。
+COPY maven-settings.xml .
 COPY pom.xml .
 # 依赖单独成层：pom 不变不重下（多阶段"首次慢"的主要缓解）
-RUN --mount=type=cache,target=/root/.m2 mvn -q dependency:go-offline
+RUN --mount=type=cache,target=/root/.m2 mvn -q -s maven-settings.xml dependency:go-offline
 COPY src ./src
 # 跳过测试：测试属于开发/CI 环节，构建镜像时重复跑只拖慢发布
-RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests package
+RUN --mount=type=cache,target=/root/.m2 mvn -q -s maven-settings.xml -DskipTests package
 
 # 阶段2：仅 JRE + jar，镜像小、攻击面小
 FROM eclipse-temurin:21-jre
@@ -80,8 +105,8 @@ Expected: 列出 /app.jar（约 100MB+）、`openjdk version "21`。
 - [ ] **Step 5: Commit**
 
 ```bash
-git add server/Dockerfile server/.dockerignore
-git commit -m "feat(deploy): server 多阶段镜像（maven 编译层缓存挂载 + JRE21 非 root 运行层）"
+git add server/Dockerfile server/.dockerignore server/maven-settings.xml
+git commit -m "feat(deploy): server 多阶段镜像（maven 编译层缓存挂载 + JRE21 非 root 运行层；构建走阿里云 Maven 镜像）"
 ```
 
 ---

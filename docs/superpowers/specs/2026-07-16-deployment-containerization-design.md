@@ -229,3 +229,4 @@ postgres 服务加入 `backend` 网络并把端口发布改为 `127.0.0.1:5432:5
 | 自签证书浏览器报警 | 预期行为，验收步骤写明手动信任一次 |
 | pnpm 版本不匹配导致 frozen-lockfile 失败 | 本轮给 web/package.json 补 `packageManager: pnpm@11.4.0`（现状缺失），corepack 据此锁版本 |
 | E2E（Playwright）/日常开发受影响 | 全部跑在宿主机开发形态，本轮对其零改动 |
+| 容器内出网不走宿主机代理（2026-07-17 实证：DNS 返回 fake-IP，Maven Central/Docker Hub 直连超时） | Docker 基础镜像走 DaoCloud 等国内源；Maven 依赖用构建专用 `server/maven-settings.xml` 走阿里云镜像（`mvn -s` 引用，不放 /root/.m2 以免被缓存挂载遮盖；宿主机 ~/.m2 不受影响） |
