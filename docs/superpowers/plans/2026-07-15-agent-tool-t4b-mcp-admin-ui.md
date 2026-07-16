@@ -62,7 +62,7 @@
 - Consumes: 既有 `McpProperties`（3 个超时字段）、`McpClientFactory.create(url, transport, headers)`、`SsrfValidator.validate(host)`。
 - Produces: `McpProperties.getAllowedPrivateHosts(): List<String>` / `setAllowedPrivateHosts(List<String>)`；`McpClientFactory` 对白名单内 host 不再抛 10001。后续 Task 不依赖本 Task 的代码符号（前后端经 HTTP 契约解耦）。
 
-- [ ] **Step 1: 写失败测试——McpClientFactoryTest 加 2 个用例**
+- [x] **Step 1: 写失败测试——McpClientFactoryTest 加 2 个用例**
 
 在 `McpClientFactoryTest` 现有 4 个测试后追加（import 区补 `import java.util.List;`）：
 
@@ -93,7 +93,7 @@
     }
 ```
 
-- [ ] **Step 2: 写失败测试——新建 McpPropertiesTest（绑定契约）**
+- [x] **Step 2: 写失败测试——新建 McpPropertiesTest（绑定契约）**
 
 ```java
 package com.hify.tool.config;
@@ -134,12 +134,12 @@ class McpPropertiesTest {
 }
 ```
 
-- [ ] **Step 3: 观察红（编译失败即本 Task 的红）**
+- [x] **Step 3: 观察红（编译失败即本 Task 的红）**
 
 Run: `cd server && mvn test -Dtest=McpPropertiesTest,McpClientFactoryTest`
 Expected: **COMPILATION ERROR**——`setAllowedPrivateHosts`/`getAllowedPrivateHosts` 符号不存在。这是迁移前唯一一次观察红；Step 4-5 期间不要再跑测试。
 
-- [ ] **Step 4: 实现 McpProperties 新字段**
+- [x] **Step 4: 实现 McpProperties 新字段**
 
 在 `initializationTimeoutMs` 字段后加（import 区补 `import java.util.List;`）：
 
@@ -161,7 +161,7 @@ getter/setter（放在现有 getter/setter 之后，同款单行风格）：
     }
 ```
 
-- [ ] **Step 5: 实现 McpClientFactory 白名单判定**
+- [x] **Step 5: 实现 McpClientFactory 白名单判定**
 
 `validate(String url)` 方法里，把
 
@@ -189,7 +189,7 @@ getter/setter（放在现有 getter/setter 之后，同款单行风格）：
 类 javadoc 第一行 `造 McpSyncClient：SSRF 校验 → 选传输 → …` 改为
 `造 McpSyncClient：SSRF 校验（白名单 host 豁免禁内网，见 McpProperties.allowedPrivateHosts）→ 选传输 → …`。
 
-- [ ] **Step 6: application.yml 加配置项**
+- [x] **Step 6: application.yml 加配置项**
 
 `hify.tool.mcp` 块末尾（`initialization-timeout-ms` 行后）追加：
 
@@ -200,12 +200,12 @@ getter/setter（放在现有 getter/setter 之后，同款单行风格）：
       allowed-private-hosts: ${HIFY_TOOL_MCP_ALLOWED_PRIVATE_HOSTS:}
 ```
 
-- [ ] **Step 7: 跑测试转绿**
+- [x] **Step 7: 跑测试转绿**
 
 Run: `cd server && mvn test -Dtest=McpPropertiesTest,McpClientFactoryTest`
 Expected: `Tests run: 8, Failures: 0, Errors: 0, Skipped: 0`（4 旧 + 2 新 factory + 2 新 properties）。
 
-- [ ] **Step 8: 拍板入档——4 处文档同步**
+- [x] **Step 8: 拍板入档——4 处文档同步**
 
 ① `deploy/.env.example` 末尾追加：
 

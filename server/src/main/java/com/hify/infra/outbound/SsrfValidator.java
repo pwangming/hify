@@ -14,7 +14,8 @@ import java.util.function.Function;
  * 回环 / RFC1918 私网 / link-local(169.254 云元数据) / any / 组播 / IPv6 ULA(fc00::/7)。
  * 容器服务名（postgres/sandbox）解析结果是容器网段私网 IP，被私网规则自动覆盖。
  * 已知边界（spec §3）：不做 DNS pinning，一期威胁模型（内网部署+受信团队）可接受。
- * 内网白名单为推迟项（spec §1），真有需求时在此查 system_setting 放行。
+ * 内网白名单已落地于 tool 模块的 MCP 出站（hify.tool.mcp.allowed-private-hosts，T4b 决策 2）；
+ * 本类保持无差别禁内网、不读任何配置——HTTP 节点/内置 HTTP 工具的 URL 非 admin 受控，无白名单。
  */
 @Component
 public class SsrfValidator {

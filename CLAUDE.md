@@ -109,6 +109,6 @@ hify/
 - **限流**：按供应商并发信号量（交互池/批量池分离）；按用户/应用每日Token配额，防异常Agent循环刷爆账单；配额只在 conversation/workflow 入口检查
 - **PostgreSQL**：业务+向量同库，pg_dump 每日备份（保留14天，每月恢复演练）；Flyway 管理迁移；日志表按月分区
 - **代码执行沙箱**：独立容器（不可信代码绝不进 server），网络隔离、CPU/内存硬限制 + 执行超时
-- **安全**：敏感配置走 `.env` + `env_file` 不入库不入镜像（供应商 API Key 在库中加密，主密钥在 .env）；前置 Nginx 做 HTTPS；对外 API 不暴露自增主键；HTTP 节点/自定义工具/MCP 出站统一过 SSRF 防护（禁内网与元数据地址，见 deployment.md 第 5 节）
+- **安全**：敏感配置走 `.env` + `env_file` 不入库不入镜像（供应商 API Key 在库中加密，主密钥在 .env）；前置 Nginx 做 HTTPS；对外 API 不暴露自增主键；HTTP 节点/自定义工具/MCP 出站统一过 SSRF 防护（禁内网与元数据地址；仅 MCP 可经 yml 白名单放行自建服务器，见 deployment.md 第 5 节）
 - **可用性**：Actuator + compose healthcheck/restart；优雅关闭等待 Workflow 收尾，启动时自愈重置非终态僵尸记录；`@Transactional` 内禁止 LLM/外部 IO（防连接池耗尽拖垮全站）
 - **本地模型**：当前不使用，未来启用需独立规划GPU资源，与主服务分机部署

@@ -147,6 +147,10 @@ hify:
       request-timeout-ms: ${HIFY_TOOL_MCP_REQUEST_TIMEOUT_MS:30000}
       # initialize 握手超时。
       initialization-timeout-ms: ${HIFY_TOOL_MCP_INITIALIZATION_TIMEOUT_MS:10000}
+      # MCP 内网白名单（T4b spec 决策 1/2）：命中的 host 跳过 SSRF 禁内网校验，仅 MCP 出站生效。
+      # 精确 host 匹配（忽略大小写），逗号分隔；localhost 与 127.0.0.1 是两个条目。
+      # 例：HIFY_TOOL_MCP_ALLOWED_PRIVATE_HOSTS=host.docker.internal,192.168.1.10
+      allowed-private-hosts: ${HIFY_TOOL_MCP_ALLOWED_PRIVATE_HOSTS:}
   usage:
     # 单用户每日 Token 上限（prompt+completion 累计）。入口配额检查：今日已用 >= 此值即拦（14001/429）。
     # 防失控 Agent 循环刷爆账单，非精确计费；宽松默认，生产按供应商额度调。改配额只动这里。

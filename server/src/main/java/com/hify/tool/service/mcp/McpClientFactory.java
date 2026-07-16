@@ -18,7 +18,7 @@ import java.time.Duration;
 import java.util.Map;
 
 /**
- * 造 McpSyncClient：SSRF 校验 → 选传输 → 注入鉴权头 → 禁重定向 → 双超时。
+ * 造 McpSyncClient：SSRF 校验（白名单 host 豁免禁内网，见 McpProperties.allowedPrivateHosts）→ 选传输 → 注入鉴权头 → 禁重定向 → 双超时。
  * MCP 出站的<b>全部安全闸门收口于此</b>，禁止别处自建 MCP 客户端（deployment.md §5）。
  * 只支持远程 HTTP，不支持 stdio（T4a spec 决策 1）。调用方负责 close（try-with-resources）。
  */
@@ -62,7 +62,9 @@ public class McpClientFactory {
         if (uri.getHost() == null) {
             throw new BizException(CommonError.PARAM_INVALID, "MCP 地址缺少主机名：" + url);
         }
-        ssrfValidator.validate(uri.getHost());   // 内网/回环/元数据 → BizException(10001)，原样抛出
+        if (!isAllowedPrivateHost(uri.getHost())) {
+            ssrfValidator.validate(uri.getHost());   // 内网/回环/元数据 → BizException(10001)，原样抛出
+        }
         return uri;
     }
 
@@ -100,5 +102,10 @@ public class McpClientFactory {
             path = "/";
         }
         return uri.getRawQuery() == null ? path : path + "?" + uri.getRawQuery();
+    }
+
+    /** T4b 白名单：只豁免禁内网这一条；followRedirects(NEVER) 与三重超时不豁免。 */
+    private boolean isAllowedPrivateHost(String host) {
+        return props.getAllowedPrivateHosts().stream().anyMatch(h -> h.equalsIgnoreCase(host));
     }
 }

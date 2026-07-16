@@ -103,18 +103,23 @@
   出站请求统一收口在 `infra` 提供的出站 HTTP 客户端，tool/workflow 模块禁止自建客户端。
   发请求前对 **DNS 解析后的 IP** 做校验（防域名指回内网）：禁止 loopback、RFC1918 私网段、
   link-local `169.254.0.0/16`（云元数据）、容器服务名（postgres / sandbox 等）；
-  3xx 重定向跟随后对新地址重新校验。确需访问内网地址时由 admin 在系统设置中加显式白名单。
+  3xx 重定向跟随后对新地址重新校验。
   一期拍板（2026-07-11，W3b spec）：3xx 一律**不跟随**（status+Location 原样返回节点输出，
-  彻底封死重定向绕过）；内网白名单**暂缓**（一期只调公网，机制预留：SsrfValidator 查
-  system_setting 放行）；不做 DNS pinning（校验与连接间的 rebinding 窗口以一期威胁模型
+  彻底封死重定向绕过）；不做 DNS pinning（校验与连接间的 rebinding 窗口以一期威胁模型
   评估可接受，二期对外开放时收紧）。
+  内网白名单（2026-07-15，T4b spec 重议）：**仅对 MCP 出站生效**——
+  `hify.tool.mcp.allowed-private-hosts`（yml/.env，精确 host、忽略大小写），命中即跳过禁内网
+  校验，重定向禁令与超时不豁免；运维改配置+重启生效。依据「URL 由谁控制」的威胁模型：
+  MCP 地址仅 admin 注册（受信）；HTTP 节点 URL 任何成员可填、内置 HTTP 工具的 URL 由模型
+  决定（提示注入可操纵）——后两类维持无差别禁内网。原「查 system_setting」预留因模块边界
+  （SsrfValidator 在 infra 只依赖 common，system_setting 属 provider）放弃，改在 tool 模块配置收口。
 - **MCP 连接的落地细节（2026-07-15，T4a spec）**：MCP **只支持远程 HTTP**
   （`streamable_http` 默认 / `sse` 兼容），**不支持 stdio**——stdio 要求在 server 容器内 spawn
   子进程执行第三方代码，与「不可信代码绝不进 server、代码执行进独立沙箱」的既定姿态冲突。
   MCP 出站不走 `OutboundHttpClient`（MCP SDK 自带 HTTP 客户端），改由 `tool` 模块的
   `McpClientFactory` 收口**同一套闸门**：建连前过 `SsrfValidator`（同款禁内网/元数据）、
   `followRedirects(NEVER)`（不设则远端一个 302 即可绕过 SSRF 校验）、连接/请求/握手三重超时
-  外化于 `hify.tool.mcp.*`。MCP 服务器地址由 admin 注册，同样仅限公网可达。
+  外化于 `hify.tool.mcp.*`。MCP 服务器地址由 admin 注册；自建内网服务器经上条白名单放行。
 
 ## 6. 二期触发条件与演进路径
 
