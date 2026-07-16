@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listTools, getTool, createTool, updateTool, removeTool, enableTool, disableTool, previewTool } from '@/api/admin/tool'
-import type { ToolAdminItem, ToolForm, ToolOperation } from '@/types/tool'
+import { listTools, removeTool, enableTool, disableTool } from '@/api/admin/tool'
+import type { ToolAdminItem } from '@/types/tool'
 import PageHeader from '@/components/PageHeader.vue'
 import ContentCard from '@/components/ContentCard.vue'
+import ToolDrawer from './components/ToolDrawer.vue'
 
 const tools = ref<ToolAdminItem[]>([])
 const loading = ref(false)
@@ -65,94 +66,18 @@ async function onDelete(row: ToolAdminItem) {
   }
 }
 
-// —— 注册 / 编辑抽屉 ——
+// —— 注册 / 编辑抽屉（表单逻辑在 ToolDrawer 内）——
 const drawerVisible = ref(false)
-const editingId = ref<string | null>(null)
-const submitting = ref(false)
-const previewing = ref(false)
-const previewOps = ref<ToolOperation[]>([])
-const form = reactive<ToolForm>({ name: '', description: '', specText: '', authHeaders: [] })
-
-function resetForm() {
-  form.name = ''
-  form.description = ''
-  form.specText = ''
-  form.authHeaders = []
-  previewOps.value = []
-}
+const editingRow = ref<ToolAdminItem | null>(null)
 
 function openCreate() {
-  editingId.value = null
-  resetForm()
+  editingRow.value = null
   drawerVisible.value = true
 }
 
-async function openEdit(row: ToolAdminItem) {
-  editingId.value = row.id
-  resetForm()
+function openEdit(row: ToolAdminItem) {
+  editingRow.value = row
   drawerVisible.value = true
-  try {
-    const detail = await getTool(row.id)
-    form.name = detail.name
-    form.description = detail.description
-    form.specText = detail.rawSpec ?? ''
-    form.authHeaders = detail.authHeaderNames.map((name) => ({ name, value: '' }))
-    previewOps.value = detail.operations
-  } catch {
-    drawerVisible.value = false
-  }
-}
-
-function addHeader() {
-  form.authHeaders.push({ name: '', value: '' })
-}
-
-function removeHeader(i: number) {
-  form.authHeaders.splice(i, 1)
-}
-
-async function onPreview() {
-  if (!form.specText.trim()) {
-    ElMessage.warning('请先粘贴 OpenAPI 文档')
-    return
-  }
-  previewing.value = true
-  try {
-    const result = await previewTool(form.specText)
-    previewOps.value = result.operations
-    ElMessage.success(`解析成功，共 ${result.operations.length} 个操作`)
-  } catch {
-    /* 解析失败(13001)由拦截器 toast；抽屉保持打开 */
-  } finally {
-    previewing.value = false
-  }
-}
-
-async function submitForm() {
-  if (!form.name.trim()) {
-    ElMessage.warning('请输入名称')
-    return
-  }
-  if (!form.specText.trim()) {
-    ElMessage.warning('请粘贴 OpenAPI 文档')
-    return
-  }
-  submitting.value = true
-  try {
-    if (editingId.value === null) {
-      await createTool({ ...form, authHeaders: [...form.authHeaders] })
-      ElMessage.success('工具已注册')
-    } else {
-      await updateTool(editingId.value, { ...form, authHeaders: [...form.authHeaders] })
-      ElMessage.success('工具已更新')
-    }
-    drawerVisible.value = false
-    await load()
-  } catch {
-    /* 失败(重名/解析)由拦截器 toast；抽屉保持打开让用户改 */
-  } finally {
-    submitting.value = false
-  }
 }
 </script>
 
@@ -221,61 +146,7 @@ async function submitForm() {
       </el-table>
     </ContentCard>
 
-    <el-drawer
-      v-model="drawerVisible"
-      data-test="tool-drawer"
-      :title="editingId === null ? '注册工具' : '编辑工具'"
-      size="600px"
-    >
-      <el-form label-width="90px">
-        <el-form-item label="名称">
-          <el-input v-model="form.name" data-test="form-name" maxlength="64" />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="form.description" data-test="form-description" maxlength="500" />
-        </el-form-item>
-        <el-form-item label="OpenAPI">
-          <el-input
-            v-model="form.specText"
-            data-test="form-spec"
-            type="textarea"
-            :rows="10"
-            placeholder="粘贴 OpenAPI 3.0 文档（JSON 或 YAML）"
-          />
-        </el-form-item>
-        <el-form-item label="鉴权头">
-          <div class="tool-list__headers">
-            <div v-for="(h, i) in form.authHeaders" :key="i" class="tool-list__header-row">
-              <el-input v-model="h.name" placeholder="头名，如 X-API-Key" :data-test="`header-name-${i}`" />
-              <el-input
-                v-model="h.value"
-                :placeholder="editingId === null ? '头值' : '留空=不改'"
-                :data-test="`header-value-${i}`"
-              />
-              <el-button size="small" text type="danger" @click="removeHeader(i)">删除</el-button>
-            </div>
-            <el-button size="small" data-test="add-header" @click="addHeader">+ 添加请求头</el-button>
-          </div>
-        </el-form-item>
-        <el-form-item>
-          <el-button data-test="form-preview" :loading="previewing" @click="onPreview">预览操作</el-button>
-        </el-form-item>
-        <el-form-item v-if="previewOps.length" label="操作列表">
-          <ul class="tool-list__ops-preview">
-            <li v-for="op in previewOps" :key="op.opName" :data-test="`operation-${op.opName}`">
-              <strong>{{ op.opName }}</strong>
-              <el-tag size="small">{{ op.method }}</el-tag>
-              <code>{{ op.pathTemplate }}</code>
-              <span class="tool-list__op-desc">{{ op.description }}</span>
-            </li>
-          </ul>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="drawerVisible = false">取消</el-button>
-        <el-button type="primary" data-test="form-submit" :loading="submitting" @click="submitForm">保存</el-button>
-      </template>
-    </el-drawer>
+    <ToolDrawer v-model="drawerVisible" :editing="editingRow" @saved="load" />
   </div>
 </template>
 
@@ -289,30 +160,5 @@ async function submitForm() {
 .tool-list__builtin-hint {
   color: var(--el-text-color-secondary);
   font-size: 13px;
-}
-
-.tool-list__headers {
-  width: 100%;
-}
-
-.tool-list__header-row {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-  margin-bottom: $spacing-sm;
-}
-
-.tool-list__ops-preview {
-  margin: 0;
-  padding-left: 1.2em;
-
-  li {
-    line-height: 1.9;
-  }
-
-  .tool-list__op-desc {
-    color: var(--el-text-color-secondary);
-    margin-left: 6px;
-  }
 }
 </style>
