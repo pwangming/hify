@@ -40,7 +40,7 @@ target/
 *.iml
 ```
 
-- [ ] **Step 2: 写 `server/maven-settings.xml` 与 `server/Dockerfile`**（2026-07-17 修订：原版 Dockerfile 直连 Maven Central 在容器内超时——宿主机代理不覆盖容器网络路径（DNS 返回 198.18.x fake-IP）；阿里云仓库容器内实测 200/392ms。改动：新增构建专用 settings + 两处 mvn 加 `-s`。）
+- [x] **Step 2: 写 `server/maven-settings.xml` 与 `server/Dockerfile`**（2026-07-17 修订：原版 Dockerfile 直连 Maven Central 在容器内超时——宿主机代理不覆盖容器网络路径（DNS 返回 198.18.x fake-IP）；阿里云仓库容器内实测 200/392ms。改动：新增构建专用 settings + 两处 mvn 加 `-s`。）
 
 `server/maven-settings.xml`：
 
@@ -92,17 +92,18 @@ EXPOSE 8080
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app.jar"]
 ```
 
-- [ ] **Step 3: 构建验证**
+- [x] **Step 3: 构建验证**
 
 Run: `docker build -t hify-server:dev server/`
 Expected: 成功出镜像（首次约 5-10 分钟，拉基础镜像+下依赖）。失败常见原因：网络拉不动镜像/依赖——重试或配镜像源，不要改 Dockerfile 结构。
 
-- [ ] **Step 4: 运行层冒烟（不连库，只验 jar 与入口）**
+- [x] **Step 4: 运行层冒烟（不连库，只验 jar 与入口）**
 
-Run: `docker run --rm hify-server:dev sh -c 'ls -la /app.jar && java -version' 2>&1 | tail -5`
+Run: `docker run --rm --entrypoint sh hify-server:dev -c 'ls -la /app.jar && java -version' 2>&1 | tail -5`
 Expected: 列出 /app.jar（约 100MB+）、`openjdk version "21`。
+（2026-07-17 执行修正：原命令没加 `--entrypoint`，追加命令会被 ENTRYPOINT 的 sh -c 当参数忽略、应用真启动。）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/Dockerfile server/.dockerignore server/maven-settings.xml
@@ -234,7 +235,7 @@ FROM node:24-slim AS build
 # corepack 按 web/package.json 的 packageManager 字段锁定 pnpm 版本（与宿主机一致）
 RUN corepack enable
 WORKDIR /build
-COPY web/package.json web/pnpm-lock.yaml ./
+COPY web/package.json web/pnpm-lock.yaml web/.npmrc ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 COPY web/ .

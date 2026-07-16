@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 仅供 Docker 构建使用（server/Dockerfile 里 mvn -s 引用）：
+     容器内无宿主机代理链路，Maven Central 直连超时，改走阿里云公共镜像仓库（聚合 central）。
+     宿主机开发不受影响（不放 ~/.m2，不改全局配置）。 -->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <mirrors>
+    <mirror>
+      <id>aliyun-public</id>
+      <name>Aliyun public mirror of central</name>
+      <mirrorOf>central</mirrorOf>
+      <url>https://maven.aliyun.com/repository/public</url>
+    </mirror>
+  </mirrors>
+</settings>
