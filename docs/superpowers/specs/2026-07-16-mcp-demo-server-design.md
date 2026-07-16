@@ -102,7 +102,7 @@ Hify 侧注册时在鉴权头里填 `Authorization: Bearer hify-demo-token`，
 
 1. `pnpm test` 全绿；
 2. `pnpm dev` 启动，日志显示监听 3100；
-3. hify `.env` 加 `HIFY_TOOL_MCP_ALLOWED_PRIVATE_HOSTS=localhost`（hify-server 若跑在 compose 内则再加 `host.docker.internal`，注册 url 相应换 host），重启 hify-server；
+3. 白名单变量传给 hify-server（验收时勘误：本地 `make start` 跑法**没有**根 `.env`，`start.sh` 也不加载 `.env`——那是 compose 部署的机制。本地用命令前缀传入并重启：`HIFY_TOOL_MCP_ALLOWED_PRIVATE_HOSTS=localhost make restart`；compose 部署才写 `deploy/.env`，host 用 `host.docker.internal`，注册 url 相应换 host）；
 4. admin 工具页注册：类型 MCP、传输 streamable、url `http://localhost:3100/mcp`、鉴权头 `Authorization: Bearer hify-demo-token` → 试连接发现 2 个工具，保存后快照入库；
 5. **反向验证**：故意填错 token 试连接 → 必须失败（证明鉴权真的在拦）；
 6. 应用勾选两个工具，聊天问「现在几点了？掷 3 个骰子」→ Agent 真调用、轨迹可见调用与结果。
