@@ -1007,3 +1007,52 @@ mvn -f server/pom.xml test
 - 其他既定非目标：MCP 的 resources/prompts 不接、OAuth 授权流不做、多模态工具结果给占位、per-app 只能勾整个 MCP 服务器（与 OpenAPI 工具一致）、DNS rebinding 窗口（与 `OutboundHttpClient` 现状一致，非新增）。
 - 验收残留数据（未清理）：`tool` 表 id=4 `deepwiki`（source=mcp）；app 28「调用工具测试」模型由 deepseek 改为千问（deepseek 供应商报 12003 不可达）、toolIds 由 `["1"]` 改为 `["1","4"]`。
 - **T4b（前端）未开始**：`web/` 本轮零改动，无 T4b spec/plan。admin 工具页（T3b 建）目前只认 OpenAPI，MCP 注册只能 curl；但 Agent 配置页与对话页**零改动即可用 MCP 工具**（本轮设计要证明的透明性，已实证）。
+
+## 2026-07-16 Agent Tool T4b（MCP 内网白名单 + MCP admin 注册页）——② Agent/tool 方向收官
+
+spec `docs/superpowers/specs/2026-07-15-agent-tool-t4b-mcp-admin-ui-design.md`、plan 同名 plans/；
+Codex 执行 5 Task（`ff94322..80e2702`）+ 终审修缮 2 commit（`70051cd`、`8e23ab7`）。
+人工验收：线 1 DeepWiki 公网全流程过；线 2 白名单核心断言过（详见下），完整闭环待自建 MCP 就绪补验。
+
+### 范围与结论
+
+- **后端（一个 Task）**：`hify.tool.mcp.allowed-private-hosts` yml 白名单（精确 host、忽略大小写、默认空=行为不变），
+  `McpClientFactory` 命中即跳过 `SsrfValidator`；**仅 MCP 出站生效**——威胁模型按「URL 由谁控制」分层：
+  MCP 地址仅 admin 注册（受信），HTTP 节点 URL 成员可填、内置 HTTP 工具 URL 模型可选（提示注入可操纵），后两类维持禁内网。
+  原「SsrfValidator 查 system_setting」预留被否：infra 只依赖 common、system_setting 属 provider、tool 依赖白名单为「无」，
+  打穿模块边界不值；MCP 出站闸门本就收口在 tool 模块 `McpProperties`，放这里零边界问题、零新 API、零新表。
+- **前端**：T3b 抽屉先拆成 `ToolDrawer.vue`（318 行加 MCP 必超 ~300 行规范线）再加 MCP 分支——
+  类型 radio（编辑态只读 el-tag，沿 ProviderDetail 先例绕开 EP radio disabled 覆盖坑）、url/transport/鉴权头、
+  试连接（仅新建；编辑态鉴权头值空试连必假失败→改展示快照+discoveredAt）、列表三类标签+刷新按钮+列名「操作/工具数」。
+- 回归：`mvn clean test` 696/0/0/0、`pnpm vitest run` 403/403（终审后含修复新增 7 用例）、`pnpm build` 过。
+- **Codex 执行零偏差**：5 commit 与计划逐字一致，红线例外（计划勾选）无内容篡改——T4a 的 4 次叫停教训
+  （原子边界+全量 grep 调用点）在本轮计划里逐条预防，一次没叫停。
+
+### 验收实测抓出的双故障（`8e23ab7`，测试先红后绿）
+
+- **「点保存无反应」= 10001 字段错误的静默约定咬人**：描述留空 → 后端 `@NotBlank` 返回 10001+字段数组 →
+  拦截器按约定不弹全局 toast（留给表单逐项标红），抽屉 catch 又吞掉 ⇒ 界面零反应。curl 复现实锤。
+  修法：前端预检补「请输入描述」+ catch 里 `toastFieldErrors` 兜底（未做逐项标红的表单必须兜底，否则校验失败=静默）。
+  **同类隐患早有留账**（K2「上传报 10001 前端静默」），这是第二次咬人——凡用 el-form 之外的手搓表单都要自查这条。
+- **「网络异常」= D2 坑第二次踩（前端超时 < 后端预算）**：MCP create/update/preview/refresh 在服务端现场
+  连远端发现工具，最坏预算 connect 5s+init 10s+listTools 30s ≈ 45s > axios 默认 30s ⇒ 远端一慢客户端先断。
+  修法：四个发现类接口带 `config.mcpDiscoverTimeoutMs=60_000`（沿 `llmTestTimeoutMs` 既有模式）。
+  **模式化教训：任何「同步接口内含现场外联」上线前，必须核对前端超时 ≥ 后端全链路预算**——
+  T4a 终审抓的是它的事务版（@Transactional 内禁 IO），本轮抓的是超时版，同一个根源（discover 是 IO）两副面孔。
+
+### 线 2 验收期间的「网络异常」误报排障（结论：环境瞬断，非 bug）
+
+- 现象：试连接 `http://127.0.0.1:8931/mcp` 前两次正确报 13002，之后连点全报「网络异常」。
+- 取证：后端连打 5 次 preview 全 0.02s 返 13002（无劣化）；走 5173 代理同款路径亦 0.02s 正常；
+  读 Vite 6.4.3 源码证明后端挂时代理回 500 空体（前端文案会是「服务器繁忙」而非「网络异常」）⇒
+  「网络异常」只能是浏览器连 5173 那跳断了；vite 进程 14:44:32 才启动 = 用户重启后端时把 dev server 一并断了，
+  旧页面每次点击瞬间 ERR_NETWORK。刷新页面后恢复。
+- **排障口诀入档：「服务器繁忙」=后端 5xx/代理 500；「网络异常」=浏览器根本没拿到响应（dev server 挂/超时/断网）——
+  两条文案分流是 request.ts 设计好的，报障时据此直接定位层级。**
+- **白名单验收的铁证口径：10001→13002 的转变即放行成功**（10001=SSRF 闸门拒绝没出网；13002=已出网但对端无服务）。
+
+### 留账
+
+- 线 2 完整闭环（内网注册成功→Agent 调用）待自建 MCP 服务器就绪后补验；机制本身已证。
+- 验收残留：tool 表 id=4 `deepwiki`（T4a 留）+ 线 1 新注册的 MCP 行；复现行 id=5 已删。
+- ② Agent/tool 四子轮（T1/T2/T3a+b/T4a+b）全部完结；① 对外 API 触发维持推迟（等真实调用方）。
