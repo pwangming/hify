@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElMessage } from 'element-plus'
+import { ApiError } from '@/api/request'
 import { listTools, getTool, createTool, updateTool, previewTool, refreshTool } from '@/api/admin/tool'
 import type { ToolAdminItem, ToolAdminDetail, ToolPreview } from '@/types/tool'
 import ToolList from '@/views/admin/tool/ToolList.vue'
@@ -278,6 +279,31 @@ describe('ToolList MCP 注册/编辑', () => {
       transport: 'streamable_http',
       authHeaders: [],
     })
+  })
+
+  it('描述留空：前端预检拦下，不发请求（后端 @NotBlank 的 10001 走字段数组、拦截器按约定静默——T4b 验收实测的「点保存无反应」）', async () => {
+    vi.mocked(createTool).mockResolvedValue(SAMPLE[2])
+    const wrapper = await openCreateMcp()
+    await wrapper.get('[data-test="form-name"]').setValue('deepwiki')
+    await wrapper.get('[data-test="form-url"]').setValue('https://mcp.example.com/mcp')
+    await wrapper.get('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createTool).not.toHaveBeenCalled()
+  })
+
+  it('后端 10001 字段错误不再静默：兜底 toast 且抽屉保持打开', async () => {
+    const errSpy = vi.spyOn(ElMessage, 'error')
+    vi.mocked(createTool).mockRejectedValue(
+      new ApiError(10001, '参数校验失败', 't1', [{ field: 'description', message: 'must not be blank' }]),
+    )
+    const wrapper = await openCreateMcp()
+    await wrapper.get('[data-test="form-name"]').setValue('deepwiki')
+    await wrapper.get('[data-test="form-description"]').setValue('wiki 问答')
+    await wrapper.get('[data-test="form-url"]').setValue('https://mcp.example.com/mcp')
+    await wrapper.get('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('description'))
+    expect(wrapper.find('[data-test="tool-drawer"]').exists()).toBe(true)
   })
 
   it('编辑 mcp 行：回填 url、类型只读、展示快照与 discoveredAt、无试连接按钮', async () => {

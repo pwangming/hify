@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getTool, createTool, updateTool, previewTool } from '@/api/admin/tool'
+import { ApiError } from '@/api/request'
 import type { McpToolItem, ToolAdminItem, ToolForm, ToolOperation, ToolUpsertBody } from '@/types/tool'
 
 const visible = defineModel<boolean>({ required: true })
@@ -73,6 +74,14 @@ function removeHeader(i: number) {
   form.authHeaders.splice(i, 1)
 }
 
+// 10001 的字段错误按拦截器约定不弹全局 toast（留给表单逐项标红）；本抽屉未做逐项标红，
+// 必须兜底提示，否则校验失败在界面上是零反应（T4b 验收实测的「点保存无反应」）。
+function toastFieldErrors(e: unknown) {
+  if (e instanceof ApiError && e.fieldErrors?.length) {
+    ElMessage.error(e.fieldErrors.map((f) => `${f.field}：${f.message}`).join('；'))
+  }
+}
+
 function buildBody(): ToolUpsertBody {
   const authHeaders = [...form.authHeaders]
   if (form.type === 'mcp') {
@@ -133,6 +142,10 @@ async function submitForm() {
     ElMessage.warning('请输入名称')
     return
   }
+  if (!form.description.trim()) {
+    ElMessage.warning('请输入描述')
+    return
+  }
   // 后端 @AssertTrue 报错字段名是 payloadValid、无法精准标红（T4a spec §5.2 已知局限），前端先拦一道
   if (form.type === 'openapi' && !form.specText.trim()) {
     ElMessage.warning('请粘贴 OpenAPI 文档')
@@ -153,8 +166,9 @@ async function submitForm() {
     }
     visible.value = false
     emit('saved')
-  } catch {
-    /* 失败(重名/解析/连接)由拦截器 toast；抽屉保持打开让用户改 */
+  } catch (e) {
+    /* 失败(重名/解析/连接)由拦截器 toast；10001 字段错误在此兜底；抽屉保持打开让用户改 */
+    toastFieldErrors(e)
   } finally {
     submitting.value = false
   }

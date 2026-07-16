@@ -9,6 +9,9 @@ export const config = {
   llmTestTimeoutMs: 130_000,
   // workflow 调试运行可串多个 LLM 节点，比单次试连接更久；前端超时须 ≥ 后端预算（同 llmTestTimeoutMs 教训）。
   workflowRunTimeoutMs: 300_000,
+  // MCP 注册/更新/试连接/刷新会在服务端现场连远端发现工具：
+  // 后端预算 connect 5s + initialize 10s + listTools 30s ≈ 45s，前端超时须 ≥ 后端预算（同上教训）。
+  mcpDiscoverTimeoutMs: 60_000,
   // 应用版本号（Vite define 从 package.json 注入，见 vite.config.ts）
   appVersion: __APP_VERSION__,
 }
