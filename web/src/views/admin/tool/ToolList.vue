@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listTools, removeTool, enableTool, disableTool } from '@/api/admin/tool'
+import { listTools, removeTool, enableTool, disableTool, refreshTool } from '@/api/admin/tool'
 import type { ToolAdminItem } from '@/types/tool'
 import PageHeader from '@/components/PageHeader.vue'
 import ContentCard from '@/components/ContentCard.vue'
@@ -23,6 +23,32 @@ onMounted(load)
 
 function isBuiltin(row: ToolAdminItem): boolean {
   return row.source === 'builtin'
+}
+
+function sourceLabel(row: ToolAdminItem): string {
+  if (row.source === 'builtin') return '内置'
+  return row.source === 'mcp' ? 'MCP' : '自定义'
+}
+
+function sourceTagType(row: ToolAdminItem): 'info' | 'primary' | 'warning' {
+  if (row.source === 'builtin') return 'info'
+  return row.source === 'mcp' ? 'warning' : 'primary'
+}
+
+// 刷新=重新发现 MCP 工具清单（凭据用库中密文），非破坏性动作，无需二次确认
+const refreshingId = ref<string | null>(null)
+
+async function onRefresh(row: ToolAdminItem) {
+  refreshingId.value = row.id
+  try {
+    const updated = await refreshTool(row.id)
+    ElMessage.success(`已刷新，共 ${updated.operationCount ?? 0} 个工具`)
+    await load()
+  } catch {
+    /* 13002 等由 request 拦截器统一 toast */
+  } finally {
+    refreshingId.value = null
+  }
 }
 
 async function confirmDanger(message: string, title: string): Promise<boolean> {
@@ -92,13 +118,13 @@ function openEdit(row: ToolAdminItem) {
         <el-table-column prop="name" label="名称" />
         <el-table-column label="类型">
           <template #default="{ row }">
-            <el-tag :type="isBuiltin(row as ToolAdminItem) ? 'info' : 'primary'">
-              {{ isBuiltin(row as ToolAdminItem) ? '内置' : '自定义' }}
+            <el-tag :type="sourceTagType(row as ToolAdminItem)">
+              {{ sourceLabel(row as ToolAdminItem) }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" show-overflow-tooltip />
-        <el-table-column label="操作数">
+        <el-table-column label="操作/工具数">
           <template #default="{ row }">{{ (row as ToolAdminItem).operationCount ?? '—' }}</template>
         </el-table-column>
         <el-table-column label="状态">
@@ -108,7 +134,7 @@ function openEdit(row: ToolAdminItem) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="320">
+        <el-table-column label="操作" width="380">
           <template #default="{ row }">
             <div v-if="!isBuiltin(row as ToolAdminItem)" class="tool-list__ops">
               <el-button
@@ -127,6 +153,15 @@ function openEdit(row: ToolAdminItem) {
                 @click="onEnable(row as ToolAdminItem)"
               >
                 启用
+              </el-button>
+              <el-button
+                v-if="(row as ToolAdminItem).source === 'mcp'"
+                :data-test="`refresh-${(row as ToolAdminItem).id}`"
+                size="small"
+                :loading="refreshingId === (row as ToolAdminItem).id"
+                @click="onRefresh(row as ToolAdminItem)"
+              >
+                刷新
               </el-button>
               <el-button :data-test="`edit-${(row as ToolAdminItem).id}`" size="small" @click="openEdit(row as ToolAdminItem)">
                 编辑

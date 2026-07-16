@@ -269,7 +269,7 @@ Expected: `Tests run: 8, Failures: 0, Errors: 0, Skipped: 0`（4 旧 + 2 新 fac
 改为
 `HTTP 节点/自定义工具/MCP 出站统一过 SSRF 防护（禁内网与元数据地址；仅 MCP 可经 yml 白名单放行自建服务器，见 deployment.md 第 5 节）`。
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/tool/config/McpProperties.java \
@@ -1331,7 +1331,7 @@ async function submitForm() {
 Run: `cd web && pnpm vitest run`
 Expected: 全绿（+4 个新用例）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/views/admin/tool/components/ToolDrawer.vue \
@@ -1351,7 +1351,7 @@ git commit -m "feat(web): 注册抽屉支持 MCP——类型切换/试连接/编
 - Consumes: Task 3 的 `refreshTool(id)`；Task 4 加进 `SAMPLE` 的 mcp 行（id '12'）。
 - Produces: 列表 `data-test="refresh-{id}"` 按钮（仅 mcp 行）。本 Task 是最后功能 Task，末尾并入全量回归（防独立收尾 Task 被跳过——C3 教训）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ① `vi.mock` 工厂补一行（`previewTool: vi.fn(),` 后）：
 
@@ -1394,12 +1394,12 @@ import { listTools, getTool, createTool, updateTool, previewTool, refreshTool } 
   })
 ```
 
-- [ ] **Step 2: 观察红**
+- [x] **Step 2: 观察红**
 
 Run: `cd web && pnpm vitest run src/views/admin/tool`
 Expected: 新 3 用例 FAIL（无 MCP 标签文案 / 无 refresh-12 / 列头仍是「操作数」）；其余全绿。
 
-- [ ] **Step 3: 实现 `ToolList.vue`**
+- [x] **Step 3: 实现 `ToolList.vue`**
 
 ① import 行补 `refreshTool`：
 
@@ -1469,12 +1469,12 @@ async function onRefresh(row: ToolAdminItem) {
               </el-button>
 ```
 
-- [ ] **Step 4: 跑测试转绿**
+- [x] **Step 4: 跑测试转绿**
 
 Run: `cd web && pnpm vitest run`
 Expected: 全绿（+3 个新用例）。
 
-- [ ] **Step 5: 全量回归（三件套，读完整输出）**
+- [x] **Step 5: 全量回归（三件套，读完整输出）**
 
 ```bash
 cd server && mvn clean test
@@ -1491,7 +1491,7 @@ cd web && pnpm build
 ```
 Expected: vue-tsc 无类型错误、构建成功——这一步同时守住 Task 3 中测试字面量与类型定义的一致性（vitest 运行期不查类型）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/src/views/admin/tool/ToolList.vue \

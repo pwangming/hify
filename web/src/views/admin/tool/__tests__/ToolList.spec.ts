@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import ElementPlus from 'element-plus'
-import { listTools, getTool, createTool, updateTool, previewTool } from '@/api/admin/tool'
+import { listTools, getTool, createTool, updateTool, previewTool, refreshTool } from '@/api/admin/tool'
 import type { ToolAdminItem, ToolAdminDetail, ToolPreview } from '@/types/tool'
 import ToolList from '@/views/admin/tool/ToolList.vue'
 
@@ -15,6 +15,7 @@ vi.mock('@/api/admin/tool', () => ({
   enableTool: vi.fn(),
   disableTool: vi.fn(),
   previewTool: vi.fn(),
+  refreshTool: vi.fn(),
 }))
 
 // el-table 依赖 ResizeObserver，happy-dom 未实现，补桩
@@ -103,6 +104,31 @@ describe('ToolList 列表渲染', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('—')
     expect(wrapper.text()).toContain('3')
+  })
+
+  it('mcp 行显示 MCP 标签；刷新按钮仅 mcp 行有', async () => {
+    const wrapper = mountList()
+    await flushPromises()
+    expect(wrapper.text()).toContain('MCP')
+    expect(wrapper.find('[data-test="refresh-12"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="refresh-9"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="refresh-1"]').exists()).toBe(false)
+  })
+
+  it('点击刷新调 refreshTool 并重载列表', async () => {
+    vi.mocked(refreshTool).mockResolvedValue({ ...SAMPLE[2], operationCount: 4 })
+    const wrapper = mountList()
+    await flushPromises()
+    await wrapper.get('[data-test="refresh-12"]').trigger('click')
+    await flushPromises()
+    expect(refreshTool).toHaveBeenCalledWith('12')
+    expect(listTools).toHaveBeenCalledTimes(2)
+  })
+
+  it('操作数列头改为 操作/工具数', async () => {
+    const wrapper = mountList()
+    await flushPromises()
+    expect(wrapper.text()).toContain('操作/工具数')
   })
 })
 
