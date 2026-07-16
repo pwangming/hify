@@ -55,6 +55,24 @@ make stop                    # 优雅停止前后端（超时强制结束）
 
 > 前后端以后台进程运行，PID 记录在 `.run/*.pid`（已被 git 忽略）。`make stop` 据此停止。
 
+### 4. 生产形态（4 容器全套，deployment.md 落地）
+
+日常开发用不到；验收部署形态或演练上线时用。
+
+```bash
+# 前置（仅首次）：自签证书 + 敏感配置
+bash deploy/nginx/gen-self-signed-cert.sh
+cp deploy/.env.example deploy/.env        # 生产务必改掉 dev-only 默认值
+
+docker compose --profile app up -d --build   # nginx / hify-server / sandbox / postgres
+docker compose --profile app ps              # 等 4 个容器全部 healthy
+# 浏览器访问 https://localhost（自签证书首次需手动信任）
+docker compose --profile app down            # 停全套（数据卷保留）
+```
+
+要点：只有 nginx 对外发布 80/443（postgres 的 127.0.0.1:5432 是留给宿主机开发的，
+生产 VM 上删掉）；证书与 deploy/.env 均不入库；SSE/上传体积等反代配置见 deploy/nginx/nginx.conf。
+
 ---
 
 ## 常用命令（Makefile）

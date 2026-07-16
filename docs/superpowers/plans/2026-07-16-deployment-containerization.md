@@ -565,7 +565,7 @@ git commit -m "feat(deploy): compose 全套编排（profiles 双形态/三网拓
 - Consumes: Task 3 已拉起的全套形态。
 - Produces: 无代码接口；本轮收尾。
 
-- [ ] **Step 1: README「本地怎么跑」新增小节**
+- [x] **Step 1: README「本地怎么跑」新增小节**
 
 在 `### 3. 停止` 小节之后插入：
 
@@ -589,22 +589,22 @@ docker compose --profile app down            # 停全套（数据卷保留）
 生产 VM 上删掉）；证书与 deploy/.env 均不入库；SSE/上传体积等反代配置见 deploy/nginx/nginx.conf。
 ```
 
-- [ ] **Step 2: 后端测试回归**
+- [x] **Step 2: 后端测试回归**
 
 Run: `cd server && mvn -q verify; echo "exit=$?"`
 Expected: `exit=0`（判退出码，不 grep 输出——`-q` 会静音 BUILD SUCCESS）。
 本轮唯一后端代码改动是 application.yml 两段配置，理论零影响；若挂了先看是否环境问题（Testcontainers 需要 Docker 正常）。
 
-- [ ] **Step 3: 前端测试回归**
+- [x] **Step 3: 前端测试回归**
 
 Run: `pnpm -C web test; echo "exit=$?"`
 Expected: `exit=0`（vitest run 全绿）。本轮前端只加了 packageManager 字段，理论零影响。
 
-- [ ] **Step 4: 追加 docs/self-check.md**
+- [x] **Step 4: 追加 docs/self-check.md**
 
 沿用文件既有条目格式，追加「部署容器化收尾」一节：本轮做了什么（4 容器/profiles/自签 TLS/优雅停机配置就位）、验证方式（Task 3 冒烟 + 黄金旅程）、已知边界（优雅关闭行为验证留第 2 轮；生产 VM 需删 postgres 端口发布、换真证书、改 .env 默认值）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md docs/self-check.md
