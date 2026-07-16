@@ -36,7 +36,7 @@
 - Consumes: 无（首个 Task）
 - Produces: `getCurrentTime(timezone?: string): string`（非法时区抛 `RangeError`）；`currentTimeInputSchema: { timezone: z.ZodOptional<z.ZodString> }`（zod raw shape，供 Task 3 的 `registerTool` 用）
 
-- [ ] **Step 1: 初始化工程**
+- [x] **Step 1: 初始化工程**
 
 ```bash
 mkdir -p /home/wang/playlab/hify/mcp-demo/src/tools/__tests__
@@ -62,7 +62,7 @@ pnpm add -D typescript tsx vitest @types/express@^4 @types/node
 }
 ```
 
-- [ ] **Step 2: 写 tsconfig.json 和 vitest.config.ts**
+- [x] **Step 2: 写 tsconfig.json 和 vitest.config.ts**
 
 `mcp-demo/tsconfig.json`：
 
@@ -93,7 +93,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 3: 写失败测试**
+- [x] **Step 3: 写失败测试**
 
 `mcp-demo/src/tools/__tests__/current-time.test.ts`：
 
@@ -129,12 +129,12 @@ describe("currentTimeInputSchema", () => {
 });
 ```
 
-- [ ] **Step 4: 跑测试确认失败**
+- [x] **Step 4: 跑测试确认失败**
 
 Run: `pnpm test`
 Expected: FAIL，报 `Cannot find module '../current-time.js'`（或等价的模块解析错误）
 
-- [ ] **Step 5: 最小实现**
+- [x] **Step 5: 最小实现**
 
 `mcp-demo/src/tools/current-time.ts`：
 
@@ -160,12 +160,12 @@ export function getCurrentTime(timezone = "Asia/Shanghai"): string {
 }
 ```
 
-- [ ] **Step 6: 跑测试确认通过 + 类型检查**
+- [x] **Step 6: 跑测试确认通过 + 类型检查**
 
 Run: `pnpm test && pnpm typecheck`
 Expected: vitest 汇总行 `Test Files  1 passed`，typecheck 无输出退出码 0
 
-- [ ] **Step 7: Commit + 自检**
+- [x] **Step 7: Commit + 自检**
 
 ```bash
 cd /home/wang/playlab/hify
