@@ -2,7 +2,7 @@
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getTool, createTool, updateTool, previewTool } from '@/api/admin/tool'
-import type { ToolAdminItem, ToolForm, ToolOperation } from '@/types/tool'
+import type { ToolAdminItem, ToolForm, ToolOperation, ToolUpsertBody } from '@/types/tool'
 
 const visible = defineModel<boolean>({ required: true })
 const props = defineProps<{ editing: ToolAdminItem | null }>()
@@ -11,12 +11,23 @@ const emit = defineEmits<{ (e: 'saved'): void }>()
 const submitting = ref(false)
 const previewing = ref(false)
 const previewOps = ref<ToolOperation[]>([])
-const form = reactive<ToolForm>({ name: '', description: '', specText: '', authHeaders: [] })
+const form = reactive<ToolForm>({
+  name: '',
+  description: '',
+  type: 'openapi',
+  specText: '',
+  url: '',
+  transport: 'streamable_http',
+  authHeaders: [],
+})
 
 function resetForm() {
   form.name = ''
   form.description = ''
+  form.type = 'openapi'
   form.specText = ''
+  form.url = ''
+  form.transport = 'streamable_http'
   form.authHeaders = []
   previewOps.value = []
 }
@@ -46,6 +57,22 @@ function removeHeader(i: number) {
   form.authHeaders.splice(i, 1)
 }
 
+function buildBody(): ToolUpsertBody {
+  const authHeaders = [...form.authHeaders]
+  if (form.type === 'mcp') {
+    return {
+      name: form.name,
+      description: form.description,
+      type: 'mcp',
+      url: form.url,
+      transport: form.transport,
+      authHeaders,
+    }
+  }
+  // openapi 不传 type：与 T3b 上线请求字节级一致，顺带回归后端「type 缺省=openapi」兼容路径
+  return { name: form.name, description: form.description, specText: form.specText, authHeaders }
+}
+
 async function onPreview() {
   if (!form.specText.trim()) {
     ElMessage.warning('请先粘贴 OpenAPI 文档')
@@ -53,7 +80,7 @@ async function onPreview() {
   }
   previewing.value = true
   try {
-    const result = await previewTool(form.specText)
+    const result = await previewTool({ specText: form.specText })
     previewOps.value = result.operations
     ElMessage.success(`解析成功，共 ${result.operations.length} 个操作`)
   } catch {
@@ -75,10 +102,10 @@ async function submitForm() {
   submitting.value = true
   try {
     if (props.editing === null) {
-      await createTool({ ...form, authHeaders: [...form.authHeaders] })
+      await createTool(buildBody())
       ElMessage.success('工具已注册')
     } else {
-      await updateTool(props.editing.id, { ...form, authHeaders: [...form.authHeaders] })
+      await updateTool(props.editing.id, buildBody())
       ElMessage.success('工具已更新')
     }
     visible.value = false

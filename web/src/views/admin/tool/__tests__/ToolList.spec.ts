@@ -105,6 +105,7 @@ describe('ToolList 注册/编辑抽屉', () => {
     const preview: ToolPreview = {
       baseUrl: 'https://api.example.com',
       operations: [{ opName: 'getPet', method: 'GET', pathTemplate: '/pets/{id}', description: '查' }],
+      tools: [],
     }
     vi.mocked(previewTool).mockResolvedValue(preview)
     vi.mocked(createTool).mockResolvedValue(SAMPLE[1])
@@ -120,7 +121,7 @@ describe('ToolList 注册/编辑抽屉', () => {
     await wrapper.get('[data-test="form-spec"]').setValue('openapi: 3.0.0')
     await wrapper.get('[data-test="form-preview"]').trigger('click')
     await flushPromises()
-    expect(previewTool).toHaveBeenCalledWith('openapi: 3.0.0')
+    expect(previewTool).toHaveBeenCalledWith({ specText: 'openapi: 3.0.0' })
     expect(wrapper.text()).toContain('getPet')
 
     await wrapper.get('[data-test="form-submit"]').trigger('click')
@@ -128,6 +129,9 @@ describe('ToolList 注册/编辑抽屉', () => {
     expect(createTool).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'petstore', description: '宠物', specText: 'openapi: 3.0.0' }),
     )
+    const body = vi.mocked(createTool).mock.calls[0][0]
+    expect(body).not.toHaveProperty('type')
+    expect(body).not.toHaveProperty('url')
   })
 
   it('预览失败不关抽屉（后端 13001 由拦截器 toast）', async () => {
@@ -152,6 +156,10 @@ describe('ToolList 注册/编辑抽屉', () => {
       operations: [{ opName: 'getPet', method: 'GET', pathTemplate: '/pets/{id}', description: '查' }],
       authHeaderNames: ['X-API-Key'],
       rawSpec: 'openapi: 3.0.0',
+      url: null,
+      transport: null,
+      tools: [],
+      discoveredAt: null,
     }
     vi.mocked(getTool).mockResolvedValue(detail)
     vi.mocked(updateTool).mockResolvedValue(SAMPLE[1])
