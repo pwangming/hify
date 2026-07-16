@@ -109,7 +109,7 @@ function openEdit(row: ToolAdminItem) {
 
 <template>
   <div class="tool-list">
-    <PageHeader title="自定义工具" description="注册 OpenAPI 自定义工具，供 Agent 应用调用">
+    <PageHeader title="自定义工具" description="注册 OpenAPI 自定义工具与 MCP 服务器，供 Agent 应用调用">
       <el-button type="primary" data-test="create-open" @click="openCreate">注册工具</el-button>
     </PageHeader>
 
