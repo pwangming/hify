@@ -93,6 +93,8 @@ package: build
 	 mkdir -p "$$STAGE/deploy/nginx"; \
 	 cp deploy/.env.example "$$STAGE/deploy/"; \
 	 cp deploy/nginx/Dockerfile deploy/nginx/nginx.conf deploy/nginx/gen-self-signed-cert.sh "$$STAGE/deploy/nginx/"; \
+	 mkdir -p "$$STAGE/deploy/backup"; \
+	 cp deploy/backup/pg-backup.sh deploy/backup/README.md "$$STAGE/deploy/backup/"; \
 	 tar -czf $(DIST_DIR)/hify-$$VER.tar.gz -C $(DIST_DIR) "hify-$$VER"; \
 	 rm -rf "$$STAGE"; \
 	 echo "✓ 已生成 $(DIST_DIR)/hify-$$VER.tar.gz"

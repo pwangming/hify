@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: `pg-backup.sh` 环境变量约定——`HIFY_BACKUP_DIR`（默认 `/var/backups/hify`）、`HIFY_PG_CONTAINER`（默认 `hify-postgres`）、`HIFY_BACKUP_RETENTION_DAYS`（默认 `14`）；产物命名 `hify-YYYYMMDD-HHMMSS.dump`（-Fc 格式）。Task 2 的恢复演练消费该产物。
 
-- [ ] **Step 1: 写备份脚本**
+- [x] **Step 1: 写备份脚本**
 
 创建 `deploy/backup/pg-backup.sh`（完整内容）：
 
@@ -78,7 +78,7 @@ find "$BACKUP_DIR" -maxdepth 1 -name 'hify-*.dump.tmp' -mtime +0 -delete
 
 然后：`chmod +x deploy/backup/pg-backup.sh`
 
-- [ ] **Step 2: 写运维 runbook**
+- [x] **Step 2: 写运维 runbook**
 
 创建 `deploy/backup/README.md`（完整内容；Task 2 演练后如有出入须回改此文件）：
 
@@ -146,7 +146,7 @@ docker rm -fv hify-restore-drill
 恢复点 = 最近一次备份（最多丢 24 小时数据，deployment.md 既定口径）。
 ````
 
-- [ ] **Step 3: package 白名单加 backup 目录**
+- [x] **Step 3: package 白名单加 backup 目录**
 
 修改 `Makefile` package 目标，在 nginx 拷贝行之后插入两行。
 
@@ -168,7 +168,7 @@ docker rm -fv hify-restore-drill
 	 tar -czf $(DIST_DIR)/hify-$$VER.tar.gz -C $(DIST_DIR) "hify-$$VER"; \
 ```
 
-- [ ] **Step 4: 真实跑一次备份（成功路径）**
+- [x] **Step 4: 真实跑一次备份（成功路径）**
 
 前置：`docker compose up -d postgres` 且 `docker compose ps postgres` 显示 healthy。
 
@@ -180,7 +180,7 @@ ls -lh "$SCRATCH"
 
 预期：输出 `[pg-backup] ... 备份完成：.../hify-<时间戳>.dump（<大小>）`；目录中恰有一个 `.dump` 文件、无 `.tmp` 残留；退出码 0。文件大小应为百 KB~MB 级（开发库有 25 表 + 向量数据，若只有几 KB 说明 dump 不完整，停下排查）。
 
-- [ ] **Step 5: 验证失败路径响亮退出**
+- [x] **Step 5: 验证失败路径响亮退出**
 
 ```bash
 HIFY_PG_CONTAINER=no-such-container HIFY_BACKUP_DIR="$SCRATCH" bash deploy/backup/pg-backup.sh; echo "exit=$?"
@@ -188,7 +188,7 @@ HIFY_PG_CONTAINER=no-such-container HIFY_BACKUP_DIR="$SCRATCH" bash deploy/backu
 
 预期：stderr 输出 `容器 no-such-container 未运行，备份中止`，`exit=1`，目录中无新文件。
 
-- [ ] **Step 6: 验证 package 白名单**
+- [x] **Step 6: 验证 package 白名单**
 
 ```bash
 make package
@@ -197,7 +197,7 @@ tar -tzf dist/hify-*.tar.gz | grep backup
 
 预期（构建需几分钟）：列出 `hify-<ver>/deploy/backup/pg-backup.sh` 与 `hify-<ver>/deploy/backup/README.md` 两行。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add deploy/backup/pg-backup.sh deploy/backup/README.md Makefile
