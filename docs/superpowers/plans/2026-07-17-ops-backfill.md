@@ -215,7 +215,7 @@ git commit -m "feat(ops): pg_dump 每日备份脚本与恢复 runbook；随 make
 **Interfaces:**
 - Consumes: Task 1 的 `pg-backup.sh` 与其产物 `hify-*.dump`（`$SCRATCH/backup-test/` 下已有）。
 
-- [ ] **Step 1: 照 runbook 起临时容器并恢复**
+- [x] **Step 1: 照 runbook 起临时容器并恢复**
 
 严格按 `deploy/backup/README.md` §2 的 ①-④ 执行，仅 ① 的目录换成本地测试目录：
 
@@ -232,19 +232,19 @@ docker exec hify-restore-drill pg_restore -U postgres -d hify --no-owner --no-pr
 
 预期：pg_restore 退出码 0（个别 `WARNING` 可接受，`ERROR` 不可）。
 
-- [ ] **Step 2: 逐项核对（临时库 vs 源库）**
+- [x] **Step 2: 逐项核对（临时库 vs 源库）**
 
 对照跑 README §2 核对清单的 5 项。临时库用 `docker exec hify-restore-drill psql -U postgres -d hify -tAc "<SQL>"`；源库用 `docker exec hify-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "<SQL>"'`。
 
 预期：表数量、flyway 行数与 max(version)、分区子表数三项两边完全一致；sys_user > 0；向量相似度查询在临时库返回行且不报错（若源库 kb_chunk 为空则记 N/A——按既往轮次开发库应有数据）。任何一项不一致：停下，保留现场并排查（先怀疑 dump/restore 命令，再怀疑脚本）。
 
-- [ ] **Step 3: 销毁临时容器**
+- [x] **Step 3: 销毁临时容器**
 
 ```bash
 docker rm -fv hify-restore-drill
 ```
 
-- [ ] **Step 4: 回写文档 + self-check + Commit**
+- [x] **Step 4: 回写文档 + self-check + Commit**
 
 - 若步骤与 README 有出入（命令参数、等待时间等），修正 `deploy/backup/README.md`；
 - `docs/self-check.md` 末尾追加一节 `## 2026-07-17 运维补账 Task 1-2：备份与恢复演练`，写明：备份文件大小、pg_restore 退出码、5 项核对的**实测数值**（两边对照）、发现并回改的出入（若无写"无"）。
