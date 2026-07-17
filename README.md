@@ -5,6 +5,17 @@
 
 技术栈：Spring Boot 3（Java 21）+ Spring AI + MyBatis-Plus + PostgreSQL 16（pgvector）/ Vue 3 + TypeScript + Element Plus。
 
+## 功能一览
+
+- **对话应用**：多轮记忆、SSE 流式输出、知识库引用来源卡片；可开启 Agent 模式（见下）
+- **Agent 工具调用**：基于 Function Calling；内置 HTTP 请求/代码执行两个工具，支持按 OpenAPI 规范注册自定义工具、接入远程 MCP 服务器（统一工具注册表，按应用勾选）
+- **知识库（RAG）**：文档上传 → 自动分段 → 向量化 → 检索，向量与业务数据同存 PostgreSQL（pgvector），删改有事务保证
+- **工作流应用**：可视化画布编排，节点：LLM / 知识检索 / 条件分支 / HTTP 请求 / 代码执行（独立 Python 沙箱容器）
+- **模型管理**：OpenAI 兼容协议（通义千问/Gemini/Ollama 等）+ Anthropic 协议两种接入；供应商 API Key 库内加密存储
+- **管理控制台**（Admin）：供应商/模型配置、用户管理、自定义工具与 MCP 注册表、系统设置
+- **权限**：Admin / Member 两级；资源团队共享（改删仅 owner 与 Admin），会话仅本人
+- **配额**：按用户每日 Token 上限，防 Agent 异常循环刷爆账单
+
 ---
 
 ## 本地怎么跑
@@ -16,17 +27,20 @@
 | JDK | 21 | 后端运行/构建 |
 | Maven | 3.9+ | 后端构建 |
 | Node | 24 | 前端运行/构建（见 `web/.nvmrc`）|
-| pnpm | 9+ | 前端包管理 |
-| Docker + Compose | — | 跑本地 PostgreSQL |
+| pnpm | 11.4.0 | 前端包管理（`web/package.json` 的 `packageManager` 锁定，`corepack enable` 即可）|
+| Docker + Compose | — | 跑基础容器（PostgreSQL、代码沙箱）；全套形态还构建 server/nginx 镜像 |
 
-### 1. 起数据库
+### 1. 起基础容器
 
-业务数据与向量同库，用 Docker 起 PostgreSQL 16 + pgvector：
+PostgreSQL 16 + pgvector（业务数据与向量同库）和 Python 代码沙箱：
 
 ```bash
-docker compose up -d        # 启动（后台）
+docker compose up -d        # 启动（后台）：postgres + sandbox
 docker compose ps           # 等 STATUS 显示 healthy
 ```
+
+> 沙箱在 internal 网络内，宿主机开发形态下 server 访问不到它（跑 code 节点
+> 需临时 override 或直接用下面的全套形态），详见 docker-compose.yml 内注释。
 
 ### 2. 一键启动
 
@@ -55,6 +69,15 @@ make stop                    # 优雅停止前后端（超时强制结束）
 
 > 前后端以后台进程运行，PID 记录在 `.run/*.pid`（已被 git 忽略）。`make stop` 据此停止。
 
+### 首次使用（空库第一次跑）
+
+1. **admin 账号**：空库首次启动时按 `.env` 的 `HIFY_ADMIN_USERNAME` / `HIFY_ADMIN_PASSWORD`
+   自动创建一次（不配则跳过并告警）；样例见 `deploy/.env.example`。之后的账号由 admin 在后台创建。
+2. **配置模型供应商**：用 admin 登录 → 管理后台「模型供应商」→ 新建供应商（OpenAI 兼容 /
+   Anthropic 协议，填 Base URL + API Key）→ 添加模型 → 「试连接」验证连通。**不配模型，对话和
+   向量化都无法使用**，这是第一件事。
+3. **建应用**：回到工作台新建对话应用或工作流应用，绑定模型即可开聊/编排。
+
 ### 4. 生产形态（4 容器全套，deployment.md 落地）
 
 日常开发用不到；验收部署形态或演练上线时用。
@@ -72,6 +95,17 @@ docker compose --profile app down            # 停全套（数据卷保留）
 
 要点：只有 nginx 对外发布 80/443（postgres 的 127.0.0.1:5432 是留给宿主机开发的，
 生产 VM 上删掉）；证书与 deploy/.env 均不入库；SSE/上传体积等反代配置见 deploy/nginx/nginx.conf。
+
+**重启口径**（容器形态下最常踩的坑）：
+
+| 场景 | 命令 | 为什么 |
+|---|---|---|
+| 没改任何东西，纯重启 | `docker compose --profile app restart` | 原地重启，秒级 |
+| 改了代码 / nginx.conf | `docker compose --profile app up -d --build` | 代码烤在镜像里，光 restart 跑的还是旧镜像 |
+| 改了 deploy/.env | `--profile app down` 再 `up -d` | 环境变量在容器创建时注入，restart 不重读 |
+| 换证书 | `--profile app restart nginx` | 证书是 volume 挂载，不进镜像 |
+
+⚠️ `down -v` 会连数据卷一起删（数据库清空），日常永远不要带 `-v`。
 
 ---
 
@@ -98,18 +132,34 @@ STOP_TIMEOUT=5 ./stop.sh         # 优雅停止最多等 5s 再强杀
 
 ---
 
+## 测试
+
+```bash
+cd server && mvn verify      # 后端：单测 + 集成测（Testcontainers，需 Docker）+ 模块边界（ArchUnit/Modulith）
+pnpm -C web test             # 前端：vitest 单测/组件测
+pnpm -C web typecheck        # 前端：vue-tsc 类型检查
+pnpm -C web e2e              # E2E：Playwright + 假 LLM 桩（详见 docs/e2e-guide.md）
+```
+
+测试怎么算写得好，见 `docs/architecture/testing-standards.md`。
+
+---
+
 ## 仓库布局
 
 ```
 hify/
-├── server/              # Spring Boot 模块化单体（后端）
-├── web/                 # Vue 3 前端（独立 pnpm 工程）
-├── deploy/              # nginx 配置、.env.example
-├── docker-compose.yml   # 本地依赖（当前：postgres）
-├── start.sh / stop.sh   # 本地启停脚本
+├── server/              # Spring Boot 模块化单体（后端，含 Dockerfile）
+├── web/                 # Vue 3 前端（独立 pnpm 工程；构建产物进 nginx 镜像）
+├── sandbox/             # Python 代码执行沙箱（独立容器，唯一跑不可信代码的地方）
+├── mcp-demo/            # 自建 MCP server 练手工程（TypeScript，端口 3100）
+├── deploy/              # nginx 镜像与配置、自签证书脚本、.env.example（真实 .env 不入库）
+├── scripts/             # 手跑工具脚本（检索阈值评估集等），不进 CI
+├── docker-compose.yml   # 双形态编排：默认 postgres+sandbox；--profile app 全套 4 容器
+├── start.sh / stop.sh   # 宿主机开发形态的启停脚本
 ├── Makefile             # 统一命令入口
 ├── docs/architecture/   # 架构设计文档（写代码前必读）
-└── docs/self-check.md   # 本地自检手册（每块基础组件怎么验证做对了）
+└── docs/self-check.md   # 自检手册（每轮做完怎么验证做对了）
 ```
 
 更多约定见仓库根的 `CLAUDE.md` 与 `docs/architecture/` 下各文档；
