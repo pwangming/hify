@@ -22,5 +22,7 @@ RUN useradd --system hify
 USER hify
 COPY --from=build /build/target/*.jar /app.jar
 EXPOSE 8080
-# JAVA_OPTS 由 compose 注入（如 -Xmx4g），本地 docker run 不传则用 JVM 默认
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app.jar"]
+# JAVA_OPTS 由 compose 注入（如 -Xmx4g），本地 docker run 不传则用 JVM 默认。
+# exec 必须有：让 java 替换 sh 成为 PID 1 直收 SIGTERM——sh 不转发信号，
+# 缺 exec 则优雅停机整条链路失效，每次 stop 都是 60s 后 SIGKILL（2026-07-17 停机实验实证）。
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app.jar"]
