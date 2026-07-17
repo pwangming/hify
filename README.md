@@ -87,11 +87,16 @@ make stop                    # 优雅停止前后端（超时强制结束）
 bash deploy/nginx/gen-self-signed-cert.sh
 cp deploy/.env.example deploy/.env        # 生产务必改掉 dev-only 默认值
 
-docker compose --profile app up -d --build   # nginx / hify-server / sandbox / postgres
-docker compose --profile app ps              # 等 4 个容器全部 healthy
+make app-up      # = docker compose --profile app up -d --build（4 容器）
+make app-ps      # 等 4 个容器全部 healthy
 # 浏览器访问 https://localhost（自签证书首次需手动信任）
-docker compose --profile app down            # 停全套（数据卷保留）
+make app-down    # 停全套（数据卷保留）
 ```
+
+> 两种形态别同时跑：全套形态运行时再 `make start`，会有两个 server 实例连同一个库
+> （启动自愈互相重置对方的运行中记录），start.sh 检测到会提醒。
+> 本地若存在 `docker-compose.override.yml`（联调用，已 gitignore），compose 会自动叠加它
+> ——验证纯生产隔离形态（沙箱零出网）时先把它临时改名。
 
 要点：只有 nginx 对外发布 80/443（postgres 的 127.0.0.1:5432 是留给宿主机开发的，
 生产 VM 上删掉）；证书与 deploy/.env 均不入库；SSE/上传体积等反代配置见 deploy/nginx/nginx.conf。
@@ -111,15 +116,18 @@ docker compose --profile app down            # 停全套（数据卷保留）
 
 ## 常用命令（Makefile）
 
-| 命令 | 作用 |
-|---|---|
-| `make`（或 `make help`） | 列出所有命令 |
-| `make start` | 检查 DB → 构建并起后端 → 健康检查 → 起前端 |
-| `make stop` | 优雅停止前后端（SIGTERM，超时 SIGKILL） |
-| `make restart` | 先 stop 再 start |
-| `make build` | 构建后端 jar + 前端 dist |
-| `make clean` | 清理构建产物（`server/target`、`web/dist`、`dist`） |
-| `make package` | 打包可分发 `dist/hify-<版本>.tar.gz`（jar + 前端产物 + 部署配置） |
+| 命令 | 形态 | 作用 |
+|---|---|---|
+| `make`（或 `make help`） | — | 列出所有命令 |
+| `make start` | 宿主机开发 | 检查 DB → 构建并起后端 → 健康检查 → 起前端（若检测到容器版 server 在跑会提醒，防两个实例连同一库互相干扰） |
+| `make stop` | 宿主机开发 | 优雅停止前后端（SIGTERM，超时 SIGKILL） |
+| `make restart` | 宿主机开发 | 先 stop 再 start |
+| `make app-up` | 全套容器 | 构建镜像并拉起 4 容器（= `docker compose --profile app up -d --build`） |
+| `make app-down` | 全套容器 | 停止全套（数据卷保留） |
+| `make app-ps` | 全套容器 | 查看 4 容器状态 |
+| `make build` | — | 构建后端 jar + 前端 dist |
+| `make clean` | — | 清理构建产物（`server/target`、`web/dist`、`dist`） |
+| `make package` | — | 打包可分发 `dist/hify-<版本>.tar.gz`（jar + 前端产物 + 部署配置**白名单**——真实 `.env` 与 TLS 私钥绝不进包） |
 
 `start.sh` / `stop.sh` 也可单独直接运行；常用参数可用环境变量覆盖，例如：
 
