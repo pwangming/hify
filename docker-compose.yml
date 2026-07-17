@@ -76,6 +76,9 @@ services:
       # 容器拓扑地址属部署形态非密钥，直接写这里；宿主机开发不受影响（application.yml 默认 localhost）
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hify}?reWriteBatchedInserts=true
       JAVA_OPTS: "-Xmx4g"   # deployment.md：堆 4G（容器限 6g）
+      # 分区边界锚定北京时间（护住 Flyway 首跑建库时 V12/V21 的裸日期字面量按 +08 解释；
+      # Maintainer 增量分区已在代码里显式带偏移，双保险）。顺带日志时间戳变本地时间。
+      TZ: Asia/Shanghai
     networks: [frontend, backend, sandbox-net]   # 唯一三网皆通的枢纽
     depends_on:
       postgres:
