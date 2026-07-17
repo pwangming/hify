@@ -116,6 +116,14 @@ info "检查 PostgreSQL ${PG_HOST}:${PG_PORT} ..."
 nc -z -w 3 "$PG_HOST" "$PG_PORT" 2>/dev/null || fail "PostgreSQL 不可用（${PG_HOST}:${PG_PORT}）。先启动数据库：docker compose up -d"
 ok "PostgreSQL 可用"
 
+# ---- 1b. 双实例提醒 ----
+# 全套容器形态（--profile app）与宿主机形态同时跑 = 两个 server 实例连同一个库：
+# 启动自愈会互相把对方「运行中」的记录重置为 failed，工作流/文档解析莫名失败就是它。
+# 只提醒不阻断（docker 不存在时静默跳过，宿主机形态本就不依赖 docker CLI）。
+if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'hify-server'; then
+  printf "${C_RED}!${C_OFF} %s\n" "检测到容器版 hify-server 正在运行（全套形态）。再起宿主机后端将与其共用同一数据库，可能互相干扰；建议先 docker compose --profile app down。"
+fi
+
 # ---- 2. 构建后端 ----
 # -B 批处理（无颜色/交互），-q 安静，-DskipTests 跳过测试（启动脚本求快；测试由 CI/make build 跑）。
 info "构建后端（mvn package，跳过测试）..."
