@@ -107,6 +107,11 @@ comment on table example is '表用途一句话';
 
 - 分区运维：Flyway 初始建 6 个月分区 + 应用内每月定时任务建下月分区
   （`create table if not exists ... partition of`），不引 pg_partman。
+- **分区边界统一锚定北京时间零点（Asia/Shanghai），且边界字面量必须带明确偏移**
+  （如 `'2026-10-01 00:00:00+08:00'`）。裸日期字面量按会话时区解释，宿主机(+08)与
+  容器(UTC)会建出相差 8 小时的边界——重叠则建分区失败（server 启动崩溃），缝隙则该
+  窗口写入失败（2026-07-17 运维补账轮实证并修复：Maintainer 显式偏移 + compose
+  `TZ=Asia/Shanghai` 双保险，后者护住 Flyway 首跑时 V12/V21 旧脚本的裸字面量）。
 - 第二级表的动手触发线：**单表 > 3000 万行，或相关查询 P95 翻倍**。届时 `message` 按月分区、
   `kb_chunk` 按 dataset 分区（scaling-path.md 阶段 3 已有此项）。
 - **聚合表代替扫流水**：看板/配额永远查 `daily_usage`，禁止对 `llm_call_log` 做实时聚合。

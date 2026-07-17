@@ -265,7 +265,7 @@ git commit -m "docs(ops): 首次恢复演练实证通过，核对数据记入 se
 **Interfaces:**
 - Consumes: 全套形态运行中（`docker compose --profile app up -d --build`，4 容器 healthy）；`PartitionMaintainer` / `WorkflowPartitionMaintainer` 的既有行为（启动时向前补建当月+3 个月，`if not exists` 幂等）。
 
-- [ ] **Step 1: 记录当前分区清单**
+- [x] **Step 1: 记录当前分区清单**
 
 ```bash
 PSQL='docker exec hify-postgres sh -c'
@@ -274,7 +274,7 @@ $PSQL 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select c.relname from pg
 
 预期：两表各 6 个月度子表（2026_07 ~ 2026_12）。记下完整清单。
 
-- [ ] **Step 2: 确认目标分区为空后 drop（制造「缺分区」现场）**
+- [x] **Step 2: 确认目标分区为空后 drop（制造「缺分区」现场）**
 
 选未来分区 `llm_call_log_2026_10` 与 `workflow_node_run_2026_10`（在当月+3 覆盖范围内，重启必被补建）：
 
@@ -290,7 +290,7 @@ $PSQL 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "drop table llm_call_log_20
 
 再跑 Step 1 的查询确认两个分区已消失（各剩 5 个）。
 
-- [ ] **Step 3: 重启 server，验证自动重建**
+- [x] **Step 3: 重启 server，验证自动重建**（首次执行触发刹车：抓出会话时区漂移 bug，修复 aa923e3 后重跑通过，详见 self-check）
 
 ```bash
 docker compose --profile app restart hify-server
@@ -300,7 +300,7 @@ docker logs hify-server --since 3m | grep 分区
 
 预期：日志含 `llm_call_log 分区已确保至 2026-10`（workflow 侧有对应日志行）。再跑 Step 1 查询：两表各恢复 6 个子表，`*_2026_10` 回来了。**若未重建：这是会在 2026-11 打爆写入的真 bug，停下整理证据上报，本 Task 终止。**
 
-- [ ] **Step 4: deployment.md 运维矩阵补账**
+- [x] **Step 4: deployment.md 运维矩阵补账**
 
 修改 `docs/architecture/deployment.md` §4 表格。
 
@@ -317,7 +317,7 @@ docker logs hify-server --since 3m | grep 分区
 | 日志分区 | `llm_call_log` / `workflow_node_run` 建表即按月分区；应用内 Maintainer 启动时及每月 1 日自动补建未来 3 个月（2026-07 实证：drop 空分区→重启→自动重建）。清理 = 手动 drop 旧分区；当前无自动清理，等数据量需要清理时再定保留口径 |
 ```
 
-- [ ] **Step 5: self-check + Commit**
+- [x] **Step 5: self-check + Commit**
 
 `docs/self-check.md` 追加一节 `## 2026-07-17 运维补账 Task 3：分区补建实证`：drop 前后与重启后的分区清单（实测）、server 日志关键行原文。
 

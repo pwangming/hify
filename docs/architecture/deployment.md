@@ -89,7 +89,8 @@
 | 崩溃恢复 | 启动自愈：非终态"进行中"记录置 failed（见第 2 节 server 职责）；配合 restart 策略实现无人值守拉起 |
 | 密钥 | `.env` + `env_file`（JWT 密钥、DB 密码、LLM API Key 不入镜像不入库——供应商 Key 在 DB 中加密存储，加密主密钥在 .env） |
 | 日志 | 容器 json-file driver + `max-size: 50m, max-file: 5`；server 内 logback 用**纯文本 pattern**（非 JSON），格式含 `%X{traceId}`，便于单机直接 grep 排障（一期不接 ELK/Loki 等采集系统，JSON 结构化无收益反增噪音；接入采集时再切结构化输出） |
-| 备份 | host crontab：`pg_dump` 每日一次（业务+向量一份搞定），保留 14 天，**每月做一次恢复演练** |
+| 备份 | host crontab：`pg_dump` 每日一次（业务+向量一份搞定），保留 14 天，**每月做一次恢复演练**；脚本与恢复 runbook 见 `deploy/backup/`（随 make package 分发） |
+| 日志分区 | `llm_call_log` / `workflow_node_run` 建表即按月分区；应用内 Maintainer 启动时及每月 1 日自动补建未来 3 个月（2026-07 实证：drop 空分区→重启→自动重建。实验同时抓出并修掉会话时区漂移 bug，边界现锚定北京时间零点，见 database-standards §分区运维）。清理 = 手动 drop 旧分区；当前无自动清理，等数据量需要清理时再定保留口径 |
 | 监控 | 一期从简：Actuator + healthcheck + 日志。预留 `/actuator/prometheus`，需要看板时加 Prometheus+Grafana 两个容器即可 |
 | 发布 | `docker compose pull && docker compose up -d`（server 优雅停机兜底）；镜像 tag 用 git sha，可秒回滚 |
 
