@@ -47,5 +47,5 @@ export function useNameMaps() {
   const resolveApp = (id: string) => apps.value.get(id) ?? fallback(id)
   const resolveModel = (id: string) => models.value.get(id) ?? fallback(id)
 
-  return { load, resolveUser, resolveApp, resolveModel }
+  return { load, resolveUser, resolveApp, resolveModel, users, apps, models }
 }
