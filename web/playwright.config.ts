@@ -13,6 +13,12 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
+      command: 'cd ../mcp-demo && pnpm dev',
+      port: 3100,
+      timeout: 30_000,
+      reuseExistingServer: false,
+    },
+    {
       command: 'cd ../server && mvn -q spring-boot:run -Dspring-boot.run.profiles=e2e',
       url: 'http://localhost:8080/actuator/health',
       timeout: 180_000,

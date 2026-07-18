@@ -1,5 +1,12 @@
 # Hify 本地自检手册
 
+## 2026-07-18 E2E workflow/agent 旅程汇总
+
+- 编排验证：Playwright 拉起 mcp-demo、后端、LLM 桩和前端，最终 `pnpm e2e` 为 4 passed（Agent、KB、smoke、workflow）。
+- Agent 旅程实证：MCP `get_current_time` 发现成功，工具轨迹含 `mcpdemo__get_current_time`，终答和刷新后的轨迹均通过。
+- workflow 旅程实证：画布拖拽/连线/运行输出通过；删连线与零向量两次变异均已使对应断言变红，恢复后重新通过。
+- Agent 变异③：临时关闭 Agent 与工具选择后，`tool-trace` 不出现，轨迹断言变红；已恢复并由最终完整 E2E 回归验证。
+
 > 每铺完一块基础组件，这里会追加一节"怎么自己验证它做对了"。
 > 命令可直接在终端跑；在 Claude Code 输入框里命令前加 `!` 也能跑。
 > 与 `docs/architecture/` 不同：那里讲"该怎么设计"，这里讲"怎么确认真的生效了"。

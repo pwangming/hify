@@ -5,6 +5,9 @@ spring:
     username: ${POSTGRES_USER:hify}
     password: ${POSTGRES_PASSWORD:hify}
 hify:
+  tool:
+    mcp:
+      allowed-private-hosts: localhost
   identity:
     bootstrap-admin:
       username: admin
