@@ -444,7 +444,7 @@ git commit -m "feat(e2e): 共用助手抽取+workflow旅程上半——画布dro
 **Interfaces:**
 - Consumes: Task 1 的 STUB_ANSWER 文本、Task 3 的 dropNode/N 常量。
 
-- [ ] **Step 1: 追加连线助手与旅程后半**（接在 Task 3 步骤 7 之后）
+- [x] **Step 1: 追加连线助手与旅程后半**（接在 Task 3 步骤 7 之后）
 
 ```ts
 /** Vue Flow 连线：从源 handle 拖到目标 handle（纯鼠标事件）。
@@ -507,7 +507,7 @@ async function connectNodes(page: Page, fromId: string, toId: string) {
   await expect(page.locator('[data-test="node-run-outputs"]')).toContainText(/"count": [1-9]/)
 ```
 
-- [ ] **Step 2: 全旅程跑绿**
+- [x] **Step 2: 全旅程跑绿**
 
 Run: `cd web && node e2e/support/reset-db.mjs && pnpm exec playwright test workflow-journey.spec.ts`
 Expected: 1 passed

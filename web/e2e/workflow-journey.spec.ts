@@ -36,6 +36,19 @@ async function dropNode(page: Page, type: string, offsetX: number, offsetY: numb
   })
 }
 
+/** Vue Flow 连线：从源 handle 拖到目标 handle（纯鼠标事件）。 */
+async function connectNodes(page: Page, fromId: string, toId: string) {
+  const src = page.locator(`.vue-flow__node[data-id="${fromId}"] .vue-flow__handle.source`)
+  const dst = page.locator(`.vue-flow__node[data-id="${toId}"] .vue-flow__handle.target`)
+  const s = await src.boundingBox()
+  const d = await dst.boundingBox()
+  if (!s || !d) throw new Error(`handle not visible: ${fromId}->${toId}`)
+  await page.mouse.move(s.x + s.width / 2, s.y + s.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(d.x + d.width / 2, d.y + d.height / 2, { steps: 12 })
+  await page.mouse.up()
+}
+
 test('workflow 黄金旅程：配模型→建库→画布拖拽搭RAG流→运行→看输出', async ({ page }) => {
   test.setTimeout(120_000)
 
@@ -103,4 +116,50 @@ test('workflow 黄金旅程：配模型→建库→画布拖拽搭RAG流→运�
   await expect(page.locator('.vue-flow__node[data-id="kb_1"]')).toBeVisible()
   await dropNode(page, 'llm', 300, 320)
   await expect(page.locator('.vue-flow__node[data-id="llm_1"]')).toBeVisible()
+
+  // 8) 连线 start→kb_1→llm_1→end
+  await connectNodes(page, 'start', 'kb_1')
+  await connectNodes(page, 'kb_1', 'llm_1')
+  await connectNodes(page, 'llm_1', 'end')
+  await expect(page.locator('.vue-flow__edge')).toHaveCount(3)
+
+  // 9) 配置检索节点
+  await page.locator('.vue-flow__node[data-id="kb_1"]').click()
+  await page.locator('[data-test="kb-datasets"]').click()
+  await pickOption(page, N.dataset)
+  await page.keyboard.press('Escape')
+  await page.locator('[data-test="kb-query"] input').fill('ZEBRA-9137 是什么？')
+  await page.keyboard.press('Escape')
+
+  // 10) 配置 LLM 节点
+  await page.locator('.vue-flow__node[data-id="llm_1"]').click()
+  await page.locator('[data-test="llm-model"]').click()
+  await pickOption(page, N.chatModel)
+  await page.locator('[data-test="llm-user-prompt"] textarea').fill('请根据以下资料回答：{{kb_1.text}}')
+  await page.keyboard.press('Escape')
+
+  // 11) 配置 end 节点
+  await page.locator('.vue-flow__node[data-id="end"]').click()
+  await page.locator('[data-test="end-output-add"]').click()
+  await page.locator('[data-test="end-output-name"] input').fill('answer')
+  await page.locator('[data-test="end-output-value"] input').fill('{{llm_1.text}}')
+  await page.locator('.el-drawer__close-btn').click()
+
+  // 12) 保存
+  await page.locator('[data-test="wf-save"]').click()
+  await expect(page.getByText(/已保存/)).toBeVisible()
+  await expect(page.locator('[data-test="wf-saved-at"]')).toBeVisible()
+
+  // 13) 运行
+  await page.locator('[data-test="wf-run"]').click()
+  const chip = page.locator('[data-test="run-chip"]')
+  await expect(chip).toContainText('成功', { timeout: 30_000 })
+
+  // 14) 最终输出含桩固定答案
+  await chip.click()
+  await expect(page.locator('[data-test="run-outputs"]')).toContainText('这是知识库助手的固定测试回答。')
+
+  // 15) 检索节点运行面板：outputs 有命中
+  await page.locator('.vue-flow__node[data-id="kb_1"]').click()
+  await expect(page.locator('[data-test="node-run-outputs"]')).toContainText(/"count": [1-9]/)
 })
