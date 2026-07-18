@@ -75,8 +75,8 @@ public record TokenUsedEvent(
 
 ### 3.2 发布点全景（成功 2 处、失败 4 处）
 
-计时口径：起点 = 拿到 ChatClient 之后、进入 LLM 调用编排之前；终点 = 发布事件时。
-`System.nanoTime()` 差值换算 ms。
+计时口径：起点 = openTurn 返回后、进入 LLM 编排之前（含取 ChatClient/检索增强/工具执行，
+这样「模型不可用 12002」类失败也有耗时）；终点 = 发布事件时。`System.nanoTime()` 差值换算 ms。
 
 | 路径 | 成功发布 | 失败发布 | 事务上下文 |
 |---|---|---|---|
