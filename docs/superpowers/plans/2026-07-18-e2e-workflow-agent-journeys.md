@@ -179,7 +179,7 @@ git commit -m "feat(e2e): 桩扩展协议形状三分支——同步JSON/tool_ca
 **Interfaces:**
 - Produces: `E2eDatasourceGuard.requireE2eDatabase(String url)`（static，包私有可见性供测试）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.hify.infra.config;
@@ -214,12 +214,12 @@ class E2eDatasourceGuardTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认编译失败（类不存在）**
+- [x] **Step 2: 跑测试确认编译失败（类不存在）**
 
 Run: `cd server && mvn -q -Dtest=E2eDatasourceGuardTest test; echo $?`
 Expected: 非 0（编译错误：找不到 E2eDatasourceGuard）
 
-- [ ] **Step 3: 写守卫实现**
+- [x] **Step 3: 写守卫实现**
 
 ```java
 package com.hify.infra.config;
@@ -249,12 +249,12 @@ public class E2eDatasourceGuard {
 }
 ```
 
-- [ ] **Step 4: 测试绿 + 全量后端回归**
+- [x] **Step 4: 测试绿 + 全量后端回归**
 
 Run: `cd server && mvn -q -Dtest=E2eDatasourceGuardTest test; echo $?` → Expected: 0
 Run: `cd server && mvn -q verify; echo $?` → Expected: 0（含 ModularityTests/ArchUnit：infra 是共享层，新增 config 类不越界）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/hify/infra/config/E2eDatasourceGuard.java server/src/test/java/com/hify/infra/config/E2eDatasourceGuardTest.java
