@@ -39,7 +39,7 @@
 - Produces: `TokenUsedEvent(Long userId, Long appId, Long modelId, int promptTokens, int completionTokens, String source, long durationMs, boolean success, String errorCode)`；工厂 `TokenUsedEvent.success(userId, appId, modelId, promptTokens, completionTokens, source, durationMs)` 与 `TokenUsedEvent.failure(userId, appId, modelId, source, durationMs, Throwable cause)`；`appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens, long durationMs, Long userId, Long appId, Long modelId, List<MessageSource> sources[, List<MessageToolCall> toolCalls])`（durationMs 插在 completionTokens 之后）。
 - Task 2 依赖事件的三个新访问器 `durationMs()` / `success()` / `errorCode()`。
 
-- [ ] **Step 1: 写失败测试（三个文件）**
+- [x] **Step 1: 写失败测试（三个文件）**
 
 ConversationStoreTest 改既有测试 `appendAssistant_落assistant消息含token_并touch会话_发TokenUsedEvent`：调用改为 9 参 `store.appendAssistant(100L, "你好，我是助手", 12, 8, 345L, 42L, 7L, 5L, List.of())`，事件断言追加：
 
@@ -113,12 +113,12 @@ void 调用失败_发failure事件后再抛NodeExecutionException() {
 
 （`nodeWith3()`/`ctx()` 用本文件既有的节点与上下文构造方式，名字以现文件为准。）
 
-- [ ] **Step 2: 跑测试看红**
+- [x] **Step 2: 跑测试看红**
 
 Run: `cd server && mvn -q test -Dtest='ConversationStoreTest,ConversationServiceTest,LlmNodeExecutorTest'; echo EXIT=$?`
 Expected: EXIT≠0（编译错：新签名/新访问器不存在）。贴输出。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `TokenUsedEvent.java` 整体替换为：
 
@@ -218,12 +218,12 @@ events.publishEvent(TokenUsedEvent.failure(ctx.userId(), ctx.appId(), modelId,
 - `ConversationUsageFlowDbTest:49`：`store.appendAssistant(conversationId, "回答", 120, 60, 250L, PROBE_USER, 880L, 50L, List.of())`。
 - 所有 `new TokenUsedEvent(a, b, c, p, c2, source)` 旧 6 参构造：成功语义的改 `TokenUsedEvent.success(a, b, c, p, c2, source, 5L)`（UsageServiceTest / UsageEventListenerTest / UsageRecordDbTest / UsageEventFlowDbTest）。
 
-- [ ] **Step 4: 全量测试看绿**
+- [x] **Step 4: 全量测试看绿**
 
 Run: `cd server && mvn -q verify; echo EXIT=$?`
 Expected: EXIT=0（含 ModularityTests/ArchUnit；本 Task 结束时 recordUsage 尚未分支，失败事件会以 0 token 落旧三表——中间态，Task 2 收口）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A server

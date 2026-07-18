@@ -36,6 +36,7 @@ public class LlmNodeExecutor implements NodeExecutor {
 
     @Override
     public NodeResult execute(GraphNode node, RunContext ctx) {
+        long started = System.nanoTime();
         long modelId = Long.parseLong(String.valueOf(node.data().get("modelId")));   // validator 已保证合法
         Object rawSystem = node.data().get("systemPrompt");
         String systemPrompt = rawSystem == null ? null : ctx.render(String.valueOf(rawSystem));
@@ -49,12 +50,19 @@ public class LlmNodeExecutor implements NodeExecutor {
         try {
             ChatClient client = providerFacade.getChatClient(modelId);
             LlmCallResult result = llmCaller.call(client, systemPrompt, userPrompt);
-            events.publishEvent(new TokenUsedEvent(ctx.userId(), ctx.appId(), modelId,
-                    result.promptTokens(), result.completionTokens(), TokenUsedEvent.SOURCE_WORKFLOW));
+            events.publishEvent(TokenUsedEvent.success(ctx.userId(), ctx.appId(), modelId,
+                    result.promptTokens(), result.completionTokens(), TokenUsedEvent.SOURCE_WORKFLOW,
+                    elapsedMs(started)));
             return new NodeResult(inputs, Map.of("text", result.text()));
         } catch (Exception e) {
             // 渲染已成功、调用才失败：渲染后的输入随异常带出，落 node_run.inputs 供排障
+            events.publishEvent(TokenUsedEvent.failure(ctx.userId(), ctx.appId(), modelId,
+                    TokenUsedEvent.SOURCE_WORKFLOW, elapsedMs(started), e));
             throw new NodeExecutionException(inputs, e);
         }
+    }
+
+    private static long elapsedMs(long started) {
+        return Math.max(0L, (System.nanoTime() - started) / 1_000_000L);
     }
 }

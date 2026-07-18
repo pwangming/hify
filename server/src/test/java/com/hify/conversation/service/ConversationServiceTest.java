@@ -24,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -55,6 +56,7 @@ class ConversationServiceTest {
     private KnowledgeFacade knowledgeFacade;
     private ToolFacade toolFacade;
     private AgentChatService agentChatService;
+    private ApplicationEventPublisher publisher;
     private ConversationService service;
 
     private final CurrentUser member = new CurrentUser(42L, "alice", CurrentUser.ROLE_MEMBER);
@@ -70,9 +72,10 @@ class ConversationServiceTest {
         knowledgeFacade = mock(KnowledgeFacade.class);
         toolFacade = mock(ToolFacade.class);
         agentChatService = mock(AgentChatService.class);
+        publisher = mock(ApplicationEventPublisher.class);
         service = new ConversationService(appFacade, providerFacade, chatInvoker, store, quotaGuard, knowledgeFacade,
                 toolFacade, agentChatService, new ConversationProperties(new ConversationProperties.Memory(10),
-                        new ConversationProperties.ListProps(50), 10));
+                        new ConversationProperties.ListProps(50), 10), publisher);
     }
 
     private void stubRunnableApp(String systemPrompt) {

@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -123,7 +125,7 @@ class ConversationStoreTest {
     @Test
     void appendAssistant_落assistant消息含token_并touch会话_发TokenUsedEvent() {
         ArgumentCaptor<Message> mc = ArgumentCaptor.forClass(Message.class);
-        Message saved = store.appendAssistant(100L, "你好，我是助手", 12, 8, 42L, 7L, 5L, List.of());
+        Message saved = store.appendAssistant(100L, "你好，我是助手", 12, 8, 345L, 42L, 7L, 5L, List.of());
 
         verify(messageMapper).insert((Message) mc.capture());
         assertEquals(MessageRole.ASSISTANT.value(), mc.getValue().getRole());
@@ -139,6 +141,9 @@ class ConversationStoreTest {
         verify(publisher).publishEvent((Object) ec.capture());
         TokenUsedEvent e = ec.getValue();
         assertEquals(42L, e.userId());
+        assertEquals(345L, e.durationMs());
+        assertTrue(e.success());
+        assertNull(e.errorCode());
         assertEquals(7L, e.appId());
         assertEquals(5L, e.modelId());
         assertEquals(12, e.promptTokens());

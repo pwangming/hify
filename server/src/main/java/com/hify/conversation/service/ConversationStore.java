@@ -100,14 +100,29 @@ public class ConversationStore {
      */
     @Transactional
     public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
-                                   Long userId, Long appId, Long modelId, List<MessageSource> sources) {
-        return appendAssistant(conversationId, content, promptTokens, completionTokens,
-                userId, appId, modelId, sources, List.of());
+                                   Long userId, Long appId, Long modelId, List<MessageSource> sources,
+                                   List<MessageToolCall> toolCalls) {
+        return appendAssistant(conversationId, content, promptTokens, completionTokens, 0L,
+                userId, appId, modelId, sources, toolCalls);
     }
 
     @Transactional
     public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
-                                   Long userId, Long appId, Long modelId, List<MessageSource> sources,
+                                   Long userId, Long appId, Long modelId, List<MessageSource> sources) {
+        return appendAssistant(conversationId, content, promptTokens, completionTokens, 0L,
+                userId, appId, modelId, sources);
+    }
+
+    @Transactional
+    public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
+                                   long durationMs, Long userId, Long appId, Long modelId, List<MessageSource> sources) {
+        return appendAssistant(conversationId, content, promptTokens, completionTokens,
+                durationMs, userId, appId, modelId, sources, List.of());
+    }
+
+    @Transactional
+    public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
+                                   long durationMs, Long userId, Long appId, Long modelId, List<MessageSource> sources,
                                    List<MessageToolCall> toolCalls) {
         Message m = new Message();
         m.setConversationId(conversationId);
@@ -121,8 +136,8 @@ public class ConversationStore {
         Conversation touch = new Conversation();
         touch.setId(conversationId);
         conversationMapper.updateById(touch);
-        publisher.publishEvent(new TokenUsedEvent(userId, appId, modelId, promptTokens, completionTokens,
-                TokenUsedEvent.SOURCE_CONVERSATION));
+        publisher.publishEvent(TokenUsedEvent.success(userId, appId, modelId, promptTokens, completionTokens,
+                TokenUsedEvent.SOURCE_CONVERSATION, durationMs));
         return m;
     }
 

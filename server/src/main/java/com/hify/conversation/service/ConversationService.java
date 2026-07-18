@@ -3,6 +3,7 @@ package com.hify.conversation.service;
 import com.hify.app.api.AppFacade;
 import com.hify.app.api.AppRuntimeView;
 import com.hify.common.exception.BizException;
+import com.hify.common.event.TokenUsedEvent;
 import com.hify.conversation.config.ConversationProperties;
 import com.hify.conversation.constant.ConversationError;
 import com.hify.conversation.dto.ConversationView;
@@ -21,6 +22,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
@@ -52,11 +54,13 @@ public class ConversationService {
     private final ToolFacade toolFacade;
     private final AgentChatService agentChatService;
     private final ConversationProperties props;
+    private final ApplicationEventPublisher publisher;
 
     public ConversationService(AppFacade appFacade, ProviderFacade providerFacade,
                                ChatInvoker chatInvoker, ConversationStore store, QuotaGuard quotaGuard,
                                KnowledgeFacade knowledgeFacade, ToolFacade toolFacade,
-                               AgentChatService agentChatService, ConversationProperties props) {
+                               AgentChatService agentChatService, ConversationProperties props,
+                               ApplicationEventPublisher publisher) {
         this.appFacade = appFacade;
         this.providerFacade = providerFacade;
         this.chatInvoker = chatInvoker;
@@ -66,6 +70,7 @@ public class ConversationService {
         this.toolFacade = toolFacade;
         this.agentChatService = agentChatService;
         this.props = props;
+        this.publisher = publisher;
     }
 
     public SendMessageResponse send(Long appId, Long conversationId, String content, CurrentUser current) {
@@ -77,6 +82,7 @@ public class ConversationService {
         // 3) 事务A：建/取会话 + 落 user 消息 + 读窗口
         TurnContext turn = store.openTurn(appId, conversationId, current.userId(), content);
         Long cid = turn.conversationId();
+        long started = System.nanoTime();
         try {
             // 4) 取 ChatClient（不可用抛 12002）并调用——事务外，喂历史窗口
             ChatClient chatClient = providerFacade.getChatClient(app.modelId());
@@ -85,12 +91,12 @@ public class ConversationService {
                 AgentReply reply = agentChatService.run(chatClient, app.systemPrompt(), turn.window(),
                         toolFacade.getToolCallbacks(app.toolIds()));
                 saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
-                        current.userId(), appId, app.modelId(), List.of(), reply.toolCalls());
+                        elapsedMs(started), current.userId(), appId, app.modelId(), List.of(), reply.toolCalls());
             } else {
                 Augmented aug = augmentWithKnowledge(app, content);
                 LlmReply reply = chatInvoker.invoke(chatClient, aug.prompt(), turn.window());
                 saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
-                        current.userId(), appId, app.modelId(), aug.sources());
+                        elapsedMs(started), current.userId(), appId, app.modelId(), aug.sources());
             }
             return new SendMessageResponse(cid, toView(saved));
         } catch (RuntimeException e) {
@@ -100,6 +106,8 @@ public class ConversationService {
             } catch (RuntimeException cleanupEx) {
                 log.warn("同步端点孤儿清理失败 conversationId={}", cid, cleanupEx);
             }
+            publisher.publishEvent(TokenUsedEvent.failure(current.userId(), appId, app.modelId(),
+                    TokenUsedEvent.SOURCE_CONVERSATION, elapsedMs(started), e));
             throw e;
         }
     }
@@ -113,6 +121,7 @@ public class ConversationService {
         }
         TurnContext turn = store.openTurn(appId, conversationId, current.userId(), content);
         Long cid = turn.conversationId();
+        long started = System.nanoTime();
         ChatClient chatClient = providerFacade.getChatClient(app.modelId());
         Augmented aug = augmentWithKnowledge(app, content);
 
@@ -135,7 +144,7 @@ public class ConversationService {
                 });
 
         Mono<StreamEvent> done = Mono.<StreamEvent>fromCallable(() -> {
-            Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1], // 事务B（内发 TokenUsedEvent）
+            Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1], elapsedMs(started),
                     current.userId(), appId, app.modelId(), aug.sources());
             return new StreamEvent.Done(cid, saved.getId(), usage[0], usage[1]);
         }).subscribeOn(Schedulers.boundedElastic());
@@ -150,6 +159,8 @@ public class ConversationService {
                                 store.cleanupFailedTurn(turn.conversationId(), turn.userMessageId(), turn.newConversation()))
                         .subscribeOn(Schedulers.boundedElastic())
                         .onErrorResume(cleanupEx -> Mono.empty())   // 清理失败不可盖住原始 LLM 错误
+                        .doOnError(failure -> publisher.publishEvent(TokenUsedEvent.failure(current.userId(), appId,
+                                app.modelId(), TokenUsedEvent.SOURCE_CONVERSATION, elapsedMs(started), failure)))
                         .then(Mono.<StreamEvent>error(err)));
     }
 
@@ -158,6 +169,7 @@ public class ConversationService {
                                               CurrentUser current, String content) {
         TurnContext turn = store.openTurn(app.appId(), conversationId, current.userId(), content);
         Long cid = turn.conversationId();
+        long started = System.nanoTime();
         ChatClient chatClient = providerFacade.getChatClient(app.modelId());
         List<ToolCallback> callbacks = toolFacade.getToolCallbacks(app.toolIds());
 
@@ -169,7 +181,7 @@ public class ConversationService {
                 sink.next(new StreamEvent.Delta(reply.content()));
                 Message saved = store.appendAssistant(cid, reply.content(),
                         reply.promptTokens(), reply.completionTokens(),
-                        current.userId(), app.appId(), app.modelId(), List.of(), reply.toolCalls());
+                        elapsedMs(started), current.userId(), app.appId(), app.modelId(), List.of(), reply.toolCalls());
                 sink.next(new StreamEvent.Done(cid, saved.getId(), reply.promptTokens(), reply.completionTokens()));
                 sink.complete();
             } catch (RuntimeException e) {
@@ -178,9 +190,15 @@ public class ConversationService {
                 } catch (RuntimeException cleanupEx) {
                     log.warn("Agent 流式孤儿清理失败 conversationId={}", cid, cleanupEx);
                 }
+                publisher.publishEvent(TokenUsedEvent.failure(current.userId(), app.appId(), app.modelId(),
+                        TokenUsedEvent.SOURCE_CONVERSATION, elapsedMs(started), e));
                 sink.error(e);
             }
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private static long elapsedMs(long started) {
+        return Math.max(0L, (System.nanoTime() - started) / 1_000_000L);
     }
 
     public List<MessageView> history(Long conversationId, CurrentUser current) {
