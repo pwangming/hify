@@ -35,7 +35,7 @@
 **Interfaces:**
 - Produces: 表 `usage_stat_daily(id, stat_date, user_id, app_id, model_id, prompt_tokens, completion_tokens, call_count, create_time, update_time)`，唯一索引 `usage_stat_daily_dim_uq(user_id, app_id, model_id, stat_date)`；`ai_model.input_price/output_price numeric(10,4)`；`llm_call_log.source text`。
 
-- [ ] **Step 1: 写失败的迁移验证测试**
+- [x] **Step 1: 写失败的迁移验证测试**
 
 ```java
 package com.hify.usage.mapper;
@@ -106,12 +106,12 @@ class UsageDashboardMigrationTest extends PgIntegrationTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认红灯**
+- [x] **Step 2: 跑测试确认红灯**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest=UsageDashboardMigrationTest | tail -15; echo exit=${PIPESTATUS[0]}`
 Expected: exit=1，失败原因是 `usage_stat_daily` 不存在 / 列数不符。
 
-- [ ] **Step 3: 写 V26 迁移脚本**
+- [x] **Step 3: 写 V26 迁移脚本**
 
 ```sql
 -- V26：用量与成本看板（usage/provider 模块）。spec：2026-07-17-admin-usage-dashboard-design.md。
@@ -162,12 +162,12 @@ from llm_call_log
 group by 1, 2, 3, 4;
 ```
 
-- [ ] **Step 4: 跑测试确认绿灯**
+- [x] **Step 4: 跑测试确认绿灯**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest=UsageDashboardMigrationTest | tail -8; echo exit=${PIPESTATUS[0]}`
 Expected: exit=0，`Tests run: 3, Failures: 0`。
 
-- [ ] **Step 5: 补数据文档**
+- [x] **Step 5: 补数据文档**
 
 `docs/architecture/data-model.md`：
 - 表清单（§1）usage 模块段加一行：`usage_stat_daily | 看板聚合：日×用户×应用×模型，UPSERT 累加 | 监听 TokenUsedEvent 与流水同事务双写`；文档内所有「N 张表」计数处 +1（先 grep 现值再改，不要凭记忆写数字）。
@@ -177,7 +177,7 @@ Expected: exit=0，`Tests run: 3, Failures: 0`。
 `docs/architecture/er-diagram.dot`：usage 簇内加 `usage_stat_daily` 节点，虚线弱引用到 sys_user/app/ai_model（与 llm_call_log 同款画法）。重新生成：
 Run: `cd /home/wang/playlab/hify/docs/architecture && npx -y @hpcc-js/wasm-graphviz-cli -T svg er-diagram.dot > er-diagram.svg`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add server/src/main/resources/db/migration/V26__usage_dashboard.sql server/src/test/java/com/hify/usage/mapper/UsageDashboardMigrationTest.java docs/architecture/data-model.md docs/architecture/er-diagram.dot docs/architecture/er-diagram.svg

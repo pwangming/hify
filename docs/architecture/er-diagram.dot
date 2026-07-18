@@ -48,6 +48,7 @@ digraph hify_er {
         label="usage"; style=rounded; color="#b0a8c9";
         llm_call_log [label="llm_call_log\n(monthly partition)"];
         daily_usage;
+        usage_stat_daily;
     }
 
     subgraph cluster_system {
@@ -78,4 +79,7 @@ digraph hify_er {
     llm_call_log -> app [label="app_id"];
     llm_call_log -> ai_model [label="model_id"];
     llm_call_log -> sys_user [label="user_id"];
+    usage_stat_daily -> app [label="app_id"];
+    usage_stat_daily -> ai_model [label="model_id"];
+    usage_stat_daily -> sys_user [label="user_id"];
 }

@@ -4,13 +4,13 @@
 > ER 图：`er-diagram.svg`（源文件 `er-diagram.dot`，重新生成：
 > `npx -y @hpcc-js/wasm-graphviz-cli -T svg er-diagram.dot > er-diagram.svg`）。
 
-## 1. 表清单（按模块，共 19 张）
+## 1. 表清单（按模块，共 20 张）
 
 | 模块 | 表 | 说明 |
 |---|---|---|
 | identity | `sys_user` | Admin/Member 用角色字段区分，不单独建角色表 |
 | provider | `model_provider` | 供应商实例（协议、地址、加密 Key、韧性配置，见 llm-resilience.md 字段表） |
-| | `ai_model` | 具体模型，区分 chat / embedding 类型 |
+| | `ai_model` | 具体模型，区分 chat / embedding 类型；V26 加 `input_price`/`output_price`（元/百万 token，可空） |
 | app | `app` | 应用，类型字段区分对话型/工作流型；Agent 配置是对话型 app 的 jsonb 配置 |
 | | `app_api_key` | 应用对外 API Key |
 | | `app_dataset_rel` | 应用 ↔ 知识库 多对多 |
@@ -24,8 +24,9 @@
 | | `workflow_run` | 运行实例（状态机；scaling-path.md 阶段 2 的 SKIP LOCKED 任务表即本表） |
 | | `workflow_node_run` | 节点级执行日志 |
 | tool | `tool` | 统一注册表；T1 已落地 V23：`name/description/source/enabled/spec/owner_id` + BaseEntity 字段，`source` 区分 builtin / openapi / mcp；内置工具 `spec/owner_id` 为空。`spec jsonb` 经 `kind` 字段承载两种形状（T4a 引入 `ToolSpec` 多态）：openapi 存 `baseUrl/operations/rawSpec`，mcp 存 `url/transport/tools 快照/discoveredAt`；两者的鉴权头都只存密文。V25 给存量 openapi 行补了 `kind` 标记 |
-| usage | `llm_call_log` | 每次模型调用流水（监听 TokenUsedEvent 落库） |
+| usage | `llm_call_log` | 每次模型调用流水（监听 TokenUsedEvent 落库）；V26 加 `source` 列（conversation/workflow，历史 null） |
 | | `daily_usage` | 用户×应用×天 聚合；配额检查只查本表，不扫流水 |
+| | `usage_stat_daily` | 看板聚合：日×用户×应用×模型，UPSERT 累加；监听 TokenUsedEvent 与流水同事务双写 |
 | 系统 | `system_setting` | admin 系统设置，KV |
 
 ## 2. 关系
@@ -45,7 +46,7 @@ sys_user 1──N conversation N──1 app
 
 dataset 1──N kb_document 1──N kb_chunk（含向量列）
 
-llm_call_log / daily_usage ──▷ user_id、app_id、model_id 全部弱引用，无外键
+llm_call_log / daily_usage / usage_stat_daily ──▷ user_id、app_id、model_id 全部弱引用，无外键
 ```
 
 ## 3. 贯穿性规则
