@@ -512,15 +512,15 @@ async function connectNodes(page: Page, fromId: string, toId: string) {
 Run: `cd web && node e2e/support/reset-db.mjs && pnpm exec playwright test workflow-journey.spec.ts`
 Expected: 1 passed
 
-- [ ] **Step 3: 变异①——删连线证明运行断言在守门**
+- [x] **Step 3: 变异①——删连线证明运行断言在守门**
 临时注释 `await connectNodes(page, 'kb_1', 'llm_1')` 与步骤 8 的 `toHaveCount(3)` 两行 → 重跑 → Expected: FAIL（图校验拒绝或运行失败，「成功」断言红）→ 还原两行 → 重跑绿。
 
-- [ ] **Step 4: 变异②——桩零向量证明检索断言在守门**
+- [x] **Step 4: 变异②——桩零向量证明检索断言在守门**
 临时把桩 `STUB_VEC` 改为 `Array(1024).fill(0)`（零向量 → 相似度跌破阈值 → 检索空命中）→ 重跑 → Expected: FAIL（步骤 15 的 count 正则红；若 LLM 输出因空上下文不变，恰证明必须有 count 断言）→ 还原 → 重跑绿。
 
-- [ ] **Step 5: 两个变异的现象与结论追加到 `docs/self-check.md`**（沿用 KB 轮变异记录的格式：变异内容 / 预期红断言 / 实际输出摘要 / 还原后绿）。
+- [x] **Step 5: 两个变异的现象与结论追加到 `docs/self-check.md`**（沿用 KB 轮变异记录的格式：变异内容 / 预期红断言 / 实际输出摘要 / 还原后绿）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/e2e/workflow-journey.spec.ts docs/self-check.md
