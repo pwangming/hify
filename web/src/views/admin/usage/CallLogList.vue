@@ -86,7 +86,11 @@ onMounted(async () => {
 
 <template>
   <div class="call-log-list">
-    <PageHeader title="调用日志" description="查询最近 31 天内的模型调用明细" />
+    <PageHeader title="调用日志" description="查询最近 31 天内的模型调用明细">
+      <router-link to="/admin/usage" data-test="back-to-dashboard">
+        <el-button>返回看板</el-button>
+      </router-link>
+    </PageHeader>
 
     <el-form class="call-log-list__filters" inline>
       <el-form-item label="时间">

@@ -69,6 +69,8 @@ describe('CallLogList', () => {
       },
     })
     await flushPromises()
+    // 页头须有返回看板入口（验收反馈：无返回按钮）
+    expect(wrapper.find('[data-test="back-to-dashboard"]').exists()).toBe(true)
     expect(fetchCallLogs).toHaveBeenCalledTimes(1)
     const first = vi.mocked(fetchCallLogs).mock.calls[0][0]
     expect(first.cursor).toBeUndefined()

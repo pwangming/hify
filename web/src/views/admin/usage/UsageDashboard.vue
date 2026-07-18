@@ -123,7 +123,6 @@ onMounted(async () => {
         range-separator="至"
         start-placeholder="开始日期"
         end-placeholder="结束日期"
-        style="width: 280px"
         @change="onCustomChange"
       />
     </div>
@@ -204,6 +203,11 @@ onMounted(async () => {
     align-items: center;
     gap: $spacing-md;
     margin-bottom: $spacing-lg;
+
+    // 属性透传对 range 编辑器不稳，宽度用 :deep 强制收窄（验收反馈：默认 ~350px 太宽）
+    :deep(.el-date-editor--daterange) {
+      width: 260px;
+    }
   }
 
   &__cards {
