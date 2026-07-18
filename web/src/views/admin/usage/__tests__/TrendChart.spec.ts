@@ -35,6 +35,8 @@ describe('TrendChart', () => {
     expect(option.xAxis.data).toEqual(['2026-07-16'])
     expect(option.series).toHaveLength(2)
     expect(option.yAxis).toHaveLength(2)
+    // 图例固定在图底部（验收反馈：默认顶部与标题挤在一起）
+    expect(option.legend.bottom).toBe(0)
 
     await wrapper.setProps({
       dates: ['2026-07-16', '2026-07-17'],

@@ -72,6 +72,8 @@ describe('CallLogList', () => {
     expect(fetchCallLogs).toHaveBeenCalledTimes(1)
     const first = vi.mocked(fetchCallLogs).mock.calls[0][0]
     expect(first.cursor).toBeUndefined()
+    // 默认窗口上界=当天 23:59:59（不能冻结在挂载瞬间，否则进页后新产生的调用永远查不到）
+    expect(first.endTime).toContain('23:59:59')
     expect(wrapper.text()).toContain('用户1')
 
     await wrapper.find('[data-test="load-more"]').trigger('click')

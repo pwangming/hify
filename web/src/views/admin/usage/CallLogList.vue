@@ -7,11 +7,28 @@ import type { CallLogItem } from '@/types/usage'
 import { formatDateTime } from '@/utils/datetime'
 import PageHeader from '@/components/PageHeader.vue'
 
-const now = new Date()
-const sevenDaysAgo = new Date(now)
-sevenDaysAgo.setDate(now.getDate() - 7)
+/** 本地时区带偏移的 ISO 串（与 el-date-picker 的 value-format YYYY-MM-DDTHH:mm:ssZ 同构）。 */
+function toOffsetString(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const tzMin = -d.getTimezoneOffset()
+  const sign = tzMin >= 0 ? '+' : '-'
+  const abs = Math.abs(tzMin)
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` +
+    `${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
+  )
+}
 
-const dateRange = ref<[string, string]>([sevenDaysAgo.toISOString(), now.toISOString()])
+// 默认窗口：7 天前 00:00:00 ~ 当天 23:59:59。上界取整到当天结束而非「挂载瞬间」，
+// 否则进页后新产生的调用永远落在窗口外查不到（验收抓出的坑）。
+const todayEnd = new Date()
+todayEnd.setHours(23, 59, 59, 0)
+const sevenDaysAgo = new Date(todayEnd)
+sevenDaysAgo.setDate(todayEnd.getDate() - 7)
+sevenDaysAgo.setHours(0, 0, 0, 0)
+
+const dateRange = ref<[string, string]>([toOffsetString(sevenDaysAgo), toOffsetString(todayEnd)])
 const userId = ref<string>()
 const appId = ref<string>()
 const modelId = ref<string>()
@@ -83,23 +100,23 @@ onMounted(async () => {
         />
       </el-form-item>
       <el-form-item label="来源">
-        <el-select v-model="source" clearable placeholder="全部">
+        <el-select v-model="source" clearable placeholder="全部" style="width: 130px">
           <el-option label="对话" value="conversation" />
           <el-option label="工作流" value="workflow" />
         </el-select>
       </el-form-item>
       <el-form-item label="用户">
-        <el-select v-model="userId" filterable clearable placeholder="全部">
+        <el-select v-model="userId" filterable clearable placeholder="全部" style="width: 160px">
           <el-option v-for="[id, name] in userOptions" :key="id" :label="name" :value="id" />
         </el-select>
       </el-form-item>
       <el-form-item label="应用">
-        <el-select v-model="appId" filterable clearable placeholder="全部">
+        <el-select v-model="appId" filterable clearable placeholder="全部" style="width: 160px">
           <el-option v-for="[id, name] in appOptions" :key="id" :label="name" :value="id" />
         </el-select>
       </el-form-item>
       <el-form-item label="模型">
-        <el-select v-model="modelId" filterable clearable placeholder="全部">
+        <el-select v-model="modelId" filterable clearable placeholder="全部" style="width: 160px">
           <el-option v-for="[id, name] in modelOptions" :key="id" :label="name" :value="id" />
         </el-select>
       </el-form-item>

@@ -74,9 +74,8 @@ async function loadRanking() {
   ranking.value = await fetchRankings(dimension.value, start, end, 10)
 }
 
-async function selectDimension(value: RankDimension) {
-  if (dimension.value === value) return
-  dimension.value = value
+// v-model 已改 dimension，本回调只负责拉数（整个 tab 头可点，修复「点到 label 外无反应」）
+async function onDimensionChange() {
   await loadRanking()
 }
 
@@ -124,6 +123,7 @@ onMounted(async () => {
         range-separator="至"
         start-placeholder="开始日期"
         end-placeholder="结束日期"
+        style="width: 280px"
         @change="onCustomChange"
       />
     </div>
@@ -164,21 +164,15 @@ onMounted(async () => {
 
     <el-card class="usage-dashboard__section">
       <template #header>用量排行</template>
-      <el-tabs :model-value="dimension">
+      <el-tabs v-model="dimension" @tab-change="onDimensionChange">
         <el-tab-pane name="app">
-          <template #label>
-            <span data-test="tab-app" @click="selectDimension('app')">应用</span>
-          </template>
+          <template #label><span data-test="tab-app">应用</span></template>
         </el-tab-pane>
         <el-tab-pane name="user">
-          <template #label>
-            <span data-test="tab-user" @click="selectDimension('user')">用户</span>
-          </template>
+          <template #label><span data-test="tab-user">用户</span></template>
         </el-tab-pane>
         <el-tab-pane name="model">
-          <template #label>
-            <span data-test="tab-model" @click="selectDimension('model')">模型</span>
-          </template>
+          <template #label><span data-test="tab-model">模型</span></template>
         </el-tab-pane>
       </el-tabs>
       <el-table :data="ranking" v-loading="loading">

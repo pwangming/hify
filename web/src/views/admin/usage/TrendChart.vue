@@ -20,8 +20,8 @@ let chart: ReturnType<typeof echarts.init> | null = null
 function buildOption() {
   return {
     tooltip: { trigger: 'axis' as const },
-    legend: { data: ['Token', '费用（元）'] },
-    grid: { left: 48, right: 56, top: 40, bottom: 24 },
+    legend: { data: ['Token', '费用（元）'], bottom: 0 },
+    grid: { left: 48, right: 56, top: 24, bottom: 48 },
     xAxis: { type: 'category' as const, data: props.dates },
     yAxis: [
       { type: 'value' as const, name: 'Token' },
