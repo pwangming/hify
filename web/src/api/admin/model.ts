@@ -15,8 +15,11 @@ export function createModel(providerId: string, body: ModelForm) {
   return request.post<AiModel>(`${BASE}/providers/${providerId}/models`, body)
 }
 
-/** 改模型（只改 name+modelKey；type 不可改）。后端：PUT .../models/{id} */
-export function updateModel(id: string, body: Pick<ModelForm, 'name' | 'modelKey'>) {
+/** 改模型（name/modelKey/单价全量；type 不可改）。后端：PUT .../models/{id} */
+export function updateModel(
+  id: string,
+  body: Pick<ModelForm, 'name' | 'modelKey' | 'inputPrice' | 'outputPrice'>,
+) {
   return request.put<AiModel>(`${BASE}/models/${id}`, body)
 }
 

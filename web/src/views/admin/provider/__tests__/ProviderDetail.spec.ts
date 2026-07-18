@@ -43,9 +43,11 @@ const ANTHROPIC_PROVIDER: Provider = {
 }
 const MODELS: AiModel[] = [
   { id: '5', providerId: '1', type: 'chat', name: 'GPT-4o', modelKey: 'gpt-4o',
-    status: 'enabled', createTime: '2026-06-23T10:00:00+08:00' },
+    status: 'enabled', createTime: '2026-06-23T10:00:00+08:00',
+    inputPrice: null, outputPrice: null },
   { id: '6', providerId: '1', type: 'embedding', name: 'BGE', modelKey: 'bge-large',
-    status: 'disabled', createTime: '2026-06-23T11:00:00+08:00' },
+    status: 'disabled', createTime: '2026-06-23T11:00:00+08:00',
+    inputPrice: null, outputPrice: null },
 ]
 
 // 挂载 ProviderDetail 到指定供应商 id 的真实 memory router
@@ -115,6 +117,7 @@ describe('ProviderDetail', () => {
     vi.mocked(createModel).mockResolvedValue({
       id: '12', providerId: '1', type: 'chat', name: 'New', modelKey: 'new-key',
       status: 'enabled', createTime: '2026-06-24T08:00:00+08:00',
+      inputPrice: null, outputPrice: null,
     })
     const { wrapper } = await mountAt('1')
     expect(listModels).toHaveBeenCalledTimes(1)
@@ -124,8 +127,59 @@ describe('ProviderDetail', () => {
     await wrapper.get('[data-test="form-modelkey"]').setValue('new-key')
     await wrapper.get('[data-test="form-submit"]').trigger('click')
     await flushPromises()
-    expect(createModel).toHaveBeenCalledWith('1', { type: 'chat', name: 'New', modelKey: 'new-key' })
+    expect(createModel).toHaveBeenCalledWith('1', {
+      type: 'chat',
+      name: 'New',
+      modelKey: 'new-key',
+      inputPrice: null,
+      outputPrice: null,
+    })
     expect(listModels).toHaveBeenCalledTimes(2)
+  })
+
+  it('新增模型可填单价，提交体带单价；不填则为 null', async () => {
+    vi.mocked(createModel).mockResolvedValue(MODELS[0])
+    const { wrapper } = await mountAt('1')
+    await wrapper.get('[data-test="model-create-open"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="form-name"]').setValue('有价模型')
+    await wrapper.get('[data-test="form-modelkey"]').setValue('priced-model')
+    await wrapper.get('[data-test="input-price"]').find('input').setValue('2')
+    await wrapper.get('[data-test="output-price"]').find('input').setValue('6')
+    await wrapper.get('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createModel).toHaveBeenLastCalledWith('1', {
+      type: 'chat',
+      name: '有价模型',
+      modelKey: 'priced-model',
+      inputPrice: 2,
+      outputPrice: 6,
+    })
+
+    await wrapper.get('[data-test="model-create-open"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="form-name"]').setValue('无价模型')
+    await wrapper.get('[data-test="form-modelkey"]').setValue('unpriced-model')
+    await wrapper.get('[data-test="form-submit"]').trigger('click')
+    await flushPromises()
+    expect(createModel).toHaveBeenLastCalledWith('1', {
+      type: 'chat',
+      name: '无价模型',
+      modelKey: 'unpriced-model',
+      inputPrice: null,
+      outputPrice: null,
+    })
+  })
+
+  it('模型表格显示单价列，未配价显示「未配置」', async () => {
+    vi.mocked(listModels).mockResolvedValue([
+      { ...MODELS[0], inputPrice: 2, outputPrice: 6 },
+      { ...MODELS[1], inputPrice: 2, outputPrice: null },
+    ] as AiModel[])
+    const { wrapper } = await mountAt('1')
+    expect(wrapper.text()).toContain('单价(元/百万)')
+    expect(wrapper.text()).toContain('2 / 6')
+    expect(wrapper.text()).toContain('未配置')
   })
 
   it('新建表单：名称为空时拦截，不调 createModel', async () => {
@@ -155,7 +209,12 @@ describe('ProviderDetail', () => {
     await wrapper.get('[data-test="form-name"]').setValue('GPT-4o 改')
     await wrapper.get('[data-test="form-submit"]').trigger('click')
     await flushPromises()
-    expect(updateModel).toHaveBeenCalledWith('5', { name: 'GPT-4o 改', modelKey: 'gpt-4o' })
+    expect(updateModel).toHaveBeenCalledWith('5', {
+      name: 'GPT-4o 改',
+      modelKey: 'gpt-4o',
+      inputPrice: null,
+      outputPrice: null,
+    })
     expect(listModels).toHaveBeenCalledTimes(2)
   })
 

@@ -19,7 +19,13 @@ describe('admin model api', () => {
     expect(request.get).toHaveBeenCalledWith('/admin/provider/providers/5/models')
   })
   it('createModel → POST /admin/provider/providers/{providerId}/models + body', () => {
-    const body: ModelForm = { type: 'chat', name: 'GPT-4o', modelKey: 'gpt-4o' }
+    const body: ModelForm = {
+      type: 'chat',
+      name: 'GPT-4o',
+      modelKey: 'gpt-4o',
+      inputPrice: null,
+      outputPrice: null,
+    }
     createModel('5', body)
     expect(request.post).toHaveBeenCalledWith('/admin/provider/providers/5/models', body)
   })

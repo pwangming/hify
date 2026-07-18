@@ -124,7 +124,13 @@ async function onTest(row: AiModel) {
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null) // null=新增，否则=编辑该 id
 const formRef = ref<FormInstance>()
-const form = reactive<ModelForm>({ type: 'chat', name: '', modelKey: '' })
+const form = reactive<ModelForm>({
+  type: 'chat',
+  name: '',
+  modelKey: '',
+  inputPrice: null,
+  outputPrice: null,
+})
 
 const rules: FormRules<ModelForm> = {
   type: [{ required: true, message: '请选择类型', trigger: 'change' }],
@@ -143,6 +149,8 @@ function openCreate() {
   form.type = 'chat'
   form.name = ''
   form.modelKey = ''
+  form.inputPrice = null
+  form.outputPrice = null
   dialogVisible.value = true
 }
 
@@ -151,6 +159,8 @@ function openEdit(row: AiModel) {
   form.type = row.type // 编辑时只读展示，不可改
   form.name = row.name
   form.modelKey = row.modelKey
+  form.inputPrice = row.inputPrice
+  form.outputPrice = row.outputPrice
   dialogVisible.value = true
 }
 
@@ -164,10 +174,21 @@ async function submitForm() {
 
   try {
     if (editingId.value === null) {
-      await createModel(providerId, { type: form.type, name: form.name, modelKey: form.modelKey })
+      await createModel(providerId, {
+        type: form.type,
+        name: form.name,
+        modelKey: form.modelKey,
+        inputPrice: form.inputPrice,
+        outputPrice: form.outputPrice,
+      })
       ElMessage.success('模型已创建')
     } else {
-      await updateModel(editingId.value, { name: form.name, modelKey: form.modelKey })
+      await updateModel(editingId.value, {
+        name: form.name,
+        modelKey: form.modelKey,
+        inputPrice: form.inputPrice,
+        outputPrice: form.outputPrice,
+      })
       ElMessage.success('模型已更新')
     }
     dialogVisible.value = false
@@ -201,6 +222,15 @@ async function submitForm() {
             <el-tag :type="(row as AiModel).status === 'enabled' ? 'success' : 'info'">
               {{ (row as AiModel).status === 'enabled' ? '启用' : '禁用' }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="单价(元/百万)">
+          <template #default="{ row }">
+            {{
+              (row as AiModel).inputPrice == null || (row as AiModel).outputPrice == null
+                ? '未配置'
+                : `${(row as AiModel).inputPrice} / ${(row as AiModel).outputPrice}`
+            }}
           </template>
         </el-table-column>
         <el-table-column label="创建时间">
@@ -281,6 +311,28 @@ async function submitForm() {
             placeholder="如 gpt-4o"
           />
         </el-form-item>
+        <el-form-item label="输入单价">
+          <el-input-number
+            v-model="form.inputPrice"
+            :min="0"
+            :precision="4"
+            :controls="false"
+            placeholder="未配置"
+            data-test="input-price"
+          />
+          <span class="provider-detail__unit">元/百万 token</span>
+        </el-form-item>
+        <el-form-item label="输出单价">
+          <el-input-number
+            v-model="form.outputPrice"
+            :min="0"
+            :precision="4"
+            :controls="false"
+            placeholder="未配置"
+            data-test="output-price"
+          />
+          <span class="provider-detail__unit">元/百万 token</span>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -301,5 +353,11 @@ async function submitForm() {
   margin-left: $spacing-sm;
   font-size: $font-size-sm;
   color: $color-text-secondary;
+}
+
+.provider-detail__unit {
+  margin-left: $spacing-sm;
+  color: $color-text-secondary;
+  font-size: $font-size-sm;
 }
 </style>

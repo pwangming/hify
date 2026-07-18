@@ -10,6 +10,9 @@ export interface AiModel {
   modelKey: string
   status: 'enabled' | 'disabled'
   createTime: string
+  /** 元/百万 token；null=未配置。 */
+  inputPrice: number | null
+  outputPrice: number | null
 }
 
 /** 新增请求体（对齐后端 CreateModelRequest）。编辑时只取 name+modelKey（type 不可改）。 */
@@ -17,6 +20,9 @@ export interface ModelForm {
   type: ModelType
   name: string
   modelKey: string
+  /** 元/百万 token；null=未配置。 */
+  inputPrice: number | null
+  outputPrice: number | null
 }
 
 /**
