@@ -50,7 +50,8 @@ public class UsageLogService {
         boolean hasMore = rows.size() > size;
         List<CallLogItem> list = rows.stream().limit(size)
                 .map(r -> new CallLogItem(r.id(), r.userId(), r.appId(), r.modelId(),
-                        r.promptTokens(), r.completionTokens(), r.source(), r.createTime()))
+                        r.promptTokens(), r.completionTokens(), r.source(), r.durationMs(), r.status(),
+                        r.errorCode(), r.createTime()))
                 .toList();
         String next = hasMore
                 ? LogCursor.encode(list.get(list.size() - 1).createTime(), list.get(list.size() - 1).id())
