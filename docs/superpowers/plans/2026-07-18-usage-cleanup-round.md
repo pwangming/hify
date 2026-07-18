@@ -604,7 +604,7 @@ git commit -m "feat(usage): 调用日志接口additive透出耗时/状态/错误
 **Interfaces:**
 - Consumes: Task 3 的响应字段 `durationMs: number | null`、`status: 'success' | 'failed'`、`errorCode: string | null`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `CallLogList.spec.ts`：page1 行追加 `durationMs: 1500, status: 'success', errorCode: null`；page2 行追加 `durationMs: null, status: 'failed', errorCode: '12002'`；既有测试末尾（`load-more` 消失断言之后）追加：
 
@@ -617,12 +617,12 @@ expect(wrapper.text()).toContain('失败')
 expect(wrapper.text()).toContain('12002')
 ```
 
-- [ ] **Step 2: 跑测试看红**
+- [x] **Step 2: 跑测试看红**
 
 Run: `cd web && pnpm vitest run src/views/admin/usage/__tests__/CallLogList.spec.ts`
 Expected: FAIL（页面无新列）。贴输出。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `types/usage.ts` 的 `CallLogItem` 追加：
 
@@ -671,12 +671,12 @@ style 追加：
   }
 ```
 
-- [ ] **Step 4: 跑测试看绿 + 全量前端测试**
+- [x] **Step 4: 跑测试看绿 + 全量前端测试**
 
 Run: `cd web && pnpm test`
 Expected: 全绿。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A web
@@ -692,14 +692,14 @@ git commit -m "feat(web): 调用日志页补耗时与成败状态列"
 - Modify: `docs/architecture/er-diagram.dot`（+重新生成 er-diagram.svg）
 - Modify: `CLAUDE.md`（架构文档索引行的表数量，如与 data-model.md 不符则同步）
 
-- [ ] **Step 1: 更新 data-model.md**
+- [x] **Step 1: 更新 data-model.md**
 
 - 删除表清单中 `daily_usage` 一行（现 :28）；文首/节内如有表总数（如「18 张」）核实后减一。
 - `llm_call_log` 行描述追加观测列：「V27 起含 duration_ms/status/error_code，失败轮也落行（token=0），聚合仅成功累加」。
 - :49 弱引用行 `llm_call_log / daily_usage / usage_stat_daily` 删去 `daily_usage`。
 - 「刻意不存在的表」（或等价小节）追加一条：`daily_usage`——V12 建、V27 废弃，配额已切 usage_stat_daily（V26 全量回填后两张聚合表冗余，留账清理轮收账）。
 
-- [ ] **Step 2: 更新 ER 图**
+- [x] **Step 2: 更新 ER 图**
 
 `er-diagram.dot` 删除 daily_usage 节点及其全部边；重新生成：
 
@@ -707,7 +707,7 @@ git commit -m "feat(web): 调用日志页补耗时与成败状态列"
 cd docs/architecture && npx -y @hpcc-js/wasm-graphviz-cli -T svg er-diagram.dot > er-diagram.svg
 ```
 
-- [ ] **Step 3: 全量回归（三条命令逐一贴实录）**
+- [x] **Step 3: 全量回归（三条命令逐一贴实录）**
 
 ```bash
 cd server && mvn -q verify; echo EXIT=$?          # Expected: EXIT=0
@@ -717,7 +717,7 @@ pnpm e2e                                           # Expected: 4 passed（KB/wor
 
 （`pnpm e2e` 前置按 E2E 地基轮既定流程：hify_e2e 库 + e2e profile；若 agent 旅程需 mcp-demo，按仓库 e2e 文档启动。）
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A docs CLAUDE.md

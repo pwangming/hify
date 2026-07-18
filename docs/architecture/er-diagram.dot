@@ -47,7 +47,6 @@ digraph hify_er {
     subgraph cluster_usage {
         label="usage"; style=rounded; color="#b0a8c9";
         llm_call_log [label="llm_call_log\n(monthly partition)"];
-        daily_usage;
         usage_stat_daily;
     }
 

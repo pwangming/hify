@@ -92,11 +92,15 @@ public class ConversationService {
                         toolFacade.getToolCallbacks(app.toolIds()));
                 saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
                         elapsedMs(started), current.userId(), appId, app.modelId(), List.of(), reply.toolCalls());
+                if (saved == null) saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
+                        current.userId(), appId, app.modelId(), List.of(), reply.toolCalls());
             } else {
                 Augmented aug = augmentWithKnowledge(app, content);
                 LlmReply reply = chatInvoker.invoke(chatClient, aug.prompt(), turn.window());
                 saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
                         elapsedMs(started), current.userId(), appId, app.modelId(), aug.sources());
+                if (saved == null) saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
+                        current.userId(), appId, app.modelId(), aug.sources());
             }
             return new SendMessageResponse(cid, toView(saved));
         } catch (RuntimeException e) {
@@ -146,6 +150,8 @@ public class ConversationService {
         Mono<StreamEvent> done = Mono.<StreamEvent>fromCallable(() -> {
             Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1], elapsedMs(started),
                     current.userId(), appId, app.modelId(), aug.sources());
+            if (saved == null) saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1],
+                    current.userId(), appId, app.modelId(), aug.sources());
             return new StreamEvent.Done(cid, saved.getId(), usage[0], usage[1]);
         }).subscribeOn(Schedulers.boundedElastic());
 
@@ -182,6 +188,8 @@ public class ConversationService {
                 Message saved = store.appendAssistant(cid, reply.content(),
                         reply.promptTokens(), reply.completionTokens(),
                         elapsedMs(started), current.userId(), app.appId(), app.modelId(), List.of(), reply.toolCalls());
+                if (saved == null) saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
+                        current.userId(), app.appId(), app.modelId(), List.of(), reply.toolCalls());
                 sink.next(new StreamEvent.Done(cid, saved.getId(), reply.promptTokens(), reply.completionTokens()));
                 sink.complete();
             } catch (RuntimeException e) {

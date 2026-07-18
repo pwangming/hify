@@ -95,7 +95,7 @@ hify/
 | `api-standards.md` | 路由三族、RESTful 资源设计、Result 统一响应、空值/序列化、错误码段分配、SSE | **写 Controller/DTO 之前** |
 | `frontend-standards.md` | 前端技术栈、目录结构、API 层封装、命名/组件、Pinia、路由权限、样式、环境变量、代码质量 | **写任何前端（web/）代码之前** |
 | `testing-standards.md` | 测试质量判断：三类病（冗余/遗漏/假测试）、AI 测试 7 坑、覆盖率与故意搞错用法、体检流程 | 写测试或审查 AI 生成的测试之前 |
-| `data-model.md` | 18 张表清单与关系、跨模块不建外键、刻意不存在的表 | 涉及新表/改表结构 |
+| `data-model.md` | 19 张表清单与关系、跨模块不建外键、刻意不存在的表 | 涉及新表/改表结构 |
 | `llm-resilience.md` | LLM 调用的线程/超时/重试/熔断方案，provider 模块 ResilientChatModel 装饰器 | 动 provider 模块或任何外部调用 |
 | `deployment.md` | 单机 4 容器架构、组件职责、五条请求流、运维矩阵、二期触发表 | 动部署/运维相关 |
 | `scaling-path.md` | 50→数千人四阶段演进：触发条件/改什么/不改什么；全程不变清单 | 评估任何"为了扩展性"的提议之前 |
