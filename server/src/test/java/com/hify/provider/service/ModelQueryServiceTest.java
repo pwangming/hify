@@ -1,5 +1,6 @@
 package com.hify.provider.service;
 
+import com.hify.provider.api.ModelPrice;
 import com.hify.provider.api.dto.ModelView;
 import com.hify.provider.constant.ModelType;
 import com.hify.provider.constant.ProviderStatus;
@@ -10,16 +11,19 @@ import com.hify.provider.mapper.ModelProviderMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -158,6 +162,23 @@ class ModelQueryServiceTest {
     @Test
     void 名字映射_null入参_返回空map() {
         assertTrue(service.getModelNames(null).isEmpty());
+    }
+
+    @Test
+    void getModelPrices_返回两单价映射_空入参不查库() {
+        AiModel m = new AiModel();
+        m.setId(5L);
+        m.setInputPrice(new BigDecimal("2.0000"));
+        m.setOutputPrice(null);
+        when(modelMapper.selectBatchIds(List.of(5L))).thenReturn(List.of(m));
+
+        Map<Long, ModelPrice> prices = service.getModelPrices(List.of(5L));
+
+        assertThat(prices.get(5L).inputPrice()).isEqualByComparingTo("2");
+        assertThat(prices.get(5L).outputPrice()).isNull();
+        assertThat(service.getModelPrices(List.of())).isEmpty();
+        verify(modelMapper).selectBatchIds(List.of(5L));
+        verifyNoMoreInteractions(modelMapper);
     }
 
     // ---- filterUsableChatModelIds（批量「可用」过滤，给列表用）----

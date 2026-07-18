@@ -1,7 +1,11 @@
 package com.hify.provider.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.hify.common.BaseEntity;
+
+import java.math.BigDecimal;
 
 /**
  * 具体模型表 {@code ai_model} 的映射实体。继承 {@link BaseEntity}，自动带
@@ -16,6 +20,11 @@ public class AiModel extends BaseEntity {
     private String name;     // 显示名
     private String modelKey; // API 模型标识（传给 LLM，如 gpt-4o）
     private String status;   // enabled / disabled
+    // 单价（元/百万token，null=未配置）。PUT 传 null 要真实置空，不能被默认 NOT_NULL 策略跳过
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private BigDecimal inputPrice;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private BigDecimal outputPrice;
 
     public Long getProviderId() {
         return providerId;
@@ -55,5 +64,21 @@ public class AiModel extends BaseEntity {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public BigDecimal getInputPrice() {
+        return inputPrice;
+    }
+
+    public void setInputPrice(BigDecimal inputPrice) {
+        this.inputPrice = inputPrice;
+    }
+
+    public BigDecimal getOutputPrice() {
+        return outputPrice;
+    }
+
+    public void setOutputPrice(BigDecimal outputPrice) {
+        this.outputPrice = outputPrice;
     }
 }

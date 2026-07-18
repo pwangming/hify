@@ -1,6 +1,7 @@
 package com.hify.provider.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.hify.provider.api.ModelPrice;
 import com.hify.provider.api.dto.ModelView;
 import com.hify.provider.constant.ModelType;
 import com.hify.provider.constant.ProviderStatus;
@@ -62,6 +63,16 @@ public class ModelQueryService {
         }
         return modelMapper.selectBatchIds(modelIds).stream()
                 .collect(Collectors.toMap(AiModel::getId, AiModel::getName));
+    }
+
+    /** 批量取模型单价（id→ModelPrice），展示/计费用途，不管启停都返回；已删模型不在结果里。空/null 入参返回空 map。 */
+    public Map<Long, ModelPrice> getModelPrices(Collection<Long> modelIds) {
+        if (modelIds == null || modelIds.isEmpty()) {
+            return Map.of();
+        }
+        return modelMapper.selectBatchIds(modelIds).stream()
+                .collect(Collectors.toMap(AiModel::getId,
+                        m -> new ModelPrice(m.getInputPrice(), m.getOutputPrice())));
     }
 
     /**

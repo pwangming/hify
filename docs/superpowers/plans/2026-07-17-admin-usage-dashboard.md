@@ -390,7 +390,7 @@ cd /home/wang/playlab/hify && git add -A server/src && git commit -m "feat(usage
 **Interfaces:**
 - Produces: `ProviderFacade.getModelPrices(Collection<Long> modelIds)` → `Map<Long, ModelPrice>`；`public record ModelPrice(BigDecimal inputPrice, BigDecimal outputPrice)`（**api 顶层包**，Modulith 子包坑）；`CreateModelRequest/UpdateModelRequest` 尾部加 `@DecimalMin("0") BigDecimal inputPrice, @DecimalMin("0") BigDecimal outputPrice`（可空）；`ModelResponse` 尾部加 `BigDecimal inputPrice, BigDecimal outputPrice`。
 
-- [ ] **Step 1: 写失败测试（AiModelServiceTest 加单价存取用例，ModelQueryServiceTest 加 getModelPrices 用例）**
+- [x] **Step 1: 写失败测试（AiModelServiceTest 加单价存取用例，ModelQueryServiceTest 加 getModelPrices 用例）**
 
 `AiModelServiceTest` 新增（沿用该类既有 mock 构造方式）：
 
@@ -427,12 +427,12 @@ void getModelPrices_返回两单价映射_空入参不查库() {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认红灯（编译失败：字段/方法不存在）**
+- [x] **Step 2: 跑测试确认红灯（编译失败：字段/方法不存在）**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='AiModelServiceTest,ModelQueryServiceTest' | tail -8; echo exit=${PIPESTATUS[0]}`
 Expected: exit=1。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `AiModel` 加字段（**置空必须生效**：MyBatis-Plus 默认 NOT_NULL 更新策略会跳过 null 字段，PUT 全量「未传视为置空」会失效，故单价两列显式 ALWAYS）：
 
@@ -492,12 +492,12 @@ public Map<Long, ModelPrice> getModelPrices(Collection<Long> modelIds) {
 
 `ProviderFacade` 接口加方法（javadoc 说明同上）+ `ProviderFacadeImpl` 委托一行：`return modelQueryService.getModelPrices(modelIds);`，`ProviderFacadeImplTest` 补委托 verify 用例。
 
-- [ ] **Step 4: 跑 provider 全部单测确认绿灯**
+- [x] **Step 4: 跑 provider 全部单测确认绿灯**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='com.hify.provider.**.*Test' | tail -8; echo exit=${PIPESTATUS[0]}`
 Expected: exit=0。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add -A server/src && git commit -m "feat(provider): 模型单价字段（元/百万token，可空）+ Facade 批量取价 getModelPrices"

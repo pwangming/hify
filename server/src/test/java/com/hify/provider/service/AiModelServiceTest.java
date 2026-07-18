@@ -17,9 +17,11 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -72,7 +74,8 @@ class AiModelServiceTest {
         when(modelMapper.selectCount(any())).thenReturn(0L);
         ArgumentCaptor<AiModel> captor = ArgumentCaptor.forClass(AiModel.class);
 
-        ModelResponse resp = service.create(1L, new CreateModelRequest("chat", "GPT-4o", "gpt-4o"));
+        ModelResponse resp = service.create(
+                1L, new CreateModelRequest("chat", "GPT-4o", "gpt-4o", null, null));
 
         verify(modelMapper).insert(captor.capture());
         AiModel saved = captor.getValue();
@@ -84,12 +87,26 @@ class AiModelServiceTest {
     }
 
     @Test
+    void create_带单价则落库_update_传null置空() {
+        when(providerMapper.selectById(1L)).thenReturn(provider(1L, "openai"));
+        when(modelMapper.selectCount(any())).thenReturn(0L);
+
+        ModelResponse created = service.create(1L, new CreateModelRequest(
+                "chat", "qwen", "qwen-max", new BigDecimal("2.0000"), new BigDecimal("6.0000")));
+
+        assertThat(created.inputPrice()).isEqualByComparingTo("2");
+        ArgumentCaptor<AiModel> captor = ArgumentCaptor.forClass(AiModel.class);
+        verify(modelMapper).insert(captor.capture());
+        assertThat(captor.getValue().getOutputPrice()).isEqualByComparingTo("6");
+    }
+
+    @Test
     void 创建embedding_openai下_成功() {
         when(providerMapper.selectById(1L)).thenReturn(provider(1L, "openai"));
         when(modelMapper.selectCount(any())).thenReturn(0L);
 
         ModelResponse resp = service.create(1L,
-                new CreateModelRequest("embedding", "向量", "text-embedding-3-small"));
+                new CreateModelRequest("embedding", "向量", "text-embedding-3-small", null, null));
 
         assertEquals("embedding", resp.type());
     }
@@ -99,7 +116,7 @@ class AiModelServiceTest {
         when(providerMapper.selectById(2L)).thenReturn(provider(2L, "anthropic"));
 
         BizException ex = assertThrows(BizException.class,
-                () -> service.create(2L, new CreateModelRequest("embedding", "向量", "x")));
+                () -> service.create(2L, new CreateModelRequest("embedding", "向量", "x", null, null)));
         assertEquals(ProviderError.EMBEDDING_NOT_SUPPORTED, ex.errorCode());
         verify(modelMapper, never()).insert(any(AiModel.class));
     }
@@ -110,7 +127,7 @@ class AiModelServiceTest {
         when(modelMapper.selectCount(any())).thenReturn(0L);
 
         ModelResponse resp = service.create(2L,
-                new CreateModelRequest("chat", "Claude", "claude-sonnet-4-6"));
+                new CreateModelRequest("chat", "Claude", "claude-sonnet-4-6", null, null));
 
         assertEquals("chat", resp.type());
     }
@@ -120,7 +137,7 @@ class AiModelServiceTest {
         when(providerMapper.selectById(99L)).thenReturn(null);
 
         BizException ex = assertThrows(BizException.class,
-                () -> service.create(99L, new CreateModelRequest("chat", "x", "x")));
+                () -> service.create(99L, new CreateModelRequest("chat", "x", "x", null, null)));
         assertEquals(CommonError.NOT_FOUND, ex.errorCode());
     }
 
@@ -130,7 +147,7 @@ class AiModelServiceTest {
         when(modelMapper.selectCount(any())).thenReturn(1L);
 
         BizException ex = assertThrows(BizException.class,
-                () -> service.create(1L, new CreateModelRequest("chat", "x", "gpt-4o")));
+                () -> service.create(1L, new CreateModelRequest("chat", "x", "gpt-4o", null, null)));
         assertEquals(CommonError.CONFLICT, ex.errorCode());
     }
 
@@ -141,7 +158,7 @@ class AiModelServiceTest {
         when(modelMapper.insert(any(AiModel.class))).thenThrow(new DuplicateKeyException("dup"));
 
         BizException ex = assertThrows(BizException.class,
-                () -> service.create(1L, new CreateModelRequest("chat", "x", "gpt-4o")));
+                () -> service.create(1L, new CreateModelRequest("chat", "x", "gpt-4o", null, null)));
         assertEquals(CommonError.CONFLICT, ex.errorCode());
     }
 
@@ -151,7 +168,7 @@ class AiModelServiceTest {
         when(modelMapper.selectCount(any())).thenReturn(0L);
         ArgumentCaptor<AiModel> captor = ArgumentCaptor.forClass(AiModel.class);
 
-        service.update(5L, new UpdateModelRequest("新名", "gpt-4o-mini"));
+        service.update(5L, new UpdateModelRequest("新名", "gpt-4o-mini", null, null));
 
         verify(modelMapper).updateById(captor.capture());
         assertEquals("新名", captor.getValue().getName());
@@ -163,7 +180,7 @@ class AiModelServiceTest {
         when(modelMapper.selectById(99L)).thenReturn(null);
 
         BizException ex = assertThrows(BizException.class,
-                () -> service.update(99L, new UpdateModelRequest("x", "x")));
+                () -> service.update(99L, new UpdateModelRequest("x", "x", null, null)));
         assertEquals(CommonError.NOT_FOUND, ex.errorCode());
     }
 

@@ -31,6 +31,12 @@ public interface ProviderFacade {
     Map<Long, String> getModelNames(Collection<Long> modelIds);
 
     /**
+     * 批量取模型单价（id→ModelPrice），展示/计费用途，不管启停都返回；已删模型不在结果里。
+     * 空/null 入参返回空 map。
+     */
+    Map<Long, ModelPrice> getModelPrices(Collection<Long> modelIds);
+
+    /**
      * 从给定 id 中筛出「可用」的 chat 模型 id（enabled + chat + 供应商 enabled）。
      * 供 app 列表批量标注模型启停状态。空/null 入参返回空集。
      */

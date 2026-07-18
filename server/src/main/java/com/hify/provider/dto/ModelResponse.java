@@ -1,5 +1,6 @@
 package com.hify.provider.dto;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 /**
@@ -13,5 +14,7 @@ public record ModelResponse(
         String name,
         String modelKey,
         String status,
-        OffsetDateTime createTime) {
+        OffsetDateTime createTime,
+        BigDecimal inputPrice,
+        BigDecimal outputPrice) {
 }

@@ -1,6 +1,7 @@
 package com.hify.provider.service;
 
 import com.hify.common.exception.BizException;
+import com.hify.provider.api.ModelPrice;
 import com.hify.provider.constant.ProviderError;
 import com.hify.provider.api.ProviderFacade;
 import com.hify.provider.api.dto.ModelView;
@@ -40,6 +41,11 @@ public class ProviderFacadeImpl implements ProviderFacade {
     @Override
     public Map<Long, String> getModelNames(Collection<Long> modelIds) {
         return modelQueryService.getModelNames(modelIds);
+    }
+
+    @Override
+    public Map<Long, ModelPrice> getModelPrices(Collection<Long> modelIds) {
+        return modelQueryService.getModelPrices(modelIds);
     }
 
     @Override

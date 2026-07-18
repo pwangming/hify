@@ -58,6 +58,8 @@ public class AiModelService {
         entity.setName(request.name());
         entity.setModelKey(request.modelKey());
         entity.setStatus(ProviderStatus.ENABLED.value());
+        entity.setInputPrice(request.inputPrice());
+        entity.setOutputPrice(request.outputPrice());
         try {
             modelMapper.insert(entity);
         } catch (DuplicateKeyException e) {
@@ -72,6 +74,8 @@ public class AiModelService {
         assertKeyAvailable(entity.getProviderId(), request.modelKey(), id);
         entity.setName(request.name());
         entity.setModelKey(request.modelKey());
+        entity.setInputPrice(request.inputPrice());
+        entity.setOutputPrice(request.outputPrice());
         try {
             modelMapper.updateById(entity);
         } catch (DuplicateKeyException e) {
@@ -143,6 +147,7 @@ public class AiModelService {
     private ModelResponse toResponse(AiModel m) {
         return new ModelResponse(
                 m.getId(), m.getProviderId(), m.getType(), m.getName(),
-                m.getModelKey(), m.getStatus(), m.getCreateTime());
+                m.getModelKey(), m.getStatus(), m.getCreateTime(),
+                m.getInputPrice(), m.getOutputPrice());
     }
 }

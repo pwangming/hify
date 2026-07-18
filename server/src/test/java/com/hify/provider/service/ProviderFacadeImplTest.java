@@ -1,6 +1,7 @@
 package com.hify.provider.service;
 
 import com.hify.common.exception.BizException;
+import com.hify.provider.api.ModelPrice;
 import com.hify.provider.constant.ProviderError;
 import com.hify.provider.api.dto.ModelView;
 import com.hify.provider.service.resilience.ResilienceRegistry;
@@ -9,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
 
+import java.math.BigDecimal;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,6 +62,16 @@ class ProviderFacadeImplTest {
         when(modelQueryService.getModelNames(java.util.List.of(5L)))
                 .thenReturn(java.util.Map.of(5L, "GPT-4o"));
         assertEquals("GPT-4o", facade.getModelNames(java.util.List.of(5L)).get(5L));
+    }
+
+    @Test
+    void 透传单价映射() {
+        Map<Long, ModelPrice> prices = Map.of(
+                5L, new ModelPrice(new BigDecimal("2"), new BigDecimal("6")));
+        when(modelQueryService.getModelPrices(java.util.List.of(5L))).thenReturn(prices);
+
+        assertSame(prices, facade.getModelPrices(java.util.List.of(5L)));
+        verify(modelQueryService).getModelPrices(java.util.List.of(5L));
     }
 
     @Test

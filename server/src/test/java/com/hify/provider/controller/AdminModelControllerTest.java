@@ -57,7 +57,8 @@ class AdminModelControllerTest {
     }
 
     private ModelResponse sample() {
-        return new ModelResponse(7L, 1L, "chat", "GPT-4o", "gpt-4o", "enabled", OffsetDateTime.now());
+        return new ModelResponse(
+                7L, 1L, "chat", "GPT-4o", "gpt-4o", "enabled", OffsetDateTime.now(), null, null);
     }
 
     @Test
