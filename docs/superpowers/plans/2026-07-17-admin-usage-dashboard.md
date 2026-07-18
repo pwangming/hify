@@ -1219,7 +1219,7 @@ cd /home/wang/playlab/hify && git add -A server/src && git commit -m "feat(usage
 **Interfaces:**
 - Produces: 类型 `UsageOverview/DailyUsagePoint/UsageRankingItem/CallLogItem/CallLogPage/RankDimension`；api 函数 `fetchOverview/fetchDaily/fetchRankings/fetchCallLogs`；`useNameMaps()` → `{ load, resolveUser, resolveApp, resolveModel }`（resolve 均 `(id: string) => string`，未命中返回 `#${id}（已删除）`）。
 
-- [ ] **Step 1: 写失败测试 useNameMaps**
+- [x] **Step 1: 写失败测试 useNameMaps**
 
 ```ts
 // web/src/composables/__tests__/useNameMaps.spec.ts
@@ -1254,7 +1254,7 @@ describe('useNameMaps', () => {
 Run: `cd /home/wang/playlab/hify/web && pnpm test src/composables/__tests__/useNameMaps.spec.ts`
 Expected: FAIL（模块不存在）。
 
-- [ ] **Step 2: 实现类型/api/composable/路由**
+- [x] **Step 2: 实现类型/api/composable/路由**
 
 `web/src/types/usage.ts`：
 
@@ -1446,12 +1446,12 @@ export function useNameMaps() {
 
 （页面组件 Task 8/9 才建；本 Task 先建两个最小占位 SFC 防路由 import 悬空：`<template><div /></template>`，Task 8/9 覆盖。）
 
-- [ ] **Step 3: 跑测试与 typecheck 确认绿灯**
+- [x] **Step 3: 跑测试与 typecheck 确认绿灯**
 
 Run: `cd /home/wang/playlab/hify/web && pnpm test src/composables/__tests__/useNameMaps.spec.ts && pnpm typecheck`
 Expected: PASS + typecheck 退出码 0。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add web/src && git commit -m "feat(web): 用量看板地基——类型/usage api/useNameMaps 名称解析/路由菜单"

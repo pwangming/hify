@@ -103,6 +103,30 @@ const routes: RouteRecordRaw[] = [
       group: '管理控制台',
     },
   },
+  {
+    path: '/admin/usage',
+    name: 'UsageDashboard',
+    component: () => import('@/views/admin/usage/UsageDashboard.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: ['admin'],
+      title: '用量看板',
+      menu: true,
+      icon: 'DataAnalysis',
+      group: '管理控制台',
+    },
+  },
+  {
+    path: '/admin/usage/call-logs',
+    name: 'CallLogList',
+    component: () => import('@/views/admin/usage/CallLogList.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: ['admin'],
+      title: '调用日志',
+      group: '管理控制台',
+    },
+  },
   // —— 样式预览（开发期视觉验收用，免登录、默认布局、进侧边菜单；定稿后可删）——
   {
     path: '/styleguide',
