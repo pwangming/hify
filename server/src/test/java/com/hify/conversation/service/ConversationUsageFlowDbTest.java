@@ -13,7 +13,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 非 Agent 聊天路径（8 参 appendAssistant，同步与 SSE 共用）的计量回归：经 Spring 代理真实调用后
+ * 非 Agent 聊天路径（9 参 appendAssistant，同步与 SSE 共用）的计量回归：经 Spring 代理真实调用后
  * usage 三表必须落账。历史 bug：8 参重载缺 @Transactional 且 this. 委托 9 参绕过代理，发布无事务
  * → AFTER_COMMIT 静默丢事件，自 Agent 轮引入重载起非 Agent 聊天漏记用量/配额。
  * 本测试锚定该行为不再回归（NOT_SUPPORTED 关掉基类回滚事务，走真提交）。
@@ -45,7 +45,7 @@ class ConversationUsageFlowDbTest extends PgIntegrationTest {
         conversationId = jdbc.queryForObject(
                 "insert into conversation (app_id, user_id, title) values (880, " + PROBE_USER
                         + ", '计量探针') returning id", Long.class);
-        store.appendAssistant(conversationId, "回答", 120, 60, PROBE_USER, 880L, 50L, List.of());
+        store.appendAssistant(conversationId, "回答", 120, 60, 250L, PROBE_USER, 880L, 50L, List.of());
 
         Integer logRows = 0;
         for (int i = 0; i < 50; i++) {

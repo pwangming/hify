@@ -13,8 +13,8 @@ class UsageEventListenerTest {
     void 收到TokenUsedEvent_委托recordUsage() {
         UsageService usageService = mock(UsageService.class);
         UsageEventListener listener = new UsageEventListener(usageService);
-        TokenUsedEvent event = new TokenUsedEvent(
-                7L, 88L, 5L, 300, 180, TokenUsedEvent.SOURCE_CONVERSATION);
+        TokenUsedEvent event = TokenUsedEvent.success(
+                7L, 88L, 5L, 300, 180, TokenUsedEvent.SOURCE_CONVERSATION, 100L);
 
         listener.onTokenUsed(event);
 

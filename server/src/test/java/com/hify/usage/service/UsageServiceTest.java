@@ -15,8 +15,10 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,13 +59,24 @@ class UsageServiceTest {
     }
 
     @Test
-    void recordUsage_落一行流水并按总token累加聚合() {
-        service.recordUsage(new TokenUsedEvent(
-                7L, 88L, 5L, 300, 180, TokenUsedEvent.SOURCE_CONVERSATION));
+    void recordUsage_成功事件_插流水且聚合累加() {
+        service.recordUsage(TokenUsedEvent.success(
+                7L, 88L, 5L, 300, 180, TokenUsedEvent.SOURCE_CONVERSATION, 1234L));
 
         verify(llmCallLogMapper, times(1)).insertLog(
-                7L, 88L, 5L, 300L, 180L, TokenUsedEvent.SOURCE_CONVERSATION, 0L, "success", null);
+                7L, 88L, 5L, 300L, 180L, TokenUsedEvent.SOURCE_CONVERSATION, 1234L, "success", null);
         verify(statDailyMapper).upsertAccumulate(
                 eq(7L), eq(88L), eq(5L), any(LocalDate.class), eq(300L), eq(180L));
+    }
+
+    @Test
+    void recordUsage_失败事件_只插流水_不动聚合不进配额() {
+        service.recordUsage(TokenUsedEvent.failure(
+                7L, 88L, 5L, TokenUsedEvent.SOURCE_WORKFLOW, 890L, new IllegalStateException("x")));
+
+        verify(llmCallLogMapper, times(1)).insertLog(
+                7L, 88L, 5L, 0L, 0L, TokenUsedEvent.SOURCE_WORKFLOW, 890L, "failed", "IllegalStateException");
+        verify(statDailyMapper, never()).upsertAccumulate(
+                any(), any(), any(), any(LocalDate.class), anyLong(), anyLong());
     }
 }

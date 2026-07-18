@@ -92,15 +92,11 @@ public class ConversationService {
                         toolFacade.getToolCallbacks(app.toolIds()));
                 saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
                         elapsedMs(started), current.userId(), appId, app.modelId(), List.of(), reply.toolCalls());
-                if (saved == null) saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
-                        current.userId(), appId, app.modelId(), List.of(), reply.toolCalls());
             } else {
                 Augmented aug = augmentWithKnowledge(app, content);
                 LlmReply reply = chatInvoker.invoke(chatClient, aug.prompt(), turn.window());
                 saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
                         elapsedMs(started), current.userId(), appId, app.modelId(), aug.sources());
-                if (saved == null) saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
-                        current.userId(), appId, app.modelId(), aug.sources());
             }
             return new SendMessageResponse(cid, toView(saved));
         } catch (RuntimeException e) {
@@ -148,9 +144,7 @@ public class ConversationService {
                 });
 
         Mono<StreamEvent> done = Mono.<StreamEvent>fromCallable(() -> {
-            Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1], elapsedMs(started),
-                    current.userId(), appId, app.modelId(), aug.sources());
-            if (saved == null) saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1],
+            Message saved = store.appendAssistant(cid, buf.toString(), usage[0], usage[1], elapsedMs(started), // 事务B（内发 TokenUsedEvent）
                     current.userId(), appId, app.modelId(), aug.sources());
             return new StreamEvent.Done(cid, saved.getId(), usage[0], usage[1]);
         }).subscribeOn(Schedulers.boundedElastic());
@@ -161,12 +155,14 @@ public class ConversationService {
         return Flux.concat(Mono.<StreamEvent>just(new StreamEvent.Meta(cid)), sourcesFlux, deltas, done)
                 // 真失败(onError)即清理孤儿；取消(用户切会话)是 cancel 信号、不进 onErrorResume，故不会误删。
                 // 清理是阻塞 JDBC，放 boundedElastic。
-                .onErrorResume(err -> Mono.fromRunnable(() ->
-                                store.cleanupFailedTurn(turn.conversationId(), turn.userMessageId(), turn.newConversation()))
+                .onErrorResume(err -> Mono.fromRunnable(() -> {
+                            // 失败计量在事务外发布（fallbackExecution 立即落失败行），放清理之前：清理抛错也不能丢计量
+                            publisher.publishEvent(TokenUsedEvent.failure(current.userId(), appId,
+                                    app.modelId(), TokenUsedEvent.SOURCE_CONVERSATION, elapsedMs(started), err));
+                            store.cleanupFailedTurn(turn.conversationId(), turn.userMessageId(), turn.newConversation());
+                        })
                         .subscribeOn(Schedulers.boundedElastic())
                         .onErrorResume(cleanupEx -> Mono.empty())   // 清理失败不可盖住原始 LLM 错误
-                        .doOnError(failure -> publisher.publishEvent(TokenUsedEvent.failure(current.userId(), appId,
-                                app.modelId(), TokenUsedEvent.SOURCE_CONVERSATION, elapsedMs(started), failure)))
                         .then(Mono.<StreamEvent>error(err)));
     }
 
@@ -188,8 +184,6 @@ public class ConversationService {
                 Message saved = store.appendAssistant(cid, reply.content(),
                         reply.promptTokens(), reply.completionTokens(),
                         elapsedMs(started), current.userId(), app.appId(), app.modelId(), List.of(), reply.toolCalls());
-                if (saved == null) saved = store.appendAssistant(cid, reply.content(), reply.promptTokens(), reply.completionTokens(),
-                        current.userId(), app.appId(), app.modelId(), List.of(), reply.toolCalls());
                 sink.next(new StreamEvent.Done(cid, saved.getId(), reply.promptTokens(), reply.completionTokens()));
                 sink.complete();
             } catch (RuntimeException e) {

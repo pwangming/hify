@@ -14,12 +14,13 @@ import org.springframework.context.ApplicationEventPublisher;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -69,6 +70,27 @@ class LlmNodeExecutorTest {
         assertEquals(10, evt.promptTokens());
         assertEquals(5, evt.completionTokens());
         assertEquals(TokenUsedEvent.SOURCE_WORKFLOW, evt.source());
+        assertTrue(evt.success());
+        assertTrue(evt.durationMs() >= 0);
+        assertNull(evt.errorCode());
+    }
+
+    @Test
+    void 调用失败_发failure事件后再抛NodeExecutionException() {
+        ChatClient client = mock(ChatClient.class);
+        when(providerFacade.getChatClient(3L)).thenReturn(client);
+        when(llmCaller.call(any(), any(), any())).thenThrow(new IllegalStateException("provider 挂了"));
+
+        assertThrows(NodeExecutionException.class,
+                () -> executor.execute(node(Map.of("modelId", "3", "userPrompt", "hi")), ctx));
+
+        ArgumentCaptor<TokenUsedEvent> captor = ArgumentCaptor.forClass(TokenUsedEvent.class);
+        verify(events).publishEvent((Object) captor.capture());
+        TokenUsedEvent evt = captor.getValue();
+        assertFalse(evt.success());
+        assertEquals("IllegalStateException", evt.errorCode());
+        assertEquals(0, evt.promptTokens());
+        assertEquals(TokenUsedEvent.SOURCE_WORKFLOW, evt.source());
     }
 
     @Test
@@ -84,13 +106,19 @@ class LlmNodeExecutorTest {
     }
 
     @Test
-    void 模型不可用_抛NodeExecutionException携带渲染后inputs_cause为Biz且不发事件() {
+    void 模型不可用_抛NodeExecutionException携带渲染后inputs_并发failure事件() {
         when(providerFacade.getChatClient(3L))
                 .thenThrow(new BizException(CommonError.DEPENDENCY_UNAVAILABLE, "模型不可用"));
         NodeExecutionException ex = assertThrows(NodeExecutionException.class,
                 () -> executor.execute(node(Map.of("modelId", "3", "userPrompt", "分类：{{start.query}}")), ctx));
         assertEquals(BizException.class, ex.getCause().getClass());
         assertEquals("分类：我要退货", ex.inputs().get("userPrompt"));   // 渲染后的输入随异常带出
-        verify(events, never()).publishEvent(any());
+
+        // 留账清理轮：模型不可用也算一次失败调用，落流水（errorCode=BizException 错误码数字）
+        ArgumentCaptor<TokenUsedEvent> captor = ArgumentCaptor.forClass(TokenUsedEvent.class);
+        verify(events).publishEvent((Object) captor.capture());
+        assertFalse(captor.getValue().success());
+        assertEquals(String.valueOf(CommonError.DEPENDENCY_UNAVAILABLE.code()),
+                captor.getValue().errorCode());
     }
 }

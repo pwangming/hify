@@ -89,30 +89,15 @@ public class ConversationStore {
     }
 
     /**
-     * 事务B：落 assistant 消息 + touch 会话 update_time + 发 TokenUsedEvent 计量。
+     * 事务B：落 assistant 消息 + touch 会话 update_time + 发 TokenUsedEvent 成功计量（durationMs=轮耗时）。
      * 事件在**本事务内**发布，使 usage 的 {@code @TransactionalEventListener(AFTER_COMMIT)} 在事务提交后触发
-     * （若在无事务的编排层发布会被丢弃）。失败/取消的轮不走到这里，故天然不计量（决策 E）。
-     * userId/appId/modelId 仅用于计量事件，不落 message 表。
+     * （若在无事务的编排层发布会被丢弃）。失败/取消的轮不走到这里——失败计量由编排层
+     * ConversationService 在事务外发 failure 事件（留账清理轮）。userId/appId/modelId 仅用于计量事件，不落 message 表。
      *
-     * <p><b>本重载必须自带 @Transactional</b>：内部 {@code this.} 委托 9 参重载是自调用、不过代理，
-     * 9 参上的注解对本入口不生效——历史 bug：非 Agent 聊天（同步+SSE）经此入口发布时无事务，
+     * <p><b>本重载必须自带 @Transactional</b>：内部 {@code this.} 委托 10 参重载是自调用、不过代理，
+     * 10 参上的注解对本入口不生效——历史 bug：非 Agent 聊天（同步+SSE）经此入口发布时无事务，
      * 计量事件被静默丢弃（ConversationUsageFlowDbTest 锚定回归）。
      */
-    @Transactional
-    public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
-                                   Long userId, Long appId, Long modelId, List<MessageSource> sources,
-                                   List<MessageToolCall> toolCalls) {
-        return appendAssistant(conversationId, content, promptTokens, completionTokens, 0L,
-                userId, appId, modelId, sources, toolCalls);
-    }
-
-    @Transactional
-    public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
-                                   Long userId, Long appId, Long modelId, List<MessageSource> sources) {
-        return appendAssistant(conversationId, content, promptTokens, completionTokens, 0L,
-                userId, appId, modelId, sources);
-    }
-
     @Transactional
     public Message appendAssistant(Long conversationId, String content, int promptTokens, int completionTokens,
                                    long durationMs, Long userId, Long appId, Long modelId, List<MessageSource> sources) {

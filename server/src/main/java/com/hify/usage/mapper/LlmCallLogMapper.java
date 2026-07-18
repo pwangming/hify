@@ -21,9 +21,11 @@ public interface LlmCallLogMapper {
                       String errorCode, OffsetDateTime createTime) {
     }
 
-    /** 落一行调用流水（成功轮的 TokenUsedEvent 触发，含 conversation/workflow 来源）。 */
-    @Insert("insert into llm_call_log (user_id, app_id, model_id, prompt_tokens, completion_tokens, source) "
-            + "values (#{userId}, #{appId}, #{modelId}, #{promptTokens}, #{completionTokens}, #{source})")
+    /** 落一行调用流水（成功/失败轮的 TokenUsedEvent 均触发；失败行 token=0、status='failed'）。 */
+    @Insert("insert into llm_call_log (user_id, app_id, model_id, prompt_tokens, completion_tokens, source, "
+            + "duration_ms, status, error_code) "
+            + "values (#{userId}, #{appId}, #{modelId}, #{promptTokens}, #{completionTokens}, #{source}, "
+            + "#{durationMs}, #{status}, #{errorCode})")
     int insertLog(@Param("userId") Long userId, @Param("appId") Long appId, @Param("modelId") Long modelId,
                   @Param("promptTokens") long promptTokens, @Param("completionTokens") long completionTokens,
                   @Param("source") String source, @Param("durationMs") long durationMs,
