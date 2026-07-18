@@ -116,7 +116,8 @@ public class ConversationStore {
         Conversation touch = new Conversation();
         touch.setId(conversationId);
         conversationMapper.updateById(touch);
-        publisher.publishEvent(new TokenUsedEvent(userId, appId, modelId, promptTokens, completionTokens));
+        publisher.publishEvent(new TokenUsedEvent(userId, appId, modelId, promptTokens, completionTokens,
+                TokenUsedEvent.SOURCE_CONVERSATION));
         return m;
     }
 

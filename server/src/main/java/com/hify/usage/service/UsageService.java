@@ -6,6 +6,7 @@ import com.hify.usage.config.UsageProperties;
 import com.hify.usage.constant.UsageError;
 import com.hify.usage.mapper.DailyUsageMapper;
 import com.hify.usage.mapper.LlmCallLogMapper;
+import com.hify.usage.mapper.UsageStatDailyMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,12 +23,14 @@ public class UsageService {
 
     private final DailyUsageMapper dailyUsageMapper;
     private final LlmCallLogMapper llmCallLogMapper;
+    private final UsageStatDailyMapper statDailyMapper;
     private final UsageProperties props;
 
     public UsageService(DailyUsageMapper dailyUsageMapper, LlmCallLogMapper llmCallLogMapper,
-                        UsageProperties props) {
+                        UsageStatDailyMapper statDailyMapper, UsageProperties props) {
         this.dailyUsageMapper = dailyUsageMapper;
         this.llmCallLogMapper = llmCallLogMapper;
+        this.statDailyMapper = statDailyMapper;
         this.props = props;
     }
 
@@ -42,11 +45,15 @@ public class UsageService {
         }
     }
 
-    /** 落一行调用流水 + UPSERT 累加当日聚合。两写同一 usage 本地事务，保持一致。 */
+    /** 落流水 + UPSERT daily_usage（配额） + UPSERT usage_stat_daily（看板）。三写同一 usage 本地事务。 */
     @Transactional
     public void recordUsage(TokenUsedEvent e) {
-        llmCallLogMapper.insertLog(e.userId(), e.appId(), e.modelId(), e.promptTokens(), e.completionTokens());
+        llmCallLogMapper.insertLog(e.userId(), e.appId(), e.modelId(),
+                e.promptTokens(), e.completionTokens(), e.source());
         long total = (long) e.promptTokens() + e.completionTokens();
-        dailyUsageMapper.upsertAccumulate(e.userId(), e.appId(), LocalDate.now(), total);
+        LocalDate today = LocalDate.now();
+        dailyUsageMapper.upsertAccumulate(e.userId(), e.appId(), today, total);
+        statDailyMapper.upsertAccumulate(e.userId(), e.appId(), e.modelId(), today,
+                e.promptTokens(), e.completionTokens());
     }
 }

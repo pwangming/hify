@@ -68,6 +68,7 @@ class LlmNodeExecutorTest {
         assertEquals(3L, evt.modelId());
         assertEquals(10, evt.promptTokens());
         assertEquals(5, evt.completionTokens());
+        assertEquals(TokenUsedEvent.SOURCE_WORKFLOW, evt.source());
     }
 
     @Test

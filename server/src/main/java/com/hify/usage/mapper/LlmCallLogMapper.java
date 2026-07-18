@@ -12,11 +12,12 @@ import org.apache.ibatis.annotations.Update;
  */
 public interface LlmCallLogMapper {
 
-    /** 落一行调用流水（成功轮的 TokenUsedEvent 触发）。 */
-    @Insert("insert into llm_call_log (user_id, app_id, model_id, prompt_tokens, completion_tokens) "
-            + "values (#{userId}, #{appId}, #{modelId}, #{promptTokens}, #{completionTokens})")
+    /** 落一行调用流水（成功轮的 TokenUsedEvent 触发，含 conversation/workflow 来源）。 */
+    @Insert("insert into llm_call_log (user_id, app_id, model_id, prompt_tokens, completion_tokens, source) "
+            + "values (#{userId}, #{appId}, #{modelId}, #{promptTokens}, #{completionTokens}, #{source})")
     int insertLog(@Param("userId") Long userId, @Param("appId") Long appId, @Param("modelId") Long modelId,
-                  @Param("promptTokens") long promptTokens, @Param("completionTokens") long completionTokens);
+                  @Param("promptTokens") long promptTokens, @Param("completionTokens") long completionTokens,
+                  @Param("source") String source);
 
     /**
      * 幂等补建月分区（DDL）。name/from/to 全由 {@code PartitionMaintainer} 从日期计算、非用户输入，

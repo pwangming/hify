@@ -50,7 +50,7 @@ public class LlmNodeExecutor implements NodeExecutor {
             ChatClient client = providerFacade.getChatClient(modelId);
             LlmCallResult result = llmCaller.call(client, systemPrompt, userPrompt);
             events.publishEvent(new TokenUsedEvent(ctx.userId(), ctx.appId(), modelId,
-                    result.promptTokens(), result.completionTokens()));
+                    result.promptTokens(), result.completionTokens(), TokenUsedEvent.SOURCE_WORKFLOW));
             return new NodeResult(inputs, Map.of("text", result.text()));
         } catch (Exception e) {
             // 渲染已成功、调用才失败：渲染后的输入随异常带出，落 node_run.inputs 供排障

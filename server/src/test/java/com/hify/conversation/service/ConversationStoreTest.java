@@ -143,6 +143,7 @@ class ConversationStoreTest {
         assertEquals(5L, e.modelId());
         assertEquals(12, e.promptTokens());
         assertEquals(8, e.completionTokens());
+        assertEquals(TokenUsedEvent.SOURCE_CONVERSATION, e.source());
     }
 
     @Test

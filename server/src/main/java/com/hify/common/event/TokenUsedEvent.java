@@ -17,6 +17,10 @@ public record TokenUsedEvent(
         Long appId,
         Long modelId,
         int promptTokens,
-        int completionTokens
+        int completionTokens,
+        String source
 ) {
+    /** source 合法值（与 llm_call_log.source check 约束一字不差）。 */
+    public static final String SOURCE_CONVERSATION = "conversation";
+    public static final String SOURCE_WORKFLOW = "workflow";
 }
