@@ -22,6 +22,7 @@
 | 包管理 | **pnpm** | 节省磁盘（硬链接）、安装快、依赖隔离严格 |
 | Node | **v24**，用 `.nvmrc` + `package.json` 的 `engines` 锁死 | 一人维护，固定版本避免环境漂移 |
 | UI 组件库 | Element Plus | CLAUDE.md 已定，后台/表单覆盖率高 |
+| 图表 | ECharts | 用量看板趋势图；按需引入 `echarts/core` + `LineChart`，全站仅 `TrendChart.vue` 直接触碰；测试须整体 mock，jsdom 无 canvas（2026-07-17 拍板引入） |
 | 画布 | Vue Flow | CLAUDE.md 已定，Workflow 可视化编辑 |
 | 状态管理 | Pinia | Vue 官方推荐；跨页面共享状态（登录态等）绕不开，Pinia 是最轻的正解 |
 | 路由 | Vue Router | 多页面后台必备 |
