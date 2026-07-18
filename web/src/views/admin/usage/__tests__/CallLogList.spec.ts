@@ -13,6 +13,9 @@ const { page1, page2 } = vi.hoisted(() => ({
         promptTokens: '100',
         completionTokens: '50',
         source: 'conversation',
+        durationMs: 1500,
+        status: 'success',
+        errorCode: null,
         createTime: '2026-07-17T10:00:00+08:00',
       },
     ],
@@ -29,6 +32,9 @@ const { page1, page2 } = vi.hoisted(() => ({
         promptTokens: '200',
         completionTokens: '60',
         source: null,
+        durationMs: null,
+        status: 'failed',
+        errorCode: '12002',
         createTime: '2026-07-17T09:00:00+08:00',
       },
     ],
@@ -85,5 +91,10 @@ describe('CallLogList', () => {
     expect(wrapper.text()).toContain('用户2')
     expect(wrapper.text()).toContain('—')
     expect(wrapper.find('[data-test="load-more"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('1500 ms')
+    expect(wrapper.find('.el-tag--success').exists()).toBe(true)
+    expect(wrapper.find('.el-tag--danger').exists()).toBe(true)
+    expect(wrapper.text()).toContain('失败')
+    expect(wrapper.text()).toContain('12002')
   })
 })

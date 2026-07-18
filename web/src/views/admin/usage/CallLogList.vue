@@ -47,6 +47,7 @@ const modelOptions = computed(() => [...nameMaps.models.value.entries()])
 const tokenText = (value: string) => Number(value).toLocaleString()
 const sourceText = (value: CallLogItem['source']) =>
   value === 'conversation' ? '对话' : value === 'workflow' ? '工作流' : '—'
+const durationText = (value: number | null) => (value == null ? '—' : `${value} ms`)
 
 async function query(reset: boolean) {
   const [startTime, endTime] = dateRange.value
@@ -147,11 +148,24 @@ onMounted(async () => {
       <el-table-column label="来源">
         <template #default="{ row }">{{ sourceText((row as CallLogItem).source) }}</template>
       </el-table-column>
+      <el-table-column label="状态" min-width="110">
+        <template #default="{ row }">
+          <el-tag :type="(row as CallLogItem).status === 'failed' ? 'danger' : 'success'" size="small">
+            {{ (row as CallLogItem).status === 'failed' ? '失败' : '成功' }}
+          </el-tag>
+          <span v-if="(row as CallLogItem).errorCode" class="call-log-list__error-code">
+            {{ (row as CallLogItem).errorCode }}
+          </span>
+        </template>
+      </el-table-column>
       <el-table-column label="输入 Token">
         <template #default="{ row }">{{ tokenText((row as CallLogItem).promptTokens) }}</template>
       </el-table-column>
       <el-table-column label="输出 Token">
         <template #default="{ row }">{{ tokenText((row as CallLogItem).completionTokens) }}</template>
+      </el-table-column>
+      <el-table-column label="耗时">
+        <template #default="{ row }">{{ durationText((row as CallLogItem).durationMs) }}</template>
       </el-table-column>
     </el-table>
 
@@ -176,6 +190,12 @@ onMounted(async () => {
     display: flex;
     justify-content: center;
     margin-top: $spacing-lg;
+  }
+
+  &__error-code {
+    margin-left: 6px;
+    color: var(--el-color-danger);
+    font-size: 12px;
   }
 }
 </style>

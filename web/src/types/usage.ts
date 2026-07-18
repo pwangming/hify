@@ -35,6 +35,9 @@ export interface CallLogItem {
   promptTokens: string
   completionTokens: string
   source: 'conversation' | 'workflow' | null
+  durationMs: number | null
+  status: 'success' | 'failed'
+  errorCode: string | null
   createTime: string
 }
 
