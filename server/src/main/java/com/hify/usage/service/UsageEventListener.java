@@ -20,8 +20,13 @@ public class UsageEventListener {
         this.usageService = usageService;
     }
 
+    /**
+     * fallbackExecution=true：无活跃事务时发布的事件（workflow 引擎禁事务，LlmNodeExecutor 的发布点
+     * 天然无事务）立即执行而不是按 AFTER_COMMIT 默认静默丢弃——否则工作流 LLM 用量永远记不上账。
+     * 计费语义上 LLM 返回即 token 已真实消耗，不依赖后续事务成败；有事务时仍保持 AFTER_COMMIT 语义。
+     */
     @Async
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onTokenUsed(TokenUsedEvent event) {
         usageService.recordUsage(event);
     }
