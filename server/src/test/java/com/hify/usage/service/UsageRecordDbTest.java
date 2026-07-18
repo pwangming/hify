@@ -10,7 +10,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** recordUsage 三步双写连库验证：流水（含 source）+ daily_usage + usage_stat_daily 同事务落准。 */
+/** recordUsage 双写连库验证：流水 + usage_stat_daily 同事务落准。 */
 class UsageRecordDbTest extends PgIntegrationTest {
 
     @Autowired
@@ -29,10 +29,6 @@ class UsageRecordDbTest extends PgIntegrationTest {
                 "select source, prompt_tokens from llm_call_log where user_id = 7 order by id limit 1");
         assertThat(log.get("source")).isEqualTo("workflow");
         assertThat(((Number) log.get("prompt_tokens")).longValue()).isEqualTo(300L);
-
-        Long daily = jdbc.queryForObject(
-                "select total_tokens from daily_usage where user_id = 7 and app_id = 88", Long.class);
-        assertThat(daily).isEqualTo(600L); // 300+180+100+20
 
         Map<String, Object> stat = jdbc.queryForMap(
                 "select prompt_tokens, completion_tokens, call_count from usage_stat_daily "

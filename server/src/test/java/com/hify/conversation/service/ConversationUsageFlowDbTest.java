@@ -33,7 +33,6 @@ class ConversationUsageFlowDbTest extends PgIntegrationTest {
     @AfterEach
     void cleanup() {
         jdbc.update("delete from llm_call_log where user_id = ?", PROBE_USER);
-        jdbc.update("delete from daily_usage where user_id = ?", PROBE_USER);
         jdbc.update("delete from usage_stat_daily where user_id = ?", PROBE_USER);
         if (conversationId != null) {
             jdbc.update("delete from message where conversation_id = ?", conversationId);

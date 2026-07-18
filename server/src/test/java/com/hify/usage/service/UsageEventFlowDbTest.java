@@ -34,7 +34,6 @@ class UsageEventFlowDbTest extends PgIntegrationTest {
     @AfterEach
     void cleanup() {
         jdbc.update("delete from llm_call_log where user_id = ?", PROBE_USER);
-        jdbc.update("delete from daily_usage where user_id = ?", PROBE_USER);
         jdbc.update("delete from usage_stat_daily where user_id = ?", PROBE_USER);
     }
 
@@ -50,9 +49,6 @@ class UsageEventFlowDbTest extends PgIntegrationTest {
                 .isEqualTo("conversation");
         assertThat(jdbc.queryForObject(
                 "select count(*) from usage_stat_daily where user_id = " + PROBE_USER, Integer.class))
-                .isEqualTo(1);
-        assertThat(jdbc.queryForObject(
-                "select count(*) from daily_usage where user_id = " + PROBE_USER, Integer.class))
                 .isEqualTo(1);
     }
 

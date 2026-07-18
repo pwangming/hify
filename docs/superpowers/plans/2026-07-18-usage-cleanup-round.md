@@ -246,7 +246,7 @@ git commit -m "feat(usage): TokenUsedEvent扩耗时/成败/错误码，四处失
 - Consumes: Task 1 的 `TokenUsedEvent.durationMs()/success()/errorCode()` 与双工厂。
 - Produces: `LlmCallLogMapper.insertLog(userId, appId, modelId, promptTokens, completionTokens, source, durationMs, status, errorCode)`；`UsageStatDailyMapper.sumTodayByUser(Long userId, LocalDate statDate)`。Task 3 依赖 llm_call_log 新列已存在。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `UsageServiceTest` 整体改（checkQuota mock 从 dailyUsageMapper 换 statDailyMapper；recordUsage 拆成功/失败两条）：
 
@@ -379,12 +379,12 @@ void 失败事件无事务发布_落流水_聚合零变化() throws Exception {
 
 `ConversationUsageFlowDbTest`：cleanup 里删除 `jdbc.update("delete from daily_usage where user_id = ?", PROBE_USER);` 一行。
 
-- [ ] **Step 2: 跑测试看红**
+- [x] **Step 2: 跑测试看红**
 
 Run: `cd server && mvn -q test -Dtest='UsageServiceTest'; echo EXIT=$?`
 Expected: EXIT≠0（编译错：UsageService 构造器还是 4 参、insertLog/sumTodayByUser 签名不存在）。贴输出。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 新建 `V27__usage_cleanup_observability.sql`：
 
@@ -474,12 +474,12 @@ public class UsageService {
 
 删除 `DailyUsageMapper.java`；`grep -rn "daily_usage\|DailyUsage" server/src` 必须零命中（迁移脚本 V12/V26 的历史文本除外）。
 
-- [ ] **Step 4: 全量测试看绿**
+- [x] **Step 4: 全量测试看绿**
 
 Run: `cd server && mvn -q verify; echo EXIT=$?`
 Expected: EXIT=0（Testcontainers 跑 Flyway 会执行 V27，连库测试验证真实迁移）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A server
@@ -500,7 +500,7 @@ git commit -m "feat(usage): V27配额切usage_stat_daily废弃daily_usage，llm_
 - Consumes: Task 2 的 llm_call_log 新列。
 - Produces: `CallLogItem(Long id, Long userId, Long appId, Long modelId, long promptTokens, long completionTokens, String source, Integer durationMs, String status, String errorCode, OffsetDateTime createTime)`——Task 4 前端按此字段名对齐（durationMs 是 Integer 序列化为数字，非 Long-as-string）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 新建 `UsageLogServiceTest.java`（映射单测；游标/窗口校验已有 LogCursorTest 覆盖，不重复）：
 
@@ -549,12 +549,12 @@ class UsageLogServiceTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试看红**
+- [x] **Step 2: 跑测试看红**
 
 Run: `cd server && mvn -q test -Dtest='UsageLogServiceTest'; echo EXIT=$?`
 Expected: EXIT≠0（编译错：CallLogRow/CallLogItem 无新字段）。贴输出。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `CallLogRow` 改为（durationMs 用 Integer——历史行 null）：
 
@@ -580,12 +580,12 @@ public record CallLogItem(Long id, Long userId, Long appId, Long modelId, long p
 
 （api-standards 核对：不新增路由/方法/错误码，响应仅 additive 加字段——合规；durationMs 为 Integer 不受 Long-序列化字符串规则约束。）
 
-- [ ] **Step 4: 全量测试看绿**
+- [x] **Step 4: 全量测试看绿**
 
 Run: `cd server && mvn -q verify; echo EXIT=$?`
 Expected: EXIT=0。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A server

@@ -17,7 +17,8 @@ import java.util.List;
 public interface LlmCallLogMapper {
 
     record CallLogRow(Long id, Long userId, Long appId, Long modelId, long promptTokens,
-                      long completionTokens, String source, OffsetDateTime createTime) {
+                      long completionTokens, String source, Integer durationMs, String status,
+                      String errorCode, OffsetDateTime createTime) {
     }
 
     /** 落一行调用流水（成功轮的 TokenUsedEvent 触发，含 conversation/workflow 来源）。 */
@@ -25,7 +26,8 @@ public interface LlmCallLogMapper {
             + "values (#{userId}, #{appId}, #{modelId}, #{promptTokens}, #{completionTokens}, #{source})")
     int insertLog(@Param("userId") Long userId, @Param("appId") Long appId, @Param("modelId") Long modelId,
                   @Param("promptTokens") long promptTokens, @Param("completionTokens") long completionTokens,
-                  @Param("source") String source);
+                  @Param("source") String source, @Param("durationMs") long durationMs,
+                  @Param("status") String status, @Param("errorCode") String errorCode);
 
     /**
      * 游标分页明细（管理后台调用日志）。时间窗必选（分区裁剪）；(create_time,id) 行值比较降序翻页
@@ -33,7 +35,7 @@ public interface LlmCallLogMapper {
      */
     @Select("""
             <script>
-            select id, user_id, app_id, model_id, prompt_tokens, completion_tokens, source, create_time
+            select id, user_id, app_id, model_id, prompt_tokens, completion_tokens, source, duration_ms, status, error_code, create_time
             from llm_call_log
             where create_time &gt;= #{startTime} and create_time &lt; #{endTime}
             <if test="userId != null">and user_id = #{userId}</if>
