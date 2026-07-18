@@ -521,7 +521,7 @@ cd /home/wang/playlab/hify && git add -A server/src && git commit -m "feat(provi
 - Consumes: Task 3 的 `ProviderFacade.getModelPrices` / `ModelPrice`；Task 1 的 `usage_stat_daily`。
 - Produces: `GET /api/v1/admin/usage/stats/overview|daily|rankings`；mapper 行记录 `UsageStatQueryMapper.ModelAgg(Long modelId, long promptTokens, long completionTokens, long callCount)`、`DailyModelAgg(LocalDate statDate, Long modelId, ...)`、`DimModelAgg(Long targetId, Long modelId, ...)`（MyBatis record 构造映射，先例 RetrievedChunk）。
 
-- [ ] **Step 1: 写失败单测（费用计算与日期窗校验，mock mapper+facade）**
+- [x] **Step 1: 写失败单测（费用计算与日期窗校验，mock mapper+facade）**
 
 ```java
 package com.hify.usage.service;
@@ -606,12 +606,12 @@ class UsageStatServiceTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认红灯（类不存在编译失败）**
+- [x] **Step 2: 跑测试确认红灯（类不存在编译失败）**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest=UsageStatServiceTest | tail -8; echo exit=${PIPESTATUS[0]}`
 Expected: exit=1。
 
-- [ ] **Step 3: 白名单变更 + 实现**
+- [x] **Step 3: 白名单变更 + 实现**
 
 `usage/package-info.java`：`allowedDependencies = {"provider::api", "common", "infra"}`，javadoc 补一句「白名单含 provider::api：看板费用计算取模型单价（2026-07-17 拍板，仅此一条，名称解析走前端拼装）」。`code-organization.md` §1 表 usage 行同步改为 `provider（仅单价，2026-07-17 看板轮）`。
 
@@ -891,7 +891,7 @@ public class AdminUsageController {
 }
 ```
 
-- [ ] **Step 4: 写连库聚合 SQL 测试并跑全绿**
+- [x] **Step 4: 写连库聚合 SQL 测试并跑全绿**
 
 ```java
 package com.hify.usage.mapper;
@@ -950,7 +950,7 @@ class UsageStatQueryDbTest extends PgIntegrationTest {
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='UsageStatServiceTest,UsageStatQueryDbTest,ModularityTests,LayerRulesTest' | tail -8; echo exit=${PIPESTATUS[0]}`
 Expected: exit=0（含模块边界回归——白名单变更生效且无越界）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add -A server/src docs/architecture/code-organization.md

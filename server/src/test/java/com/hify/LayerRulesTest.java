@@ -32,10 +32,13 @@ class LayerRulesTest {
             .that().resideInAnyPackage("..controller..", "com.hify.*.dto..")
             .should().dependOnClassesThat().resideInAnyPackage("com.hify..mapper..", "com.hify..entity..");
 
-    /** mapper 只能被 service 层使用。 */
+    /**
+     * mapper 只能被 service 层使用；mapper 自身声明的 SQL 行投影等内部类型可依赖所属 mapper。
+     */
     @ArchTest
     static final ArchRule mapper只被service使用 = noClasses()
             .that().resideOutsideOfPackage("..service..")
+            .and().resideOutsideOfPackage("..mapper..")
             .should().dependOnClassesThat().resideInAPackage("com.hify..mapper..");
 
     /** api 公开契约包不得依赖任何实现细节（service/mapper/entity/controller/模块级 dto）。 */

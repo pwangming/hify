@@ -14,7 +14,7 @@
 | `identity` | 用户、角色、登录 | 无 |
 | `provider` | 模型供应商、模型实例、ChatClient/EmbeddingModel 工厂 | 无 |
 | `tool` | 工具注册表、内置工具、OpenAPI 工具、MCP 接入 | 无 |
-| `usage` | 调用日志、Token 统计、配额 | 无 |
+| `usage` | 调用日志、Token 统计、配额 | provider（仅单价，2026-07-17 看板轮） |
 | `knowledge` | 知识库、文档分段、向量化、检索 | provider |
 | `app` | 应用元数据、API Key | provider, knowledge, tool（仅校验引用） |
 | `conversation` | 会话、消息、多轮记忆、Agent 编排 | app, provider, knowledge, tool, usage |
