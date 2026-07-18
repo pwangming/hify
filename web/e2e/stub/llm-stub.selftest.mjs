@@ -24,6 +24,41 @@ try {
   assert.match(text, /data: /, 'chat 必须是 SSE')
   assert.match(text, /这是知识库助手的固定测试回答/, '必须含固定答案')
   assert.match(text, /\[DONE\]/, '必须以 [DONE] 收尾')
+
+  // 同步无工具 → JSON 终答（非 SSE）
+  const syncRes = await fetch(`${base}/v1/chat/completions`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ model: 'stub', messages: [{ role: 'user', content: 'hi' }] }),
+  })
+  assert.match(syncRes.headers.get('content-type'), /application\/json/, '同步请求必须回 JSON')
+  const sync = await syncRes.json()
+  assert.equal(sync.choices[0].message.content, '这是知识库助手的固定测试回答。', '同步须回固定答案')
+  assert.equal(sync.choices[0].finish_reason, 'stop')
+  assert.ok(sync.usage.total_tokens > 0, '同步响应须带 usage')
+
+  // 带 tools 声明 → 固定 tool_calls
+  const tc = await (await fetch(`${base}/v1/chat/completions`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'stub',
+      messages: [{ role: 'user', content: 'hi' }],
+      tools: [{ type: 'function' }],
+    }),
+  })).json()
+  assert.equal(tc.choices[0].finish_reason, 'tool_calls')
+  assert.equal(tc.choices[0].message.tool_calls[0].function.name, 'mcpdemo__get_current_time')
+  assert.equal(tc.choices[0].message.tool_calls[0].function.arguments, '{"timezone":"Asia/Shanghai"}')
+
+  // messages 已含 role:tool → 终答（即使仍带 tools，优先级在 tool_calls 分支之上）
+  const fin = await (await fetch(`${base}/v1/chat/completions`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'stub',
+      messages: [{ role: 'user', content: 'hi' }, { role: 'tool', content: 'x' }],
+      tools: [{ type: 'function' }],
+    }),
+  })).json()
+  assert.equal(fin.choices[0].message.content, '工具已调用完成，这是最终回答。', '带工具结果须回终答')
   console.log('STUB SELFTEST PASS')
 } finally {
   proc.kill()

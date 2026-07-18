@@ -48,7 +48,7 @@
 **Interfaces:**
 - Produces（后续 Task 依赖的常量语义）：同步终答文本 `这是知识库助手的固定测试回答。`（沿用现有 STUB_ANSWER，Task 4 断言）；Agent 终答文本 `工具已调用完成，这是最终回答。`（Task 6 断言）；tool_call 固定名 `mcpdemo__get_current_time`（Task 6 的工具行名 `mcpdemo` 与之耦合）。
 
-- [ ] **Step 1: 先在 selftest 加三个失败用例**——在既有 `[DONE]` 断言之后、`console.log('STUB SELFTEST PASS')` 之前插入（既有 SSE 用例原样不动，它就是「KB 旅程不受影响」的守门）：
+- [x] **Step 1: 先在 selftest 加三个失败用例**——在既有 `[DONE]` 断言之后、`console.log('STUB SELFTEST PASS')` 之前插入（既有 SSE 用例原样不动，它就是「KB 旅程不受影响」的守门）：
 
 ```js
   // 同步无工具 → JSON 终答（非 SSE）
@@ -87,12 +87,12 @@
   assert.equal(fin.choices[0].message.content, '工具已调用完成，这是最终回答。', '带工具结果须回终答')
 ```
 
-- [ ] **Step 2: 跑 selftest 确认新用例红**
+- [x] **Step 2: 跑 selftest 确认新用例红**
 
 Run: `cd web && node e2e/stub/llm-stub.selftest.mjs`
 Expected: FAIL（新分支不存在，同步请求收到 SSE 或断言失败）
 
-- [ ] **Step 3: 改桩实现三分支**（`/v1/chat/completions` 处理器整体替换为下述逻辑；`/v1/embeddings`、`/health` 不动）
+- [x] **Step 3: 改桩实现三分支**（`/v1/chat/completions` 处理器整体替换为下述逻辑；`/v1/embeddings`、`/health` 不动）
 
 ```js
 const AGENT_TOOL_NAME = 'mcpdemo__get_current_time'
@@ -151,17 +151,17 @@ function completion(message, finishReason) {
   }
 ```
 
-- [ ] **Step 4: selftest 全绿**
+- [x] **Step 4: selftest 全绿**
 
 Run: `cd web && node e2e/stub/llm-stub.selftest.mjs`
 Expected: 全部用例 PASS（含既有 SSE 用例）
 
-- [ ] **Step 5: KB 旅程回归（证明桩扩展零影响）**
+- [x] **Step 5: KB 旅程回归（证明桩扩展零影响）**
 
 Run: `cd web && node e2e/support/reset-db.mjs && pnpm exec playwright test golden-journey.spec.ts`
 Expected: 1 passed
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/e2e/stub/
