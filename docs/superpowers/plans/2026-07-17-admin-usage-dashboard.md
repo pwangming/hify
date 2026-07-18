@@ -974,7 +974,7 @@ git commit -m "feat(usage): 看板聚合统计三接口（overview/daily/ranking
 - Consumes: Task 2 的 `llm_call_log.source` 写入。
 - Produces: `GET /api/v1/admin/usage/call-logs` → `CursorResult<CallLogItem>`；`CallLogItem(Long id, Long userId, Long appId, Long modelId, long promptTokens, long completionTokens, String source, OffsetDateTime createTime)`。
 
-- [ ] **Step 1: 写失败测试（游标往返 + 连库筛选/翻页）**
+- [x] **Step 1: 写失败测试（游标往返 + 连库筛选/翻页）**
 
 `LogCursorTest.java`（模式抄 workflow RunCursor 的语义）：
 
@@ -1067,12 +1067,12 @@ class CallLogQueryDbTest extends PgIntegrationTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认红灯**
+- [x] **Step 2: 跑测试确认红灯**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='LogCursorTest,CallLogQueryDbTest' | tail -8; echo exit=${PIPESTATUS[0]}`
 Expected: exit=1（LogCursor/selectPage 不存在，编译失败）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `LogCursor.java`：完整复制 `workflow/service/RunCursor.java` 的实现到 `com.hify.usage.service` 并改类名为 `LogCursor`（包级私有 final class，encode/decode/record Cursor 三成员一字不差；两模块无法共享 service 内部类，复制是既定取舍，javadoc 注明「模式同 workflow RunCursor」）。
 
@@ -1194,12 +1194,12 @@ public Result<CursorResult<CallLogItem>> callLogs(
 }
 ```
 
-- [ ] **Step 4: 跑测试确认绿灯**
+- [x] **Step 4: 跑测试确认绿灯**
 
 Run: `cd /home/wang/playlab/hify/server && mvn test -Dtest='LogCursorTest,CallLogQueryDbTest' | tail -8; echo exit=${PIPESTATUS[0]}`
 Expected: exit=0。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /home/wang/playlab/hify && git add -A server/src && git commit -m "feat(usage): 调用日志游标分页查询（时间窗必选+四维过滤+双键游标）"

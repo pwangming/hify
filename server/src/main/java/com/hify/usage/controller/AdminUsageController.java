@@ -1,9 +1,12 @@
 package com.hify.usage.controller;
 
 import com.hify.common.Result;
+import com.hify.common.page.CursorResult;
+import com.hify.usage.dto.CallLogItem;
 import com.hify.usage.dto.DailyUsagePoint;
 import com.hify.usage.dto.UsageOverviewResponse;
 import com.hify.usage.dto.UsageRankingItem;
+import com.hify.usage.service.UsageLogService;
 import com.hify.usage.service.UsageStatService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -23,9 +27,11 @@ import java.util.List;
 public class AdminUsageController {
 
     private final UsageStatService usageStatService;
+    private final UsageLogService usageLogService;
 
-    public AdminUsageController(UsageStatService usageStatService) {
+    public AdminUsageController(UsageStatService usageStatService, UsageLogService usageLogService) {
         this.usageStatService = usageStatService;
+        this.usageLogService = usageLogService;
     }
 
     @GetMapping("/stats/overview")
@@ -49,5 +55,19 @@ public class AdminUsageController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(defaultValue = "10") int limit) {
         return Result.ok(usageStatService.rankings(dimension, startDate, endDate, Math.min(limit, 50)));
+    }
+
+    @GetMapping("/call-logs")
+    public Result<CursorResult<CallLogItem>> callLogs(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime endTime,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long appId,
+            @RequestParam(required = false) Long modelId,
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "20") int limit) {
+        return Result.ok(usageLogService.list(
+                startTime, endTime, userId, appId, modelId, source, cursor, limit));
     }
 }
