@@ -378,4 +378,40 @@ describe('ChatView', () => {
     await flushPromises()
     expect(spy).toHaveBeenCalledWith('5', '新名')
   })
+
+  it('等待首个 token：空的 AI 气泡显示打字指示器', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({ id: 'u1', role: 'user', content: '问', promptTokens: null, completionTokens: null, createTime: '' })
+    store.messages.push({ id: 'a1', role: 'assistant', content: '', promptTokens: null, completionTokens: null, createTime: '' })
+    store.sending = true
+    await nextTick()
+    expect(wrapper.find('[data-test="typing-indicator"]').exists()).toBe(true)
+  })
+
+  it('首个 token 到达后指示器消失（正文接管）', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({ id: 'a1', role: 'assistant', content: '', promptTokens: null, completionTokens: null, createTime: '' })
+    store.sending = true
+    await nextTick()
+    expect(wrapper.find('[data-test="typing-indicator"]').exists()).toBe(true)
+    store.messages[store.messages.length - 1].content = '答'
+    await nextTick()
+    expect(wrapper.find('[data-test="typing-indicator"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('答')
+  })
+
+  it('sending 结束仍空内容（如首 token 前出错）：不显示指示器', async () => {
+    wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const store = useConversationStore()
+    store.messages.push({ id: 'a1', role: 'assistant', content: '', promptTokens: null, completionTokens: null, createTime: '', error: '网络异常，请稍后重试' })
+    store.sending = false
+    await nextTick()
+    expect(wrapper.find('[data-test="typing-indicator"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="msg-error"]').exists()).toBe(true)
+  })
 })

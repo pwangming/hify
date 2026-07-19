@@ -81,6 +81,14 @@ function canCopy(m: MessageView, i: number): boolean {
   return !(sending.value && i === messages.value.length - 1)
 }
 
+// 等待首个 token：store 发送时已 push 空 assistant 气泡，此间显示打字指示器。
+// 正文一出即消失（正文本身就是「还在动」的证据）；Agent 调工具期间 content 恒空，
+// 故指示器会与工具轨迹面板并存，正确表达「在调工具、还没开始答」。
+// sending 是唯一闸门：store 的 onDone/onError/abort 三个出口都会置回 false，不会卡住。
+function isTyping(m: MessageView, i: number): boolean {
+  return sending.value && m.role === 'assistant' && m.content === '' && i === messages.value.length - 1
+}
+
 async function copyMsg(m: MessageView) {
   await navigator.clipboard.writeText(m.content)
   ElMessage.success('已复制')
@@ -144,6 +152,14 @@ async function onDeleteConv(id: string) {
                   发送
                 </el-button>
               </div>
+            </div>
+            <div
+              v-else-if="isTyping(m, i)"
+              class="chat__typing"
+              data-test="typing-indicator"
+              aria-label="正在生成回答"
+            >
+              <span></span><span></span><span></span>
             </div>
             <div v-else class="chat__bubble-text">{{ m.content }}</div>
             <div v-if="m.error" class="chat__bubble-error" data-test="msg-error">⚠️ {{ m.error }}</div>
@@ -312,6 +328,39 @@ async function onDeleteConv(id: string) {
     border: 1px solid var(--el-color-danger-light-7);
   }
 
+  // 等待首个 token 的打字指示器：三点错峰跳动。
+  // EP 无打字指示器组件，属 frontend-standards §5.9「库无此组件才自实现」的例外。
+  &__typing {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px; // 与单行正文等高：首 token 到达时气泡不会从矮跳到高
+
+    span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--el-text-color-placeholder);
+      animation: chat-typing-bounce 1.2s infinite ease-in-out;
+
+      &:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      &:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+    }
+  }
+
+  // 无障碍基线：系统开启「减少动态效果」时不跳动，只留静态圆点
+  @media (prefers-reduced-motion: reduce) {
+    &__typing span {
+      animation: none;
+      opacity: 0.5;
+    }
+  }
+
   &__sources {
     margin-top: 6px;
 
@@ -423,6 +472,22 @@ async function onDeleteConv(id: string) {
     right: 10px;
     bottom: 10px;
     z-index: 1;
+  }
+}
+
+// @keyframes 必须放 scoped 块根层级（嵌在选择器内会输出无效 CSS）；
+// Vue 的 scoped 编译会给帧名与上面的 animation 引用加同一作用域后缀，两者对得上。
+@keyframes chat-typing-bounce {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
   }
 }
 </style>
