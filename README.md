@@ -1,5 +1,7 @@
 # Hify
 
+[![CI](https://github.com/pwangming/hify/actions/workflows/ci.yml/badge.svg)](https://github.com/pwangming/hify/actions/workflows/ci.yml)
+
 [Dify](https://dify.ai) 的简化版 AI Agent 平台，面向单团队（20-50 人）内部使用、本地化部署。
 覆盖「知识库问答」与「工作流自动化」两大核心场景。设计文档见 [`docs/architecture/`](docs/architecture)。
 

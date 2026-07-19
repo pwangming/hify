@@ -170,10 +170,73 @@ Node 原生 `http` 模块起服务，零新依赖，端口 **8090**，说 OpenAI
 
 ### 5.6 已知边界（本轮不做，留给后续 E2E 轮次）
 
-- 只本地跑，CI/GitHub Actions 集成留下一轮。
+- 只本地跑。CI 已于 2026-07-19 落地（见第六节），但**只跑后端与前端单测，E2E 未纳入**——五进程编排留后续轮次。
 - 只测 happy path，负样本（如「问无关问题→无引用/降级」）未覆盖，桩已可扩展，后续几乎零成本加。
 - 单浏览器 chromium，无跨浏览器矩阵；无视觉回归/截图比对。
 - workflow/agent 等其它旅程未覆盖——但本节的编排/桩/断言/DoD 套路直接复用，新增旅程只需新增 `*.spec.ts` + 按需扩桩。
+
+## 六、CI（GitHub Actions）
+
+> 2026-07-19 起有效。配置见 `.github/workflows/ci.yml`，设计见 `docs/superpowers/specs/2026-07-19-ci-github-actions-design.md`。
+
+### 6.1 定位：告警，不是门禁
+
+一人维护 + 直推 main，CI 的价值 90% 不在「拦住坏合并」，而在
+**「我改了 A，B 挂了，而我不知道」**。所以本项目的 CI 是 push 后自动跑、
+红了由 GitHub 发告警邮件，**不阻塞 push、不设分支保护**。
+想升级成真门禁需要先改成走 PR 流程，届时再议。
+
+### 6.2 跑什么
+
+| job | 命令 | 覆盖 |
+|---|---|---|
+| `backend` | `mvn -B -f server/pom.xml verify` | 全部后端测试，**含 17 个 Testcontainers 连库测试** |
+| `frontend` | `pnpm typecheck` → `pnpm lint:check` → `pnpm test` | vue-tsc 类型检查、eslint、vitest 全量 |
+
+两 job 并行、互不依赖。触发：`push`（所有分支）+ 手动 `workflow_dispatch`。
+
+**不跑 E2E**——一条旅程要同时编排 PG + 后端 jar(e2e profile) + 前端 + 假 LLM 桩 +
+mcp-demo 五个进程还要 reset-db，量级是本轮数倍，留后续轮次。
+
+**不需要任何 secret**：`application.yml` 里每个 `${VAR}` 都带 dev 默认值
+（JWT secret、provider master-key 等有 `dev-only-*` 兜底），测试也不打真实外部服务。
+如果哪天有测试开始需要 secret，那多半是这条测试写错了，先怀疑测试。
+
+### 6.3 本地与 CI 的环境差异（最容易踩的地方）
+
+第四节那两个 Testcontainers 绕行配置（`~/.testcontainers.properties` 的 `docker.host`、
+`~/.docker-java.properties` 的 `api.version`）是 **WSL2 + Docker Desktop 专属**，
+住在家目录、不在仓库，所以 CI 既不受影响也不需要——GH runner 自带 Docker，自动探测即可。
+
+反向的坑更要命：**绝不能把 `api.version` 固化进仓库**。它锁死的是本机 Docker Desktop
+的 API 版本，进了仓库就会与 runner 的 Docker 版本冲突，把「本地能过」变成「云上必挂」。
+本地环境的绕行配置，永远留在本地。
+
+同理，`pnpm lint:check`（不带 `--fix`）是给 CI 用的；`pnpm lint`（带 `--fix`）只在本地用。
+CI 里跑会改文件的命令，等于让流水线篡改源码后再判断自己。
+
+### 6.4 「CI 是绿的」不等于「测试跑了」
+
+这是铺 CI 最容易自欺的失败模式：YAML 语法正确、绿灯亮起、但其实一个测试都没执行。
+**绿灯本身不构成证据**，要核对数字：backend 日志里的 `Tests run: N`、
+frontend 日志里的 `Tests N passed`，与本地跑出来的对得上才算数。
+
+本项目已经栽过这个跟头的近亲：`ToolMapperIT` / `AppToolRelMapperIT` 两个类
+因为命名不匹配 surefire 的默认 include（`*Test.java` 系列），而 failsafe 又只在
+Spring Boot parent 的 `pluginManagement` 里没被绑进构建，**写完那天用 `-Dtest=` 点名跑过一次之后，
+再没在任何一次 `mvn verify` 里执行过**。2026-07-19 改名为 `*Test.java` 修复，
+测试总数 728 → 730。
+
+**由此立下的规矩**：后端测试类一律命名 `*Test.java`。不要引入 `*IT.java`
+——项目里连库测试和纯单测都叫 `*Test`，再加一层名不副实的分层只会制造静默跳过。
+
+### 6.5 红了怎么办
+
+1. GitHub Actions 页面点进失败的 job 看日志。
+2. backend 失败时，工作流会把 `server/target/surefire-reports/` 作为
+   artifact 上传（保留 7 天），下载后直接看哪个类挂了，比翻日志快。
+3. 先在本地复现：`mvn -B -f server/pom.xml verify` 或 `cd web && pnpm test`。
+   本地过、CI 挂，第一嫌疑是 6.3 的环境差异。
 
 ## 附：`web/` 现有测试体检（2026-06-22，28 用例 / 8 文件）
 
