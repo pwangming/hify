@@ -143,7 +143,7 @@ async function submitForm() {
           <template #default="{ row }">
             <el-link
               type="primary"
-              :underline="false"
+              underline="never"
               :data-test="`open-${(row as Dataset).id}`"
               @click="openDetail(row as Dataset)"
               >{{ (row as Dataset).name }}</el-link

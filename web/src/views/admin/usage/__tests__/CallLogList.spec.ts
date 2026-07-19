@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import ElementPlus from 'element-plus'
 
 const { page1, page2 } = vi.hoisted(() => ({
@@ -64,13 +65,27 @@ vi.mock('@/composables/useNameMaps', async () => {
 import { fetchCallLogs } from '@/api/admin/usage'
 import CallLogList from '../CallLogList.vue'
 
+// 组件里有 <router-link to="/admin/usage">（返回看板入口），不装 router 会报
+// Failed to resolve component: router-link。装真 router 而非 stub，顺带验证链接真能解析。
+const RouteStub = { template: '<div />' }
+
+function createTestRouter() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/admin/usage', component: RouteStub },
+      { path: '/admin/usage/logs', component: RouteStub },
+    ],
+  })
+}
+
 describe('CallLogList', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('默认近7天首查，加载更多带游标追加，无更多后按钮消失，历史行来源显示「—」', async () => {
     const wrapper = mount(CallLogList, {
       global: {
-        plugins: [ElementPlus],
+        plugins: [createTestRouter(), ElementPlus],
         stubs: { transition: false },
       },
     })

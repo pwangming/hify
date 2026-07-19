@@ -330,3 +330,28 @@ CLAUDE.md：配置外化、不硬编码，敏感配置走 `.env`。
 - **提交前检查**：`web/` 提供 `lint-staged` 配置（只对暂存文件跑 lint + format），但**不在 `web/` 子包内安装 git 钩子**。
   *为什么不在 web 内装钩子*：`web/` 是 monorepo 子目录，`.git` 在仓库根（`hify/`）。simple-git-hooks/husky 这类工具应安装在 git 根、统一覆盖 `server/`（Java）与 `web/`（前端）。子包内安装会写错位置或与未来的根级钩子打架。**pre-commit 钩子待仓库根统一规划**（根钩子里 `cd web && pnpm exec lint-staged` 调用本包配置）。在此之前，提交前手动 `pnpm lint && pnpm format`，或依赖 CI 兜底。
 - **格式**：交给 Prettier 统一，不在 ESLint 里重复定义格式规则，避免两套打架。
+
+### 10.1 框架警告零容忍（2026-07-19 起）
+
+**测试跑出的 `[Vue warn]` 与 `ElementPlusError` 一律视为失败**，由 `web/vitest.setup.ts` 强制
+（挂在 `vite.config.ts` 的 `test.setupFiles`）。
+
+*为什么要有这条*：这类警告本地跑 `pnpm test` 时被 TTY reporter 折叠，肉眼看不见，
+而 CI 非 TTY 会全量打印——曾静默积到 **131 条 Vue warn，把前端 CI 日志撑到 32 万行**，
+下载一次要好几分钟。更要紧的是里头混着**真的生产代码问题**（`el-tag` 收到非法 `type=""`、
+`el-link` 用了已弃用的 boolean `underline`），它们在真实浏览器控制台里照样刷。
+**压日志是藏病征，必须修根因。**
+
+守卫的两条实现纪律（都是踩出来的）：
+
+- **窄匹配**：只拦框架警告，放行 `src/api/request.ts` 的 `[ApiError]` 等正当日志；
+  不匹配的输出**原样透传回真 console**，否则守卫会把调试信息一并吞掉，比不加还难排查。
+- **认 Error 的 name**：EP 用 `console.warn(new ElementPlusError(...))` 报弃用，
+  名字在 `Error.name` 上不在 `message` 里。只取 `.message` 会漏掉整个 EP 类别——
+  第一版守卫就栽在这，导致 `KnowledgeList` 的 9 条弃用警告没被拦住还被静默吞掉。
+
+确属被测行为一部分的警告（如刻意传非法 prop 验证降级），用 `allowConsoleMessage(pattern)`
+显式豁免——白名单要看得见，不要为了让测试变绿随手加。
+
+**组件用了 `useRouter()` 或模板里有 `<router-link>`，测试挂载时就必须装 router**
+（`createRouter` + `createMemoryHistory`，见 `ProviderList.spec.ts` 的 `mountPage()`）。

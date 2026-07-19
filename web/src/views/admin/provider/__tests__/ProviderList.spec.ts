@@ -70,6 +70,24 @@ const SAMPLE: Provider[] = [
   },
 ]
 
+// ProviderList 用了 useRouter()，不装 router 就会刷 injection "Symbol(router)" not found。
+// 统一从这里挂载：每个测试拿独立的 router 实例，互不串状态。
+const RouteStub = { template: '<div />' }
+
+async function mountPage() {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/admin/provider', component: RouteStub },
+      { path: '/admin/provider/:id', component: RouteStub },
+    ],
+  })
+  await router.push('/admin/provider')
+  await router.isReady()
+  const wrapper = mount(ProviderList, { global: { plugins: [router, ElementPlus] } })
+  return { wrapper, router }
+}
+
 describe('ProviderList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -77,7 +95,7 @@ describe('ProviderList', () => {
   })
 
   it('挂载时拉取提供商并渲染协议标签与 API Key 掩码', async () => {
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     expect(listProviders).toHaveBeenCalledOnce()
     expect(wrapper.text()).toContain('OpenAI 官方')
@@ -88,7 +106,7 @@ describe('ProviderList', () => {
   })
 
   it('连接列渲染三态标签', async () => {
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     const text = wrapper.find('[data-test="provider-table"]').text()
     expect(text).toContain('通过')
@@ -98,7 +116,7 @@ describe('ProviderList', () => {
 
   it('点击试连接调用 API 并刷新列表', async () => {
     vi.mocked(testProvider).mockResolvedValue({ modelName: '通义-chat', sample: 'pong' })
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     await wrapper.find('[data-test="test-1"]').trigger('click')
     await flushPromises()
@@ -107,13 +125,13 @@ describe('ProviderList', () => {
   })
 
   it('禁用供应商的试连接按钮置灰', async () => {
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     expect(wrapper.find('[data-test="test-9"]').attributes('disabled')).toBeDefined()
   })
 
   it('点新增弹出对话框', async () => {
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     await wrapper.get('[data-test="create-open"]').trigger('click')
     await flushPromises()
@@ -121,7 +139,7 @@ describe('ProviderList', () => {
   })
 
   it('新建表单：名称为空时拦截，不调 createProvider', async () => {
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     await wrapper.get('[data-test="create-open"]').trigger('click')
     await flushPromises()
@@ -134,7 +152,7 @@ describe('ProviderList', () => {
   // （真实浏览器下 el-form 规则会在输入框下显示「请输入 API Key」红字；happy-dom 不渲染内联校验消息，
   //  故此处只断言"不提交"，与「名称为空时拦截」用例同口径。）
   it('新建：API Key 为空时拦截，不调 createProvider', async () => {
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     await wrapper.get('[data-test="create-open"]').trigger('click')
     await flushPromises()
@@ -159,7 +177,7 @@ describe('ProviderList', () => {
       lastTestAt: null,
       lastTestError: null,
     })
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     expect(listProviders).toHaveBeenCalledTimes(1)
 
@@ -181,7 +199,7 @@ describe('ProviderList', () => {
   })
 
   it('点编辑：弹窗预填名称且 apiKey 留空', async () => {
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     await wrapper.get('[data-test="edit-1"]').trigger('click')
     await flushPromises()
@@ -204,7 +222,7 @@ describe('ProviderList', () => {
       lastTestAt: null,
       lastTestError: null,
     })
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     await wrapper.get('[data-test="edit-1"]').trigger('click')
     await flushPromises()
@@ -223,7 +241,7 @@ describe('ProviderList', () => {
   it('删除：确认后调 deleteProvider 并重拉', async () => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
     vi.mocked(deleteProvider).mockResolvedValue(undefined)
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     await wrapper.get('[data-test="delete-1"]').trigger('click')
     await flushPromises()
@@ -233,7 +251,7 @@ describe('ProviderList', () => {
 
   it('删除：取消则不调 deleteProvider', async () => {
     vi.spyOn(ElMessageBox, 'confirm').mockRejectedValue('cancel')
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     await wrapper.get('[data-test="delete-1"]').trigger('click')
     await flushPromises()
@@ -243,7 +261,7 @@ describe('ProviderList', () => {
   it('启用行显示「禁用」按钮：确认后调 disableProvider 并重拉', async () => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
     vi.mocked(disableProvider).mockResolvedValue(undefined)
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     expect(wrapper.find('[data-test="enable-1"]').exists()).toBe(false)
     await wrapper.get('[data-test="disable-1"]').trigger('click')
@@ -268,7 +286,7 @@ describe('ProviderList', () => {
       },
     ])
     vi.mocked(enableProvider).mockResolvedValue(undefined)
-    const wrapper = mount(ProviderList, { global: { plugins: [ElementPlus] } })
+    const { wrapper } = await mountPage()
     await flushPromises()
     expect(wrapper.find('[data-test="disable-4"]').exists()).toBe(false)
     await wrapper.get('[data-test="enable-4"]').trigger('click')
@@ -278,18 +296,7 @@ describe('ProviderList', () => {
   })
 
   it('点「管理模型」跳转到该供应商详情页', async () => {
-    const Stub = { template: '<div />' }
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [
-        { path: '/admin/provider', component: Stub },
-        { path: '/admin/provider/:id', component: Stub },
-      ],
-    })
-    await router.push('/admin/provider')
-    await router.isReady()
-
-    const wrapper = mount(ProviderList, { global: { plugins: [router, ElementPlus] } })
+    const { wrapper, router } = await mountPage()
     await flushPromises()
     await wrapper.get('[data-test="manage-1"]').trigger('click')
     await flushPromises()

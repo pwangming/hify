@@ -43,6 +43,8 @@ export default defineConfig(({ mode }) => {
       environment: 'happy-dom',
       // 测试就近放各目录的 __tests__/ 下（与 tsconfig 的 exclude 对齐）
       include: ['src/**/__tests__/**/*.{test,spec}.ts'],
+      // 框架警告（Vue warn / ElementPlusError）一律当失败，见 vitest.setup.ts
+      setupFiles: ['./vitest.setup.ts'],
     },
   }
 })

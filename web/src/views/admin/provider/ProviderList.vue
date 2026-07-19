@@ -23,8 +23,11 @@ const PROTOCOL_LABEL: Record<ProviderProtocol, string> = {
   openai: 'OpenAI 兼容',
   anthropic: 'Anthropic',
 }
-const PROTOCOL_TAG: Record<ProviderProtocol, '' | 'success'> = {
-  openai: '',
+// 取值必须是 el-tag 的合法 type（primary/success/info/warning/danger）。
+// 曾写成 openai: ''，EP 校验器拒收、每渲染一行就刷一条 Vue warn；
+// 'primary' 与空值的实际渲染完全一致（基类 .el-tag 与 .el-tag--primary 变量相同），故外观不变。
+const PROTOCOL_TAG: Record<ProviderProtocol, 'primary' | 'success'> = {
+  openai: 'primary',
   anthropic: 'success',
 }
 
