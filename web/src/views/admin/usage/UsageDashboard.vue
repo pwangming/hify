@@ -204,12 +204,14 @@ onMounted(async () => {
     gap: $spacing-md;
     margin-bottom: $spacing-lg;
 
-    // 属性透传对 range 编辑器不稳；实测存在压过普通规则的未知全宽拉伸，width+max-width 双保险
-    // 强制收窄（验收反馈：曾被撑满整行）。!important 是对第三方组件库打样式补丁的例外用法。
+    // 风源（留账清理轮定案）：range 编辑器根元素同时带 .el-date-editor 与 .el-input__wrapper 两个类，
+    // 后者在 el-input.css 里是 flex-grow:1；本容器又是 display:flex，故它作为 flex item 被撑满整行。
+    // 单写 width 无效不是因为「被未知规则压制」——width 只提供 flex-basis 起点，grow 在其上再分配剩余
+    // 空间；当初 max-width 看似生效是因为 max-width 会 clamp flex 增长。根治只需关掉 grow，无需 !important
+    // （:deep 生成的 .usage-dashboard__filters[data-v-x] .el-date-editor--daterange 特异性远高于 EP 的单类规则）。
     :deep(.el-date-editor--daterange) {
-      width: 260px !important;
-      max-width: 260px !important;
-      flex-grow: 0 !important;
+      flex: none;
+      width: 260px;
     }
   }
 
