@@ -30,7 +30,7 @@ class AuthControllerTest {
     void setUp() {
         authService = mock(AuthService.class);
         mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService))
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler("50MB"))
                 .build();
     }
 

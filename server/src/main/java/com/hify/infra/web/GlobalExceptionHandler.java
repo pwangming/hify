@@ -5,6 +5,7 @@ import com.hify.common.exception.BizException;
 import com.hify.common.exception.CommonError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -38,6 +39,19 @@ import java.util.List;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * 配置里的单文件上传上限，原样用于超限文案。
+     *
+     * <p>注入原始字符串而非 DataSize：文案直接复述配置写法（`50MB`/`500KB` 都照搬），
+     * 免去单位换算，也不会因为把 500KB 换算成 0MB 而说出假话。
+     */
+    private final String maxFileSize;
+
+    public GlobalExceptionHandler(
+            @Value("${spring.servlet.multipart.max-file-size}") String maxFileSize) {
+        this.maxFileSize = maxFileSize;
+    }
 
     /** 业务异常：按错误码绑定的 HTTP 状态返回。 */
     @ExceptionHandler(BizException.class)
@@ -86,14 +100,15 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 上传超过 spring.servlet.multipart 限制（50MB）。归 10001/400（api-standards §6：超限返回 10001），
-     * 否则会被兜底误判为 500。
+     * 上传超过 spring.servlet.multipart 限制。归 10001/400（api-standards §6：超限返回 10001），
+     * 否则会被兜底误判为 500。文案复述配置值，不写死——写死了改配置就会说谎且无人发现。
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Result<Object>> handleMaxUpload(MaxUploadSizeExceededException ex) {
         return ResponseEntity
                 .status(CommonError.PARAM_INVALID.status())
-                .body(Result.fail(CommonError.PARAM_INVALID, "文件大小超过限制（单文件最大 50MB）"));
+                .body(Result.fail(CommonError.PARAM_INVALID,
+                        "文件大小超过限制（单文件最大 " + maxFileSize + "）"));
     }
 
     /** multipart 请求缺少必需的文件字段（如上传接口缺 'file'）。归 10001/400。 */

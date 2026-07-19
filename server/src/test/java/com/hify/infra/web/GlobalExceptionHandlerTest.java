@@ -10,8 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -42,7 +44,7 @@ class GlobalExceptionHandlerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new TestController())
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler("50MB"))
                 .build();
     }
 
@@ -91,7 +93,7 @@ class GlobalExceptionHandlerTest {
         // 用 standaloneSetup 不易真实触发，这里直接调用处理方法验证映射逻辑。
         NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "/api/v1/nope");
 
-        ResponseEntity<Result<Object>> response = new GlobalExceptionHandler().handleNoResource(ex);
+        ResponseEntity<Result<Object>> response = new GlobalExceptionHandler("50MB").handleNoResource(ex);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals(CommonError.NOT_FOUND.code(), response.getBody().code());
@@ -123,5 +125,24 @@ class GlobalExceptionHandlerTest {
     }
 
     record SampleRequest(@NotBlank String name) {
+    }
+
+    /**
+     * 上传超限文案必须复述**配置里的真实限制**，不能写死。
+     *
+     * <p>真实限制在 {@code spring.servlet.multipart.max-file-size}，文案曾硬编码「50MB」——
+     * 改了配置文案就开始说谎，而且没有测试会发现。这里故意用一个非 50MB 的值来钉死这层联动：
+     * 若有人改回硬编码，本例立刻红。
+     */
+    @Test
+    void 上传超限_文案复述配置的限制值而非硬编码() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler("8MB");
+
+        ResponseEntity<Result<Object>> response =
+                handler.handleMaxUpload(new MaxUploadSizeExceededException(8L * 1024 * 1024));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).contains("8MB").doesNotContain("50MB");
     }
 }
