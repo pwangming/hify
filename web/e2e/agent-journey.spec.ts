@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { login, pickOption, uniqSuffix } from './support/ui'
+import { login, pickOption, uniqSuffix, waitStreamDone } from './support/ui'
 
 const uniq = uniqSuffix()
 const N = {
@@ -63,6 +63,8 @@ test('Agent 黄金旅程：接入MCP工具→建Agent应用→聊天出轨迹与
   await trace.locator('.el-collapse-item__header').click()
   await expect(trace).toContainText('mcpdemo__get_current_time')
   await expect(page.getByText(/这是最终回答/).first()).toBeVisible({ timeout: 20_000 })
+  // 同 KB 旅程：轨迹落库在流末尾，不等流结束就 reload 会读到空 history（详见 waitStreamDone）
+  await waitStreamDone(page)
   await page.reload()
   const traceAfter = page.locator('[data-test="tool-trace"]')
   await expect(traceAfter).toBeVisible({ timeout: 20_000 })

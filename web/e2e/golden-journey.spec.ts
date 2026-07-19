@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { login, pickOption, uniqSuffix } from './support/ui'
+import { login, pickOption, uniqSuffix, waitStreamDone } from './support/ui'
 
 const uniq = uniqSuffix()
 const N = {
@@ -90,6 +90,8 @@ test('KB 黄金旅程：配模型→建库→传文档→聊天→看引用→�
   await expect(card).toContainText(/\d+%/)
 
   // 9) 刷新页面 → 引用仍在（证明 message.sources 真落库、history 读回渲染）
+  //    先等流结束：落库在流末尾，不等就 reload 会读到还没写入的 history（详见 waitStreamDone）
+  await waitStreamDone(page)
   await page.reload()
   const sourcesAfter = page.locator('[data-test="msg-sources"]')
   await expect(sourcesAfter).toBeVisible({ timeout: 20_000 })
