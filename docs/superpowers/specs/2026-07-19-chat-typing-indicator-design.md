@@ -104,10 +104,12 @@ sending === true  &&  m.role === 'assistant'  &&  m.content === ''  &&  i === me
 
 ## 5. 文档登记
 
-- `docs/architecture/frontend-standards.md` 样式小节补两条：
-  ① 动画一律附 `prefers-reduced-motion: reduce` 降级（本项首次确立）；
-  ② `prefer-element-plus-components` 的例外登记：EP 无对应组件时（如打字指示器）可自写，
-     需在此登记，避免下次重复讨论。
+`docs/architecture/frontend-standards.md` §8 样式规范新增一条**动画约定**（本项首次确立）：
+动画仅用于传达状态变化；自写 `@keyframes` 必须附 `prefers-reduced-motion: reduce` 降级；
+`@keyframes` 放 scoped 块根层级（嵌在选择器内输出无效 CSS）。
+
+「EP 无对应组件时可自写」**不新增规则**——§5.9 末条已有「只有组件库确实没有对应能力时，
+才自己实现，并在 PR/提交说明里点明『库无此组件』」，本轮按该条款在提交说明中登记即可。
 
 ## 6. 改动面
 
