@@ -12,7 +12,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class AppToolRelMapperIT extends PgIntegrationTest {
+class AppToolRelMapperTest extends PgIntegrationTest {
 
     @Autowired
     private AppToolRelMapper mapper;

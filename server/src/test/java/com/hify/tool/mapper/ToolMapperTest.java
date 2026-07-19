@@ -10,7 +10,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ToolMapperIT extends PgIntegrationTest {
+class ToolMapperTest extends PgIntegrationTest {
 
     @Autowired
     private ToolMapper toolMapper;
