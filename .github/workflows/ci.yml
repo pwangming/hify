@@ -1,0 +1,84 @@
+# Hify CI —— push 后自动跑测试，红了由 GitHub 发告警邮件（不阻塞 push，见 testing-standards 第六节）
+#
+# 两个 job 并行、互不依赖：一边挂了另一边照跑，方便一次看清是前端问题还是后端问题。
+# 本工作流不需要任何 secret：application.yml 里每个 ${VAR} 都带 dev 默认值，测试也不打真实外部服务。
+name: CI
+
+on:
+  push:
+  workflow_dispatch: # 允许在 GitHub 页面手动触发一次（改完 workflow 自身时很有用）
+
+# 同一分支上新的 push 取消尚未跑完的旧运行——连续提交时不必等一串过期结果
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: 后端（mvn verify）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven # 缓存 ~/.m2，省掉每次几分钟的依赖下载
+
+      # 17 个连库测试继承 PgIntegrationTest，会真起一个 pgvector/pgvector:pg16 容器跑全量 Flyway 迁移。
+      # ubuntu-latest 自带 Docker，Testcontainers 自动探测即可——不需要本地 WSL 那套
+      # ~/.testcontainers.properties / ~/.docker-java.properties 绕行配置（也绝不能把它们进仓库，
+      # 那会把本机 Docker 的 API 版本锁死，导致「本地能过、云上必挂」）。
+      - name: 跑测试
+        run: mvn -B -f server/pom.xml verify
+
+      # 失败时把 surefire 报告捞出来，省得只能靠日志翻滚动条找哪个类挂了
+      - name: 上传测试报告（仅失败时）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: server/target/surefire-reports/
+          retention-days: 7
+
+  frontend:
+    name: 前端（typecheck + lint + vitest）
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      # 必须先装 pnpm 再装 node：setup-node 的 cache: pnpm 要靠 pnpm 可执行文件算缓存键。
+      # 不写 version，让它读 packageManager 字段，避免版本号两处漂移；但本仓库根目录没有
+      # package.json（web/ 是独立 pnpm 工程），必须用 package_json_file 指路——
+      # 上面的 defaults.working-directory 只作用于 run 步骤，管不到 uses 动作。
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - name: 装 Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # --frozen-lockfile：lockfile 与 package.json 对不上时直接失败，而不是默默改 lockfile
+      - name: 装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      # 用 lint:check 而非 lint——后者带 --fix 会改文件，CI 里等于让流水线篡改源码后再判断
+      - name: Lint
+        run: pnpm lint:check
+
+      - name: 单元测试
+        run: pnpm test

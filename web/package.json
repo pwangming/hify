@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --fix",
+    "lint:check": "eslint .",
     "format": "prettier --write src/",
     "e2e": "node e2e/support/reset-db.mjs && playwright test",
     "e2e:ui": "node e2e/support/reset-db.mjs && playwright test --ui"
