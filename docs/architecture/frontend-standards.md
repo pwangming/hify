@@ -280,6 +280,10 @@ const { canEdit, canDelete } = useCan()
 7. **图标**：统一 `@element-plus/icons-vue`，不混引其他图标库（确需再问）。
 8. **暗黑模式**：**一期不做**（内部工具，省事；Element Plus 原生支持，将来要做再开）。
 9. **禁止**：不堆行内 `style`（动态绑定单值除外）；不用 `!important`（覆盖第三方且无他法时例外，须加注释）；不引 CSS-in-JS / UnoCSS / Tailwind。
+10. **动画**：仅在能传达状态变化时使用（加载/等待/进出场），不做装饰性动效。自写 `@keyframes` 时：
+    ① 必须同时提供 `@media (prefers-reduced-motion: reduce)` 降级（关动画、保留静态可读状态），这是无障碍基线；
+    ② `@keyframes` 放 `<style scoped>` 块的根层级（嵌在选择器内会输出无效 CSS），与 `animation` 引用同处一个 scoped 块，Vue 编译会给两者加同一作用域后缀。
+    首例见 `ChatView.vue` 的打字指示器（EP 无对应组件，属 §5.9 例外）。
 
 ---
 
