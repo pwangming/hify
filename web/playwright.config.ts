@@ -7,6 +7,10 @@ export default defineConfig({
   testMatch: /.*\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
+  // CI 上重试一次：云端机器性能波动会造成偶发超时，而真坏了的代码重试一样红。
+  // Playwright 把「重试后才过」单独标为 flaky（不混进 passed），所以这不制造假绿。
+  // 本地保持 0——本地红了就是红了，立刻查。
+  retries: process.env.CI ? 1 : 0,
   timeout: 60_000,
   expect: { timeout: 15_000 },
   use: { baseURL: 'http://localhost:5173', trace: 'on-first-retry' },

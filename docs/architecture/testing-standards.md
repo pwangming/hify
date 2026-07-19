@@ -170,7 +170,7 @@ Node 原生 `http` 模块起服务，零新依赖，端口 **8090**，说 OpenAI
 
 ### 5.6 已知边界（本轮不做，留给后续 E2E 轮次）
 
-- 只本地跑。CI 已于 2026-07-19 落地（见第六节），但**只跑后端与前端单测，E2E 未纳入**——五进程编排留后续轮次。
+- ~~只本地跑~~ **已上 CI**（2026-07-19，见 §6.2 与 §6.6）：每次 push 作为第三个并行 job 跑全部四条旅程。
 - 只测 happy path，负样本（如「问无关问题→无引用/降级」）未覆盖，桩已可扩展，后续几乎零成本加。
 - 单浏览器 chromium，无跨浏览器矩阵；无视觉回归/截图比对。
 - workflow/agent 等其它旅程未覆盖——但本节的编排/桩/断言/DoD 套路直接复用，新增旅程只需新增 `*.spec.ts` + 按需扩桩。
@@ -192,11 +192,10 @@ Node 原生 `http` 模块起服务，零新依赖，端口 **8090**，说 OpenAI
 |---|---|---|
 | `backend` | `mvn -B -f server/pom.xml verify` | 全部后端测试，**含 17 个 Testcontainers 连库测试** |
 | `frontend` | `pnpm typecheck` → `pnpm lint:check` → `pnpm test` | vue-tsc 类型检查、eslint、vitest 全量 |
+| `e2e` | `pnpm e2e` | Playwright 四条旅程（真前端+真后端+真库走浏览器），详见 §6.6 |
 
-两 job 并行、互不依赖。触发：`push`（所有分支）+ 手动 `workflow_dispatch`。
-
-**不跑 E2E**——一条旅程要同时编排 PG + 后端 jar(e2e profile) + 前端 + 假 LLM 桩 +
-mcp-demo 五个进程还要 reset-db，量级是本轮数倍，留后续轮次。
+三 job 并行、互不依赖。触发：`push`（所有分支）+ 手动 `workflow_dispatch`。
+E2E 慢，但 CI 不阻塞 push，backend/frontend 仍在几分钟内给出快信号。
 
 **不需要任何 secret**：`application.yml` 里每个 `${VAR}` 都带 dev 默认值
 （JWT secret、provider master-key 等有 `dev-only-*` 兜底），测试也不打真实外部服务。
@@ -237,6 +236,36 @@ Spring Boot parent 的 `pluginManagement` 里没被绑进构建，**写完那天
    artifact 上传（保留 7 天），下载后直接看哪个类挂了，比翻日志快。
 3. 先在本地复现：`mvn -B -f server/pom.xml verify` 或 `cd web && pnpm test`。
    本地过、CI 挂，第一嫌疑是 6.3 的环境差异。
+
+### 6.6 E2E 在 CI 上的编排（2026-07-19 起）
+
+`e2e` job 的步骤顺序不是随便排的，每一步都有理由：
+
+| 步骤 | 为什么 |
+|---|---|
+| 装前端依赖（`web/`） | Playwright 与旅程本身 |
+| **装 mcp-demo 依赖**（`mcp-demo/`） | agent 旅程的 webServer 会 `cd ../mcp-demo && pnpm dev`。**最容易漏的一步**，漏了表现为「等 3100 端口超时」，很难往依赖没装上想 |
+| `npx playwright install --with-deps chromium` | runner 不预装浏览器与系统库 |
+| **预编译后端**（`mvn -DskipTests compile`） | 见下 |
+| `pnpm e2e` | reset-db（compose 起 postgres + 重建 `hify_e2e`）→ playwright（webServer 拉起四进程） |
+
+**postgres 走 docker compose，不用 GH Actions 的 `services:`**：`reset-db.mjs` 用的是
+`docker compose exec postgres psql`，改用 `services:` 就得重写它。runner 自带 docker compose，
+compose 里 postgres 无 profile、凭证走默认值、不需要 `deploy/.env`，**`pnpm e2e` 零改动可用**。
+**不需要 sandbox 容器**——四条旅程都没有代码执行节点。所以是四进程不是五进程。
+
+**为什么要预编译**：`webServer` 里的 `mvn spring-boot:run` 要在 180s 窗口内完成冷编译 + 启动。
+Spring 本身只启动 6 秒（本地基线），绝大部分时间是编译。把编译提前单独一步之后，
+超时窗口只剩纯启动，180s 绰绰有余——**不必靠调大超时来掩盖**；更重要的是**失败归属变准**：
+编译错误报在「预编译」步骤，而不是伪装成 `webServer timed out` 害人往时序/端口方向瞎查。
+
+**CI 上 `retries: 1`，本地 0**（`playwright.config.ts` 读 `process.env.CI`）。
+Playwright 把「重试后才过」单独标为 **flaky**、不混进 passed，所以这不制造假绿；
+真坏了的代码重试一样红。失败时上传 `playwright-report/` 与 `test-results/`（含 trace）——
+`trace: 'on-first-retry'` 配合 `retries: 1` 正好能抓到 trace，否则 CI 上红了只剩一行报错。
+
+**本地基线（2026-07-19）**：`pnpm e2e` → 4 passed / 44.9s / 总墙钟 47.7s。
+CI 上红灯时拿它对照，能区分「旅程本身坏了」与「CI 环境问题」，少猜一层。
 
 ## 附：`web/` 现有测试体检（2026-06-22，28 用例 / 8 文件）
 
