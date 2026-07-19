@@ -180,7 +180,7 @@ class DocumentProcessJobTest {
     }
 
     @Test
-    void reembedAll_清空向量后逐文档处理_单个失败不中断_收尾释放闸() {
+    void reembedAll_逐文档清向量并处理_单个失败不中断_收尾释放闸() {
         when(documentMapper.selectReembedTargetIds()).thenReturn(List.of(21L, 22L));
         when(documentMapper.claimForReembed(21L)).thenReturn(1);
         when(documentMapper.claimForReembed(22L)).thenReturn(1);
@@ -193,10 +193,37 @@ class DocumentProcessJobTest {
 
         job.reembedAll();
 
-        verify(chunkMapper).clearAllEmbeddings();
+        // 两份都 claim 成功，故两份各自清一次向量（21 随后处理失败，但清向量发生在失败之前）
+        verify(chunkMapper).clearEmbeddingsByDocument(21L);
+        verify(chunkMapper).clearEmbeddingsByDocument(22L);
         verify(documentMapper).markFailed(eq(21L), anyString());
         verify(documentMapper).markReady(22L);
         verify(gate).finish();
+    }
+
+    /**
+     * 回归：重嵌入只能清「自己认领到的」文档的向量，绝不能全表清空。
+     *
+     * <p>旧实现先 clearAllEmbeddings() 再挑 ready/failed 的文档重做，于是重嵌期间正在
+     * pending/processing 的文档遭殃：向量被清、又不在重做名单里，最后它自己 markReady——
+     * 状态是「就绪」而向量为 NULL，在检索里静默消失。这是无声的正确性漏洞，不是「再跑一次就好」。
+     */
+    @Test
+    void reembedAll_不清空未被认领的文档的向量() {
+        // 21 认领成功（ready/failed），22 认领失败（正处于 processing，不归本次重嵌管）
+        when(documentMapper.selectReembedTargetIds()).thenReturn(List.of(21L, 22L));
+        when(documentMapper.claimForReembed(21L)).thenReturn(1);
+        when(documentMapper.claimForReembed(22L)).thenReturn(0);
+        KbDocument ok = processingDoc();
+        ok.setId(21L);
+        when(documentMapper.selectById(21L)).thenReturn(ok);
+        when(chunkMapper.selectCount(any())).thenReturn(3L);
+        when(chunkMapper.selectUnembedded(21L)).thenReturn(List.of());
+
+        job.reembedAll();
+
+        verify(chunkMapper).clearEmbeddingsByDocument(21L);
+        verify(chunkMapper, never()).clearEmbeddingsByDocument(22L);
     }
 
     @Test

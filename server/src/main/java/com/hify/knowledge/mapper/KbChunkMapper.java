@@ -39,8 +39,16 @@ public interface KbChunkMapper extends BaseMapper<KbChunk> {
             + "where id = #{id} and deleted = false")
     int updateEmbedding(@Param("id") Long id, @Param("vector") String vector);
 
-    @Update("update kb_chunk set embedding = null, update_time = now() where deleted = false")
-    int clearAllEmbeddings();
+    /**
+     * 清空单个文档的向量，供全量重嵌逐份重做。
+     *
+     * <p>不提供「全表清空」的版本：重嵌必须先 claim 到文档再清它自己的向量，否则会连带清掉
+     * 正在 pending/processing 的文档——那些文档不在重嵌名单里，最后会以「状态 ready、向量 NULL」
+     * 的姿态在检索中静默消失。
+     */
+    @Update("update kb_chunk set embedding = null, update_time = now() "
+            + "where document_id = #{documentId} and deleted = false")
+    int clearEmbeddingsByDocument(@Param("documentId") Long documentId);
 
     /**
      * 向量检索（database-standards §2.1 先过滤后排序模板；K4 拍板手写 SQL，不走 VectorStore）。

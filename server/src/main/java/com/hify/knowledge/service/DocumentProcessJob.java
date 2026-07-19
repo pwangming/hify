@@ -64,9 +64,13 @@ public class DocumentProcessJob {
     @Async
     public void reembedAll() {
         try {
-            chunkMapper.clearAllEmbeddings();
+            // 先 claim 再清「这一份」的向量：claimForReembed 只认领 ready/failed，
+            // 所以重嵌期间正在 pending/processing 的文档不会被误清（它们不归本次管）。
+            // 曾经是先 clearAllEmbeddings() 全表清空，导致那些文档向量被清却不在重做名单里，
+            // 最终以「状态 ready、向量 NULL」在检索中静默消失。
             for (Long docId : documentMapper.selectReembedTargetIds()) {
                 if (documentMapper.claimForReembed(docId) == 1) {
+                    chunkMapper.clearEmbeddingsByDocument(docId);
                     runOnce(docId);
                 }
             }
