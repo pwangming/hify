@@ -158,7 +158,7 @@ public record ChunkResponse(Long id, Integer position, String content) {}
 
 **前端**（vitest）：api 层四函数 spec（FormData/路径/params）；DatasetDetail——加载渲染库信息与文档列表、上传成功触发刷新、非 owner 上传/删除按钮隐藏、删除确认调 API、抽屉分页拉取分段、空态。
 
-**手动验收**：进详情页 → 传 .txt（看分段数/状态）→ 传 .md → 传 .pdf（报「格式不支持」）→ 传空文件（报 15001）→ 查看分段（预览+翻页）→ member 账号看门控 → 删文档 → 删整库（K1 列表确认没了）。Postman 集合可在 `docs/verify/knowledge-k1.postman_collection.json` 基础上续加。
+**手动验收**：进详情页 → 传 .txt（看分段数/状态）→ 传 .md → 传 .pdf（报「格式不支持」）→ 传空文件（报 15001）→ 查看分段（预览+翻页）→ member 账号看门控 → 删文档 → 删整库（K1 列表确认没了）。Postman 集合可在 `docs/postman/knowledge-k1.postman_collection.json` 基础上续加。
 
 ## 5. 不破契约（约束清单）
 

@@ -1950,7 +1950,7 @@ cd /home/wang/playlab/hify && git add web/src/router/index.ts web/src/views/know
 
 - [ ] **Step 2: 手动验收（用户执行）**（按用户指令跳过）
 
-启动后端（V14 自动迁移）与前端 dev，按上面清单走。Postman 可在 `docs/verify/knowledge-k1.postman_collection.json` 基础上加上传请求（form-data，key=file 选文件）验证后端侧。
+启动后端（V14 自动迁移）与前端 dev，按上面清单走。Postman 可在 `docs/postman/knowledge-k1.postman_collection.json` 基础上加上传请求（form-data，key=file 选文件）验证后端侧。
 
 - [x] **Step 3: Commit**
 

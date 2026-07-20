@@ -168,9 +168,9 @@ hify/
 ├── docker-compose.yml   # 双形态编排：默认 postgres+sandbox；--profile app 全套 4 容器
 ├── start.sh / stop.sh   # 宿主机开发形态的启停脚本
 ├── Makefile             # 统一命令入口
-├── docs/architecture/   # 架构设计文档（写代码前必读）
-└── docs/self-check.md   # 自检手册（每轮做完怎么验证做对了）
+└── docs/                # 文档（导航见 docs/README.md）：architecture 规范、
+                         # self-check.md 自检手册、postman 接口验收集合、superpowers 历史设计
 ```
 
-更多约定见仓库根的 `CLAUDE.md` 与 `docs/architecture/` 下各文档；
+更多约定见仓库根的 `CLAUDE.md` 与 [`docs/README.md`](docs/README.md) 的导航；
 改完想自己验证有没有生效，见 [`docs/self-check.md`](docs/self-check.md)。
