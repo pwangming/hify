@@ -121,6 +121,16 @@
   `McpClientFactory` 收口**同一套闸门**：建连前过 `SsrfValidator`（同款禁内网/元数据）、
   `followRedirects(NEVER)`（不设则远端一个 302 即可绕过 SSRF 校验）、连接/请求/握手三重超时
   外化于 `hify.tool.mcp.*`。MCP 服务器地址由 admin 注册；自建内网服务器经上条白名单放行。
+- **自建 MCP server 放哪个仓库（2026-07-21 拍板）**：**真实自建 MCP server 一律单开仓库**，
+  不放进 hify。判据是「能否独立发布 / 独立部署 / 独立被其它客户端使用」三问全为是——
+  Hify 与 MCP server 之间只有运行时 HTTP 契约（admin 填 URL + 鉴权头 + 白名单），
+  无编译期依赖，同仓库拿不到任何好处，却要背上发布节奏绑死、CI 白跑、部署单元混入
+  「单机 4 容器」编排三笔代价。接入只改 Hify 一处配置（host 加进
+  `HIFY_TOOL_MCP_ALLOWED_PRIVATE_HOSTS`）+ admin 页注册，零代码改动。
+  **例外：`mcp-demo/` 留在本仓库**——它已不只是练手工程，更是 E2E 的测试夹具
+  （`agent-journey.spec.ts` 靠它实证「工具发现→调用→轨迹」整链，CI 有专门的装依赖步骤），
+  必须与 Hify 的 MCP 客户端代码同步演进（SDK 1.29 的 `text/plain` 互操作坑即在此锚定回归测试）。
+  测试夹具与被测系统同仓库是正确的；拆出去反而让 E2E 依赖另一个仓库才能跑。
 
 ## 6. 二期触发条件与演进路径
 

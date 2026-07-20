@@ -162,7 +162,7 @@ hify/
 ├── server/              # Spring Boot 模块化单体（后端，含 Dockerfile）
 ├── web/                 # Vue 3 前端（独立 pnpm 工程；构建产物进 nginx 镜像）
 ├── sandbox/             # Python 代码执行沙箱（独立容器，唯一跑不可信代码的地方）
-├── mcp-demo/            # 自建 MCP server 练手工程（TypeScript，端口 3100）
+├── mcp-demo/            # 自建 MCP server 练手工程 + E2E 测试夹具（TypeScript，端口 3100）
 ├── deploy/              # nginx 镜像与配置、自签证书脚本、.env.example（真实 .env 不入库）
 ├── scripts/             # 手跑工具脚本（检索阈值评估集等），不进 CI
 ├── docker-compose.yml   # 双形态编排：默认 postgres+sandbox；--profile app 全套 4 容器
